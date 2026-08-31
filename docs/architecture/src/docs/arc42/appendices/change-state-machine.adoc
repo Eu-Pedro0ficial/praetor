@@ -1,6 +1,62 @@
 === Change State Machine
 
-The exact enum names are implementation decisions, but the domain requires explicit lifecycle gating. A candidate baseline is:
+==== M0.2 Executable State Model
+
+M0.2 establishes the following exact lifecycle states and transitions for the
+first executable `Change` aggregate. State is private to the aggregate and can
+change only through its transition operation.
+
+[plantuml, "{plantUMLDir}change-state-machine-m02", png]
+----
+@startuml
+state "created" as CREATED
+state "planned" as PLANNED
+state "isolated" as ISOLATED
+state "validated" as VALIDATED
+state "approved" as APPROVED
+state "rejected" as REJECTED
+state "audit-locked" as AUDIT_LOCKED
+[*] --> CREATED
+CREATED --> PLANNED
+CREATED --> REJECTED
+PLANNED --> ISOLATED
+PLANNED --> REJECTED
+ISOLATED --> VALIDATED
+ISOLATED --> REJECTED
+VALIDATED --> APPROVED
+VALIDATED --> REJECTED
+APPROVED --> AUDIT_LOCKED
+REJECTED --> AUDIT_LOCKED
+AUDIT_LOCKED --> [*]
+@enduml
+----
+
+[cols="1,2,3",options="header"]
+|===
+|Current state |Allowed next state |M0.2 meaning
+|`created` |`planned`, `rejected` |The intent is recorded; it may enter planning or be closed by rejection.
+|`planned` |`isolated`, `rejected` |The minimal plan gate is complete; the Change may enter the isolation stage or be rejected.
+|`isolated` |`validated`, `rejected` |The lifecycle has an isolated stage; it may advance to validation or be rejected.
+|`validated` |`approved`, `rejected` |The validation stage is complete; the Change receives an explicit disposition.
+|`approved` |`audit-locked` |The approved lifecycle is closed into immutable audit history.
+|`rejected` |`audit-locked` |The rejected lifecycle is closed without erasing its history.
+|`audit-locked` |none |Terminal state; no further transition is permitted.
+|===
+
+Every successful creation and transition records `ChangeId`, `ProjectId`,
+previous state where applicable, resulting state, transition timestamp and
+transition context in the local append-oriented audit ledger. A forbidden
+edge returns a deterministic domain error and leaves both aggregate state and
+successful-transition audit history unchanged.
+
+`approved` and `rejected` are M0.2 lifecycle dispositions. The mature human
+approval, policy and evidence gates remain M0.7 scope.
+
+==== Longer-Term Candidate Lifecycle
+
+The following diagram remains a candidate vocabulary for later milestones. It
+is not the executable M0.2 transition table and does not add M0.3 or later
+states to the current aggregate.
 
 [plantuml, "{plantUMLDir}change-state-machine", png]
 ----
@@ -31,6 +87,6 @@ REJECTED --> POSTMORTEM_COMPLETE : optional postmortem
 @enduml
 ----
 
-==== Transition Rule
+==== General Transition Rule
 
 No agent output directly changes a Change state. The Workflow Engine performs a transition only after validating the transition preconditions and required evidence.

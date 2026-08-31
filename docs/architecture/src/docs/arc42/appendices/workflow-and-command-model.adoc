@@ -27,6 +27,28 @@ praetor provider list|capabilities|doctor
 
 A good CLI should explain **why** a command is unavailable. For example, `implement` should say that plan approval is missing or a policy is blocking it rather than returning a generic state error.
 
+==== M0.2 Executable CLI Proof
+
+The current M0.2 runtime exposes only the smallest command paths needed to
+prove project attachment and the Change lifecycle:
+
+[source,text]
+----
+praetor status
+praetor change new <change-id> <intent> [<state> ...]
+----
+
+`change new` creates the Change in `created`. Optional state arguments request
+an ordered sequence of transitions in the same invocation; every state and
+edge is validated by the domain aggregate. The command prints the final
+identity, Project association, intent and state only after all requested
+transitions succeed.
+
+The M0.2 state adapter is intentionally process-local, as permitted by the
+milestone. The optional transition sequence is therefore an end-to-end proof
+surface, not a durable resume interface. Cross-process Change resume and the
+other command families above require later persistence and milestone behavior.
+
 ==== Predefined Workloads
 
 The system should support well-defined workflows rather than one universal autonomous loop. Candidate change types may include:

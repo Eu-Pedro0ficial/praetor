@@ -36,6 +36,9 @@ func TestAppendPersistsHistoryAndMetadata(t *testing.T) {
 	if event1.RepositoryRoot != "/tmp/repo-a" {
 		t.Fatalf("first repository root mismatch: got %q", event1.RepositoryRoot)
 	}
+	if event1.ChangeID != "" {
+		t.Fatalf("M0.1 event unexpectedly acquired ChangeId %q", event1.ChangeID)
+	}
 
 	event2, err := Append(dir, EventProjectAttach, "proj-1", "/tmp/repo-a", map[string]any{
 		"registered": true,
@@ -65,6 +68,81 @@ func TestAppendPersistsHistoryAndMetadata(t *testing.T) {
 	}
 	if events[1].Metadata["registered"] != true {
 		t.Fatalf("second event metadata missing registered flag: %#v", events[1].Metadata)
+	}
+}
+
+func TestAppendChangePersistsTopLevelLifecycleLinkage(t *testing.T) {
+	dir := t.TempDir()
+	metadata := map[string]any{
+		"previous_state":       "created",
+		"resulting_state":      "planned",
+		"transition_timestamp": "2026-08-31T12:00:01Z",
+		"context":              "planning established",
+	}
+
+	event, err := AppendChange(
+		dir,
+		EventChangeTransition,
+		"project-1",
+		"change-1",
+		"/tmp/repo",
+		metadata,
+	)
+	if err != nil {
+		t.Fatalf("AppendChange() error = %v", err)
+	}
+	if event.ChangeID != "change-1" || event.ProjectID != "project-1" {
+		t.Fatalf("AppendChange() identity linkage = %#v", event)
+	}
+
+	events, err := Read(dir)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("Read() returned %d events, want 1", len(events))
+	}
+	stored := events[0]
+	if stored.EventType != EventChangeTransition || stored.ChangeID != "change-1" || stored.ProjectID != "project-1" {
+		t.Fatalf("stored Change event = %#v", stored)
+	}
+	for key, want := range metadata {
+		if stored.Metadata[key] != want {
+			t.Fatalf("stored metadata[%q] = %#v, want %#v", key, stored.Metadata[key], want)
+		}
+	}
+}
+
+func TestAppendChangeRejectsMissingChangeId(t *testing.T) {
+	if _, err := AppendChange(
+		t.TempDir(),
+		EventChangeCreated,
+		"project-1",
+		" ",
+		"/tmp/repo",
+		nil,
+	); err == nil {
+		t.Fatal("AppendChange() accepted an empty ChangeId")
+	}
+}
+
+func TestAppendCannotWriteChangeEventWithoutChangeId(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Append(
+		dir,
+		EventChangeCreated,
+		"project-1",
+		"/tmp/repo",
+		nil,
+	); err == nil {
+		t.Fatal("Append() wrote a Change event without ChangeId")
+	}
+	events, err := Read(dir)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("invalid Change event reached the ledger: %#v", events)
 	}
 }
 
@@ -114,6 +192,8 @@ func TestReadRejectsIncompleteEventFields(t *testing.T) {
 		{name: "missing event type", event: Event{EventID: "evt-1234567890abcdef", Timestamp: time.Now().UTC(), ProjectID: "proj-1", RepositoryRoot: "/tmp/repo", SchemaVersion: schemaVersion}},
 		{name: "missing timestamp", event: Event{EventID: "evt-1234567890abcdef", EventType: EventInitialization, ProjectID: "proj-1", RepositoryRoot: "/tmp/repo", SchemaVersion: schemaVersion}},
 		{name: "missing project id", event: Event{EventID: "evt-1234567890abcdef", EventType: EventInitialization, Timestamp: time.Now().UTC(), RepositoryRoot: "/tmp/repo", SchemaVersion: schemaVersion}},
+		{name: "missing ChangeId on creation", event: Event{EventID: "evt-1234567890abcdef", EventType: EventChangeCreated, Timestamp: time.Now().UTC(), ProjectID: "proj-1", RepositoryRoot: "/tmp/repo", SchemaVersion: schemaVersion}},
+		{name: "missing ChangeId on transition", event: Event{EventID: "evt-1234567890abcdef", EventType: EventChangeTransition, Timestamp: time.Now().UTC(), ProjectID: "proj-1", RepositoryRoot: "/tmp/repo", SchemaVersion: schemaVersion}},
 		{name: "missing repository root", event: Event{EventID: "evt-1234567890abcdef", EventType: EventInitialization, Timestamp: time.Now().UTC(), ProjectID: "proj-1", SchemaVersion: schemaVersion}},
 		{name: "missing schema version", event: Event{EventID: "evt-1234567890abcdef", EventType: EventInitialization, Timestamp: time.Now().UTC(), ProjectID: "proj-1", RepositoryRoot: "/tmp/repo"}},
 		{name: "unsupported schema version", event: Event{EventID: "evt-1234567890abcdef", EventType: EventInitialization, Timestamp: time.Now().UTC(), ProjectID: "proj-1", RepositoryRoot: "/tmp/repo", SchemaVersion: schemaVersion + 1}},

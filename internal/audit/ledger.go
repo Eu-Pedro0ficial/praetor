@@ -21,17 +21,20 @@ const (
 	lockTimeout       = 5 * time.Second
 	lockRetryInterval = 10 * time.Millisecond
 
-	EventInitialization = "INITIALIZATION"
-	EventProjectAttach  = "PROJECT_ATTACH"
-	EventConfiguration  = "CONFIGURATION"
+	EventInitialization   = "INITIALIZATION"
+	EventProjectAttach    = "PROJECT_ATTACH"
+	EventConfiguration    = "CONFIGURATION"
+	EventChangeCreated    = "CHANGE_CREATED"
+	EventChangeTransition = "CHANGE_TRANSITION"
 )
 
-// Event is the minimal append-oriented initialization audit record for M0.1.
+// Event is one append-oriented local runtime audit record.
 type Event struct {
 	EventID        string         `json:"EventId"`
 	EventType      string         `json:"EventType"`
 	Timestamp      time.Time      `json:"Timestamp"`
 	ProjectID      string         `json:"ProjectId"`
+	ChangeID       string         `json:"ChangeId,omitempty"`
 	RepositoryRoot string         `json:"RepositoryRoot"`
 	SchemaVersion  int            `json:"SchemaVersion"`
 	Metadata       map[string]any `json:"Metadata,omitempty"`
@@ -106,6 +109,18 @@ func releaseLock(lockFile *os.File) {
 
 // Append records a single append-only audit event to the local ledger.
 func Append(dataDirectory string, eventType string, projectID string, repositoryRoot string, metadata map[string]any) (Event, error) {
+	return appendEvent(dataDirectory, eventType, projectID, "", repositoryRoot, metadata)
+}
+
+// AppendChange records one append-only Change lifecycle event.
+func AppendChange(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (Event, error) {
+	if strings.TrimSpace(changeID) == "" {
+		return Event{}, errors.New("audit ChangeId is required")
+	}
+	return appendEvent(dataDirectory, eventType, projectID, changeID, repositoryRoot, metadata)
+}
+
+func appendEvent(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (Event, error) {
 	if strings.TrimSpace(dataDirectory) == "" {
 		resolved, err := ResolveDataDir()
 		if err != nil {
@@ -143,9 +158,13 @@ func Append(dataDirectory string, eventType string, projectID string, repository
 		EventType:      eventType,
 		Timestamp:      time.Now().UTC(),
 		ProjectID:      projectID,
+		ChangeID:       changeID,
 		RepositoryRoot: repositoryRoot,
 		SchemaVersion:  schemaVersion,
 		Metadata:       metadata,
+	}
+	if err := validateEvent(event); err != nil {
+		return Event{}, fmt.Errorf("validate audit event: %w", err)
 	}
 
 	payload, err := json.Marshal(event)
@@ -246,6 +265,9 @@ func validateEvent(event Event) error {
 	}
 	if strings.TrimSpace(event.ProjectID) == "" {
 		return errors.New("empty ProjectId")
+	}
+	if (event.EventType == EventChangeCreated || event.EventType == EventChangeTransition) && strings.TrimSpace(event.ChangeID) == "" {
+		return errors.New("empty ChangeId")
 	}
 	if strings.TrimSpace(event.RepositoryRoot) == "" {
 		return errors.New("empty RepositoryRoot")

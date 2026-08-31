@@ -18,6 +18,22 @@ Candidate invariants:
 * the memory snapshot and policy/workflow versions used to produce an AI Context Pack are identifiable;
 * rejected attempts remain part of the Change history.
 
+===== M0.2 Executable Subset
+
+The first executable aggregate contains only `ChangeId`, its single
+`ProjectId` association, `ChangeIntent`, current `ChangeState`, creation time
+and last-transition time. It exposes state through read-only accessors and
+enforces all mutation through the aggregate transition operation.
+
+For M0.2, `ChangeId` is a caller-supplied, non-empty opaque value distinct from
+`ProjectId`. This deliberately establishes no generated or public canonical
+identifier format. It is not derived from repository location, request text,
+time, Git state or mutable workflow state.
+
+`ExecutionAttempt` and the other candidate concepts below are not instantiated
+by M0.2 because provider execution, patches, evidence, review, policy and
+sandbox behavior begin in later milestones.
+
 Potential value objects/entities:
 
 [cols="1,3",options="header"]
