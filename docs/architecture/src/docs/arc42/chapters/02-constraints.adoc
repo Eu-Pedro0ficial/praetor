@@ -20,6 +20,7 @@
 |CON-013 |Go plugin loading is not the initial adapter strategy |Compile-time registration and composition-root selection remain the approved initial architecture.
 |CON-014 |Git worktree is the initial source/workspace isolation mechanism |It is not described as a security sandbox; stronger isolation must await a separate spike and ADR.
 |CON-015 |Provider trust and data-classification taxonomies are authoritative |Provider routing and governance reject disallowed provider/data combinations before transmission.
+|CON-016 |Explicit composition root + typed dependency container |Runtime dependencies are assembled explicitly at the composition boundary using constructor-based dependency injection; the container is not a service locator or a global registry.
 |===
 
 === Architectural Decision Closure Rule

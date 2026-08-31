@@ -143,6 +143,12 @@ A possible configurable authority model is:
 
 These exact role names are not hard-coded domain requirements; the requirement is configurable authority over sensitive transitions.
 
+=== Composition Root and Dependency Assembly
+
+Praetor uses an explicit composition root at the process boundary. Runtime dependencies are assembled explicitly and constructor-based, and the container remains a typed assembly mechanism rather than a service locator. Domain and application components must not depend on the container itself, and global mutable registries are explicitly forbidden.
+
+The composition root must contain only the concrete dependencies required for the current implementation surface. A wider dependency graph belongs to a later milestone and must not be introduced prematurely.
+
 === Coding Standards for the Runtime
 
 The Go implementation follows SOLID, KISS, YAGNI and DRY while avoiding ceremonial abstraction. Identifiers must prefer complete, meaningful words. Single-letter or unnecessary abbreviations such as `c` for `context` are not accepted simply for brevity.

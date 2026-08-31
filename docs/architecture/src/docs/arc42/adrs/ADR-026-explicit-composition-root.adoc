@@ -1,0 +1,53 @@
+== ADR-026: Explicit Composition Root + Typed Dependency Container
+
+*Status:* DECIDED
+
+=== Context
+
+Praetor must assemble runtime dependencies explicitly at the process boundary. The initial implementation must remain minimal and understandable while preserving a clear boundary between process composition and runtime/domain logic.
+
+The repository baseline already accepts layered architecture and ports/adapters, but it does not require a framework-heavy dependency injection model. The implementation must remain idiomatic Go and avoid premature abstraction.
+
+=== Decision
+
+Use an explicit composition root with a typed dependency container at the process boundary.
+
+The composition root is responsible for:
+
+* assembling the concrete dependencies required by the current runtime surface;
+* providing constructor-based dependency injection;
+* keeping the container limited to the active implementation scope;
+* avoiding any service-locator or global-singleton behavior.
+
+The following rules are mandatory:
+
+. Runtime dependencies are assembled explicitly at the composition boundary.
+. Dependency injection is constructor-based.
+. The container may know concrete implementations when no real port boundary exists yet.
+. Domain/application/runtime components must not depend on the container itself.
+. The container must not become a Service Locator.
+. The implementation must not use reflection-based lookup, string-keyed dependencies, or package-global registries.
+. Adapter registration remains compile-time.
+. The implementation must not introduce an external DI framework.
+. The container must contain only dependencies required by the currently implemented change.
+
+This decision applies to the M0.1 repository-discovery runtime boundary and remains intentionally minimal. It does not create future C02+ capability or an abstraction layer beyond what the current implementation requires.
+
+=== Consequences
+
+Positive:
+
+* clear construction boundary;
+* minimal dependency assembly;
+* no hidden runtime lookups;
+* simpler review and debugging;
+* better compliance with the approved architecture baseline.
+
+Negative:
+
+* the composition root must be maintained explicitly at each boundary;
+* early small programs may require more constructor code than a global registry would have required.
+
+=== Reopen / review trigger
+
+Any future change that requires a broader dependency graph, global runtime registry, or service-locator behavior requires a new ADR and human approval.
