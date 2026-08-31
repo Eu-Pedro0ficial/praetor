@@ -1,0 +1,33 @@
+@startuml
+!include <C4/C4_Component>
+LAYOUT_WITH_LEGEND()
+title C4 Level 3 — Governance Core Components
+Container_Boundary(core, "Governance Core — Go") {
+  Component(workflow, "Workflow Engine", "Domain/Application", "Controls allowed transitions and gates.")
+  Component(change, "Change Domain", "Domain", "Change aggregate, states, surface, risk, evidence references.")
+  Component(spec, "Specification Engine", "Application", "Creates/validates spec artifacts.")
+  Component(policy, "Policy Engine", "Domain/Application", "Evaluates engineering and governance invariants.")
+  Component(repo, "Repository Intelligence", "Application", "Repository archaeology and model.")
+  Component(impact, "Impact Engine", "Application", "Blast radius and expected/protected change surface.")
+  Component(router, "Agent Router", "Application", "Role -> compatible allowed provider capability routing.")
+  Component(verify, "Verification Engine", "Application", "Coordinates deterministic evidence.")
+  Component(review, "Review Engine", "Application", "Coordinates independent reviews/disagreement.")
+  Component(memory, "Memory Engine", "Domain/Application", "Typed knowledge, retrieval, candidate promotion, invalidation.")
+  Component(audit, "Audit Ledger Service", "Domain/Application", "Append-oriented provenance events.")
+  Component(registry, "Project Registry", "Application", "Source/memory project associations.")
+}
+Rel(workflow, change, "governs")
+Rel(workflow, spec, "requires")
+Rel(workflow, policy, "queries gates")
+Rel(workflow, repo, "requests context")
+Rel(repo, impact, "provides repository model")
+Rel(workflow, router, "requests role execution")
+Rel(workflow, verify, "requests verification")
+Rel(workflow, review, "requests review")
+Rel(workflow, memory, "requests context/promotion")
+Rel(workflow, audit, "emits events")
+Rel(workflow, registry, "resolves project")
+Rel(impact, policy, "provides surface evidence")
+Rel(verify, policy, "provides deterministic evidence")
+Rel(memory, audit, "emits memory events")
+@enduml

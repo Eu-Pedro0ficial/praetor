@@ -1,0 +1,112 @@
+== Introduction and Goals
+
+=== Problem Statement
+
+AI-assisted software development has increased the throughput of code generation faster than the industry's ability to establish that generated changes are correct, minimal, architecturally compliant, secure, testable, and non-regressive. Existing tools frequently place the agent at the center of the experience: the user states intent, the agent explores and modifies the repository, and humans are then asked to review the consequences.
+
+This project reverses that responsibility model. The **engineering process is the authority**. AI is one execution capability inside that process.
+
+The motivating failure modes include:
+
+* uncontrolled expansion of change scope;
+* modifications to files or modules unrelated to the requested behavior;
+* regression of clean-code and maintainability principles;
+* regression in test quality, coverage, or test intent;
+* architectural erosion and boundary violations;
+* introduction of dependencies without explicit authorization;
+* public API or persistence-contract changes hidden inside apparently local fixes;
+* functional regressions in unrelated features;
+* review bottlenecks created when AI multiplies implementation throughput without proportionally increasing verification throughput;
+* loss of project knowledge between sessions, developers, teams, providers, or organizational change.
+
+=== Product Thesis
+
+The working thesis is:
+
+[quote]
+____
+A developer-governed software engineering orchestration platform that uses AI agents as constrained executors inside deterministic, spec-driven, policy-enforced development workflows.
+____
+
+For maintenance and legacy systems, the optimization target is:
+
+[quote]
+____
+Make the smallest safe change possible — with evidence.
+____
+
+The differentiated hypothesis is not “AI coding,” “spec-driven development,” or “multi-agent review” independently. It is their combination with **bounded change surfaces, executable engineering policies, deterministic verification, heterogeneous separation of duties, software-change provenance, institutional engineering memory, and explicit human authority**.
+
+=== Architectural Mantra
+
+[quote]
+____
+**AI proposes. System validates. Human governs.**
+____
+
+This principle applies symmetrically to source-code changes and long-term memory changes.
+
+=== Core Principles
+
+==== Developer Sovereignty
+AI is never the final engineering authority. Agents cannot silently expand scope, alter architecture, add dependencies, execute migrations, remove tests, reduce coverage, modify protected modules, change public contracts, or bypass policy unless the workflow and required human authority explicitly permit the action.
+
+==== Controlled Change
+Every meaningful software change has an identity, scope, known starting state, impact assessment, specification, plan, execution record, verification evidence, review outcome, acceptance decision, and postmortem opportunity.
+
+==== Evidence over Confidence
+A model's confidence is not proof. Claims about correctness should preferentially be backed by deterministic or reproducible evidence: diffs, AST analysis, dependency analysis, static analysis, type checking, tests, security scans, contract checks, architecture checks, and human decisions.
+
+==== Institutional Memory
+Long-term engineering knowledge belongs to the project or organization, not to a chat session and not to an AI provider. Provider replacement must not erase organizational understanding.
+
+==== Provider Independence
+The domain core does not depend on Claude, Codex, Gemini, OpenAI, Anthropic, Google, Ollama, OpenRouter, or any other provider-specific concept. Providers are adapters selected by capabilities and governance constraints.
+
+==== Minimum Necessary Change
+The implementation objective is to minimize files changed, lines changed, dependency changes, public-contract changes, and architectural-surface changes, subject to correctness, specification compliance, passing required verification, and architectural compliance.
+
+==== Knowledge Must Be Revisable
+Project knowledge is not eternal truth. Durable memory carries source, scope, provenance, validity, lifecycle, and temporal context and can become stale, disputed, deprecated, rejected, or superseded.
+
+=== Primary Business Goals
+
+. Increase safe engineering throughput rather than raw code-generation throughput.
+. Reduce PR rejection caused by avoidable scope, architecture, policy, test, and regression failures.
+. Reduce human review load by moving humans toward exception-based and risk-based review rather than uniform inspection of every generated decision.
+. Make AI use repeatable, governable, auditable, and trainable across engineering teams.
+. Preserve institutional engineering knowledge across sessions, team changes, provider changes, and developer turnover.
+. Improve maintainability of legacy software by giving agents a persistent, validated model of the system before changing it.
+. Support enterprise governance requirements without making a single vendor the architectural center.
+
+=== Primary Stakeholders
+
+[cols="1,2,3",options="header"]
+|===
+|Stakeholder |Primary concern |Expected value
+|Software Developer |Control, speed, understandable changes |Safe automation without surrendering engineering authority
+|Tech Lead / Senior Engineer |Consistency, review quality, standards |Fewer trivial review failures; explicit exceptions and evidence
+|Software Architect |Boundary preservation and decisions |Executable architectural constraints and traceability
+|Security Engineer |Data handling, code security, provider boundaries |Enforced policy, provider trust levels, scans and audit evidence
+|Engineering Manager |Throughput, onboarding, continuity |Higher effective throughput and persistent team knowledge
+|Platform/DevEx Team |Standardization and integrations |Reusable workflows, policies, adapters and organizational memory
+|Compliance/Audit |Who did what, why, with which inputs |Append-oriented provenance and reproducible logical context
+|Organization |Knowledge retention |Institutional engineering memory independent of individuals/providers
+|===
+
+=== Non-Goals for the Initial Product
+
+The architecture must avoid accidentally turning the first release into the following:
+
+* a general autonomous coding agent;
+* an IDE replacement;
+* a GUI-first product;
+* a new source-control system;
+* a new CI/CD platform;
+* a new programming-language parser for every language;
+* a model-training or fine-tuning platform;
+* a replacement for existing deterministic analyzers;
+* a vector-database-first “RAG wrapper”;
+* a mechanism that allows AI-generated memory to become canonical truth without validation.
+
+These capabilities may integrate with the runtime, but they are not the product's core identity.

@@ -1,0 +1,22 @@
+@startuml
+!include <C4/C4_Dynamic>
+title Dynamic View — Governed Implementation
+Person(engineer, "Engineer")
+Container(cli, "CLI", "Go")
+Container(core, "Workflow/Governance Core", "Go")
+Container(sandbox, "Sandbox", "Isolated worktree/container")
+System_Ext(ai, "Implementer AI Provider", "Selected adapter")
+System_Ext(tools, "Verification Tools", "tests/analyzers/scanners")
+System_Ext(src, "Source Repository", "Git")
+RelIndex(1, engineer, cli, "implement approved Change")
+RelIndex(2, cli, core, "request transition")
+RelIndex(3, core, sandbox, "create constrained execution")
+RelIndex(4, core, ai, "send spec + plan + context + allowed surface")
+RelIndex(5, ai, sandbox, "propose edits via allowed tools")
+RelIndex(6, sandbox, core, "return patch/diff")
+RelIndex(7, core, tools, "run deterministic verification")
+RelIndex(8, core, core, "policy + change-surface + independent review")
+RelIndex(9, core, cli, "show evidence / require approval")
+RelIndex(10, engineer, cli, "accept")
+RelIndex(11, core, src, "apply/commit accepted patch only")
+@enduml

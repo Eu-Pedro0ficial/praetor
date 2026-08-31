@@ -1,0 +1,9 @@
+=== Enforce Provider Trust Levels Against Data Classification
+
+*Status:* ACCEPTED
+
+*Context:* Project memory/source can contain sensitive corporate information.
+
+*Decision:* Classify providers and context; router blocks provider use that violates policy before data transmission.
+
+*Consequences:* Supports enterprise governance and local/air-gapped models. Requires classification and configuration hygiene.

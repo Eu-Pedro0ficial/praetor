@@ -1,0 +1,78 @@
+=== Requirements Catalog
+
+==== Functional Requirements
+
+[cols="1,3,1",options="header"]
+|===
+|ID |Requirement |Priority
+|FR-001 |Initialize/attach the runtime to multiple independent software projects |Must
+|FR-002 |Maintain a Project Registry associating source and memory repositories |Must
+|FR-003 |Inspect an existing repository and produce a repository model |Must
+|FR-004 |Create a formal Change from user/issue intent |Must
+|FR-005 |Persist the Change lifecycle and generated artifacts |Must
+|FR-006 |Generate/validate a specification before implementation when workflow requires it |Must
+|FR-007 |Produce change-impact analysis and bounded change surface |Must
+|FR-008 |Enforce protected/allowed change surface during implementation |Must
+|FR-009 |Support human plan approval where policy requires it |Must
+|FR-010 |Execute implementation in an isolated worktree/sandbox rather than directly accepting writes |Must
+|FR-011 |Extract proposed patch/diff for validation |Must
+|FR-012 |Run static analysis through pluggable analyzers |Must
+|FR-013 |Run tests through pluggable test runners |Must
+|FR-014 |Run security/secret checks where configured |Must
+|FR-015 |Evaluate engineering policies and severity |Must
+|FR-016 |Support AUTO, REVIEW, APPROVAL and FORBIDDEN governance outcomes |Must
+|FR-017 |Route logical AI roles to pluggable providers based on capability |Must
+|FR-018 |Prevent provider routing that violates data classification/trust policy |Must
+|FR-019 |Support separate Planner and Implementer/Reviewer roles |Must
+|FR-020 |Prevent self-approval by the Implementer in the default workflow |Must
+|FR-021 |Record deterministic and AI review evidence separately |Must
+|FR-022 |Allow authorized humans to accept, reject or grant explicit exceptions |Must
+|FR-023 |Create/submit commit or PR only after required acceptance |Should
+|FR-024 |Run postmortem and produce memory/policy candidates |Should
+|FR-025 |Maintain Session, Change, Project and Organization memory scopes |Must
+|FR-026 |Keep Project Memory separate from application source repository |Must
+|FR-027 |Represent memory as typed records with provenance/lifecycle |Must
+|FR-028 |Prevent AI from writing canonical memory directly |Must
+|FR-029 |Validate memory candidate schema before canonical promotion |Must
+|FR-030 |Detect memory conflicts/duplicates/supersession at least structurally |Should
+|FR-031 |Invalidate/revalidate memory when supporting code/evidence changes |Must
+|FR-032 |Build a local query index for project memory |Must
+|FR-033 |Assemble bounded Context Packs for agent invocations |Must
+|FR-034 |Retrieve memory structurally by path/symbol/domain/dependency before optional semantic retrieval |Should
+|FR-035 |Promote validated Project Memory to Organization Memory through governed workflow |Should
+|FR-036 |Distribute organization policies/knowledge to projects with explicit exceptions where allowed |Should
+|FR-037 |Audit commands, actors, runs, providers, models, source commits, memory snapshots and outputs |Must
+|FR-038 |Use append-oriented correction rather than destructive audit history mutation |Must
+|FR-039 |Allow memory records to be superseded/deprecated/disputed/rejected/stale |Must
+|FR-040 |Report explicit knowledge gaps |Must
+|FR-041 |Support multiple concurrent developers sharing a project memory repository |Must
+|FR-042 |Avoid monolithic canonical memory artifact that creates systematic merge hotspots |Must
+|FR-043 |Support AI-facing memory projection independently from canonical storage format |Must
+|FR-044 |Support local or air-gapped AI adapters in the architecture |Should
+|FR-045 |Expose CLI commands for status, evidence, memory, policy, approval and audit inspection |Must
+|===
+
+==== Non-Functional Requirements
+
+[cols="1,3,1",options="header"]
+|===
+|ID |Requirement |Priority
+|NFR-001 |Core domain remains independent of any AI provider SDK |Must
+|NFR-002 |Core domain remains independent of GitHub/GitLab-specific APIs |Must
+|NFR-003 |Canonical state transitions are schema/contract validated |Must
+|NFR-004 |System remains recoverable after provider/process failure without relying on conversation state |Must
+|NFR-005 |Sensitive data is not transmitted to disallowed providers |Must
+|NFR-006 |Secret material must be detected before durable memory promotion where feasible |Must
+|NFR-007 |Audit/provenance is sufficient to reconstruct logical execution context |Must
+|NFR-008 |Human authority and policy decisions are explicit and traceable |Must
+|NFR-009 |Local memory lookup supports interactive developer usage |Should
+|NFR-010 |Adding a provider does not require domain rewrite |Must
+|NFR-011 |Adding a deterministic analyzer should be adapter-oriented |Must
+|NFR-012 |Source code uses meaningful, non-abbreviated identifiers |Must
+|NFR-013 |Implementation follows SOLID/KISS/YAGNI/DRY without speculative abstraction |Must
+|NFR-014 |Documentation remains buildable as HTML/PDF through docToolchain |Must
+|NFR-015 |C4 views remain text-based and version controlled |Must
+|NFR-016 |Memory history preserves supersession/provenance rather than silently rewriting truth |Must
+|NFR-017 |The system supports multi-project isolation of source, memory and context |Must
+|NFR-018 |The architecture permits future enterprise identity and signed audit without requiring them in V0 |Should
+|===

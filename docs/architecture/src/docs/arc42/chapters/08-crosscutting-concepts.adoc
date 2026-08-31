@@ -1,0 +1,141 @@
+== Crosscutting Concepts
+
+=== Domain-Driven Terminology
+
+The system must use explicit domain terminology rather than overloaded words such as “chat” or “agent memory.” Important concepts include Change, Change Surface, Evidence, Policy, Invariant, Approval, Exception, Memory Record, Memory Candidate, Context Pack, Repository Model, Run, Actor and Provider Capability.
+
+=== Source Change Provenance
+
+For every consequential execution, the system should be able to answer:
+
+* who initiated it;
+* what command/workflow step ran;
+* which software/workflow/spec/policy versions were used;
+* which source commit and memory snapshot were inputs;
+* which provider/model and role were used;
+* what artifacts and patch were produced;
+* which checks passed/failed;
+* who approved or rejected it;
+* why an exception was granted;
+* what durable memory/policy candidates resulted.
+
+Hash/fingerprint candidates include prompt/spec hash, workflow hash, policy hash, model identifier, input commit SHA, output artifact SHA and memory snapshot SHA.
+
+=== Audit Model
+
+Audit is append-oriented. Correction is represented by a later event, not deletion of history. Exact cryptographic immutability is DEFERRED, but the model must permit signed commits/event signatures later.
+
+=== Memory Architecture
+
+==== Scopes
+
+* **Session Memory** — ephemeral execution scratch/context; not durable truth.
+* **Change Memory** — requirements, impact, decisions, failed approaches, review findings and artifacts for one Change.
+* **Project Memory** — durable knowledge about architecture, domain, conventions, dependencies, integrations, risks, testing and regressions.
+* **Organization Memory** — validated cross-project policy and engineering knowledge.
+* **Developer Memory** — optional personal interaction preferences only; must not silently become project truth.
+
+==== Memory Types
+
+At minimum the model must be able to distinguish: Fact, Decision, Policy, Constraint, Convention, Observation, Hypothesis, Incident, Regression, Workaround, Debt, Risk, Ownership, Dependency, Integration, DomainKnowledge, Glossary, Runbook and Exception.
+
+==== Lifecycle
+
+Candidate lifecycle states include PROPOSED, VALIDATED, ACTIVE, STALE, DEPRECATED, DISPUTED, REJECTED and SUPERSEDED. A dedicated state such as NEEDS_REVALIDATION may be used when evidence fingerprints changed but invalidity is not yet proven.
+
+==== Provenance and Validity
+
+A memory record may reference file, symbol, source commit, hash/fingerprint, originating Change, Run, actor, validation mechanism and approval. Facts derived from mutable code should be invalidatable when their evidence changes. Historical regressions may remain permanently useful; policies/decisions follow their own version/supersession lifecycle.
+
+==== Canonical vs Query vs AI Projection
+
+The architecture deliberately separates three representations:
+
+. **Canonical Git representation** — merge-friendly, reviewable durable records; exact serialization format TBD.
+. **Local query projection** — likely SQLite + FTS for fast deterministic retrieval and indexes.
+. **AI/context projection** — Markdown/compact/provider-optimized Context Packs selected for the current task.
+
+No single file format is expected to optimize all three purposes.
+
+==== Retrieval Strategy
+
+Retrieval should be structure-first rather than embeddings-first:
+
+. path and symbol relations;
+. domain/component relations;
+. dependency closure;
+. tags and change history;
+. full-text search;
+. optional semantic retrieval;
+. optional reranking;
+. final token/context budget assembly.
+
+Long-term memory is a retrievable knowledge system, not accumulated prompt text.
+
+==== Context Packs
+
+A provider receives only task-relevant knowledge. A Context Pack can include affected components, relevant active memory, ADRs, regressions, policies, known gaps and a bounded repository view. The Context Pack itself is auditable and can be fingerprinted.
+
+==== Memory Conflict
+
+The Memory Engine should distinguish textual merge conflict from knowledge conflict. Candidate categories include semantic contradiction, duplicate assertion, supersession, stale evidence and scope conflict. Human resolution may be required for authoritative conflicts.
+
+=== Security and Data Governance
+
+Memory can contain architecture, vulnerabilities, internal endpoints, service names, incidents, code fragments and other sensitive context. Therefore the system requires a path toward:
+
+* secret detection before durable memory;
+* PII detection/redaction where appropriate;
+* data classification;
+* provider allow/deny constraints based on classification;
+* access control;
+* retention policy;
+* audit;
+* encryption strategy;
+* future organization/tenant isolation.
+
+Provider trust levels are conceptually:
+
+* LOCAL
+* ENTERPRISE
+* EXTERNAL_APPROVED
+* EXTERNAL_RESTRICTED
+* FORBIDDEN
+
+The router must not send context to a provider that violates the data policy, even if that provider is otherwise technically capable.
+
+=== Role-Based Authority
+
+A possible configurable authority model is:
+
+* Developer — propose memory/change;
+* Senior — validate selected conventions;
+* Architect — approve architecture decisions;
+* Security — approve security policy/exceptions;
+* Administrator — manage providers and organization controls.
+
+These exact role names are not hard-coded domain requirements; the requirement is configurable authority over sensitive transitions.
+
+=== Coding Standards for the Runtime
+
+The Go implementation follows SOLID, KISS, YAGNI and DRY while avoiding ceremonial abstraction. Identifiers must prefer complete, meaningful words. Single-letter or unnecessary abbreviations such as `c` for `context` are not accepted simply for brevity.
+
+Packages should communicate architectural responsibility. Domain packages cannot depend on concrete external providers. Adapters may depend inward on ports/domain contracts, never the reverse.
+
+=== Observability
+
+Observability must distinguish:
+
+* workflow execution events;
+* agent/provider calls;
+* deterministic validation runs;
+* sandbox operations;
+* policy decisions;
+* memory retrieval/promotion/invalidation;
+* human approvals and exceptions.
+
+Telemetry must not leak source, secrets, prompts or memory beyond configured data policy.
+
+=== Error Handling
+
+Failures are explicit domain outcomes when meaningful. Provider timeout, invalid structured output, sandbox failure, analyzer failure and policy violation are different categories and should not collapse into generic “agent failed.” Retry policy must be role/tool aware and never repeat consequential operations without idempotency safeguards.

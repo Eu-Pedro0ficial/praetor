@@ -1,0 +1,9 @@
+=== Layered Architecture with Ports and Adapters
+
+*Status:* ACCEPTED
+
+*Context:* The system integrates many replaceable external systems and must avoid provider/vendor coupling.
+
+*Decision:* Organize the implementation in layers and apply Ports & Adapters so domain/application logic owns interfaces and external technologies implement adapters.
+
+*Consequences:* External integrations become replaceable/testable. More interfaces are introduced, so YAGNI must prevent speculative ports with no use case.

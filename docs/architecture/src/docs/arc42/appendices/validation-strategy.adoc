@@ -1,0 +1,58 @@
+=== Validation Strategy
+
+Verification is a first-class product capability, not a final “lint step.” The Validation/Verification Engine normalizes heterogeneous tools into evidence understood by workflow/policy.
+
+==== Validation Layers
+
+. **Artifact validation** — schema, required fields, hashes, references.
+. **Source-surface validation** — actual diff vs approved expected/possible/protected surface.
+. **Syntactic/static validation** — formatting, lint, compile/type check, AST rules.
+. **Dependency validation** — dependency graph/manifest/lockfile delta and policy.
+. **Test validation** — unit/integration/contract/architecture/mutation as configured.
+. **Security validation** — secret/SAST/dependency/container checks as relevant.
+. **Compatibility validation** — APIs, schemas, migrations and serialized contracts.
+. **Operational validation** — observability/error/performance policies where applicable.
+. **Semantic review** — independent AI and human review.
+
+==== Evidence Severity and Gate Semantics
+
+Tools themselves should not decide whether a warning blocks a Change. Adapters normalize findings; Policy Engine maps them to project/organization severity and gate outcome.
+
+==== Test Selection
+
+The system should prefer targeted tests derived from impacted symbols/modules plus mandatory project suites. It must avoid using AI-selected tests as the sole guarantee when organization/project policy requires a known suite.
+
+==== Regression Analysis
+
+Regression evidence can include:
+
+* previously passing tests now failing;
+* changed public contracts;
+* unexpected dependency edges;
+* unexpected modified modules;
+* removed or weakened tests;
+* coverage degradation beyond configured policy;
+* architecture-boundary violations;
+* performance/behavior deltas where baselines exist;
+* previously documented regressions relevant to the impacted area.
+
+==== Validation of AI Structured Output
+
+Agent responses requested as structured artifacts are untrusted until parsed and schema-validated. Invalid output causes a failed/retryable execution result, not partially persisted canonical state.
+
+==== Validation of the Runtime Itself
+
+The runtime must test its own governance promises. High-value platform tests include:
+
+* domain state-machine unit/property tests;
+* port contract tests;
+* adapter conformance tests;
+* sandbox boundary tests;
+* fixture repositories where agents/tools attempt forbidden writes;
+* memory invalidation tests;
+* round-trip canonical/projection tests;
+* multi-developer Git merge fixtures;
+* policy precedence/exception tests;
+* provider routing/data-classification tests;
+* audit completeness tests;
+* deterministic replay of non-LLM workflow stages.

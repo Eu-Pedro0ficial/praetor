@@ -1,0 +1,9 @@
+=== Use SQLite + FTS as Local Memory Query Projection
+
+*Status:* PROPOSED
+
+*Context:* Canonical Git records need fast local deterministic querying without a hosted database dependency.
+
+*Decision:* Materialize a rebuildable local SQLite + FTS projection. Do not version the SQLite database as canonical memory.
+
+*Consequences:* Fast portable local search and indexes; projection is disposable and must be reproducibly rebuildable.

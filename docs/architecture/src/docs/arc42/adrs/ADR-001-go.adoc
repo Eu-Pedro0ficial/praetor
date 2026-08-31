@@ -1,0 +1,9 @@
+=== Use Go for the Core Runtime
+
+*Status:* ACCEPTED
+
+*Context:* The runtime requires a distributable CLI/orchestrator with strong subprocess, filesystem, networking and concurrency support.
+
+*Decision:* Implement the core runtime and CLI in Go. External adapters may use other processes/protocols where justified.
+
+*Consequences:* Single binary distribution, strong CLI/infrastructure ecosystem and predictable concurrency. The team must avoid unnecessary Go-specific coupling in domain abstractions.

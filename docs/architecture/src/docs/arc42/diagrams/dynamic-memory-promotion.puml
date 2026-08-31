@@ -1,0 +1,16 @@
+@startuml
+!include <C4/C4_Dynamic>
+title Dynamic View — Memory Candidate Promotion
+Container(core, "Workflow/Postmortem", "Go")
+Container(mem, "Memory Engine", "Go")
+ContainerDb(index, "Local Index", "SQLite/FTS")
+System_Ext(git, "Canonical Memory Git Repository", "Versioned records")
+Person(reviewer, "Authorized Human")
+RelIndex(1, core, mem, "propose typed memory candidate")
+RelIndex(2, mem, mem, "schema + secret/PII + conflict + provenance checks")
+RelIndex(3, mem, reviewer, "request approval if policy requires")
+RelIndex(4, reviewer, mem, "approve/reject")
+RelIndex(5, mem, git, "append accepted canonical record")
+RelIndex(6, mem, index, "update local projection")
+RelIndex(7, mem, core, "emit audit/provenance result")
+@enduml

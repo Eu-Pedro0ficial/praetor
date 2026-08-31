@@ -1,0 +1,20 @@
+@startuml
+!include <C4/C4_Context>
+LAYOUT_WITH_LEGEND()
+title C4 Level 1 — System Context
+Person(engineer, "Software Engineer", "Initiates changes, reviews evidence, approves/rejects decisions.")
+Person(architect, "Architect / Security / Reviewer", "Provides higher-authority approvals and exceptions where policy requires.")
+System(runtime, "Governed AI Software Engineering Runtime", "Orchestrates controlled software changes, verification, AI roles, memory and audit.")
+System_Ext(ai, "AI Providers", "OpenAI, Anthropic, Google, local models, enterprise gateways.")
+System_Ext(source, "Source Git / SCM", "Application source, history, PRs and code review.")
+System_Ext(memory, "Memory Git Repository", "Durable project/organization engineering memory, separate from source.")
+System_Ext(issue, "Issue Tracker", "Change intent and requirements.")
+System_Ext(tools, "Engineering Tools", "Compilers, linters, tests, SAST, secret scanners, architecture checks.")
+Rel(engineer, runtime, "Operates through CLI / future interfaces")
+Rel(architect, runtime, "Reviews/approves governed transitions")
+Rel(runtime, ai, "Invokes allowed role/model", "Provider adapters")
+Rel(runtime, source, "Reads source; proposes/applies accepted changes", "Git/SCM adapters")
+Rel(runtime, memory, "Reads/writes governed memory records", "Git/Memory adapters")
+Rel(runtime, issue, "Reads change intent", "Issue adapter")
+Rel(runtime, tools, "Executes deterministic verification", "Tool adapters")
+@enduml

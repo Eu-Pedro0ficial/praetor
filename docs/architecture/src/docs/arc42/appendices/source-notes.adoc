@@ -1,0 +1,3 @@
+=== Source Notes
+
+This architecture baseline was synthesized from the project's recorded design conversation. External references used during that conversation included GitHub Spec Kit, Claude/Anthropic documentation, OpenAI Codex safety material, Continue, Qodo, SQLite WAL/FTS5, Git submodule documentation, and docToolchain documentation. Competitive statements are contextual and should be revalidated before publication as market claims.

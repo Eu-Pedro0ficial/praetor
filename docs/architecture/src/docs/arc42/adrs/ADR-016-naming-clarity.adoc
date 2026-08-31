@@ -1,0 +1,9 @@
+=== Prefer Full Meaningful Identifiers over Abbreviations
+
+*Status:* ACCEPTED
+
+*Context:* Abbreviations decrease code readability and maintainability.
+
+*Decision:* Disallow unnecessary abbreviated identifiers such as `c` for `context`; use clear domain terms.
+
+*Consequences:* More explicit code with a small verbosity cost.

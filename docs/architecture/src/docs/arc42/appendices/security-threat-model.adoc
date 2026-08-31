@@ -1,0 +1,72 @@
+=== Security and Threat Model
+
+The runtime intentionally operates on source code, build/test commands, project knowledge and external AI systems. It therefore sits on a sensitive trust boundary and must be designed with an adversarial model rather than assuming well-behaved inputs.
+
+==== Assets
+
+Primary assets include:
+
+* source repositories and uncommitted developer work;
+* credentials available on the workstation/CI environment;
+* project and organization memory;
+* architecture/security incident knowledge;
+* prompts/context packs sent to providers;
+* provider API credentials;
+* issue tracker/SCM access tokens;
+* approval identities and authority;
+* audit history and hashes;
+* generated patches and artifacts.
+
+==== Trust Boundaries
+
+. Engineer workstation -> runtime CLI.
+. Runtime -> isolated sandbox/worktree.
+. Runtime -> external AI provider.
+. Runtime -> local AI provider.
+. Runtime -> SCM/issue tracker.
+. Runtime -> source Git remote.
+. Runtime -> memory Git remote.
+. Runtime -> deterministic external tools.
+. Project memory -> organization memory promotion.
+
+==== Threats and Required Directions
+
+[cols="1,3,3",options="header"]
+|===
+|Threat |Example |Architectural response
+|Prompt/context exfiltration |Malicious repository text instructs agent to reveal secrets |Repository content is untrusted input; provider/tool permissions and data-classification policy are external enforcement, not prompt-only
+|Credential exposure |Agent reads environment/home secrets |Sandbox capability allowlist, environment minimization, secret paths protected
+|Unauthorized source modification |Agent writes outside requested domain |Change Surface Control + isolated patch + policy gate
+|Command injection |Repository metadata induces unsafe shell command |Structured command execution, no uncontrolled shell concatenation, allowlisted runner capabilities
+|Dependency supply-chain attack |Agent adds malicious dependency |Dependency-change policy, explicit approval, lockfile diff, scanners
+|Memory poisoning |Agent creates false architecture fact |Candidate pipeline, provenance, conflict detection, approval/lifecycle
+|Stale memory |Old architecture fact retrieved as current |Fingerprint invalidation and status-aware retrieval
+|Provider policy violation |Restricted source sent to public provider |Trust-level routing blocks request before transmission
+|Audit tampering |User edits history to hide event |Append-oriented model; signed events/commits later; remote branch protections possible
+|Approval spoofing |Agent claims human approved |Approval tied to Identity Port and recorded actor, never natural-language assertion
+|Sandbox escape |Generated code exploits local runner |Use OS/container/worktree isolation appropriate to risk; minimize credentials/network
+|Tool-result spoofing |Agent fabricates tests passing |Deterministic tools produce evidence directly; model cannot mint equivalent evidence type
+|Cross-project context leakage |Project A memory used in Project B |Project/organization scope enforcement in retrieval
+|Organization memory poisoning |Bad project rule promoted globally |Higher promotion authority, evidence, scope/versioning and rollback/supersession
+|Sensitive memory retention |Secrets/incidents become durable |secret/PII scan, classification, redaction, retention policy
+|===
+
+==== Prompt Injection Posture
+
+The runtime must assume source files, comments, README text, issue descriptions, generated files and memory candidates can contain instructions hostile to the workflow. LLM-facing content is data unless explicitly injected by the trusted workflow/spec/policy renderer. An instruction found inside source content cannot grant tools, expand scope, approve a transition or change provider policy.
+
+==== Least Capability
+
+Each role receives only required tools and paths. A Reviewer may not need source-write capability. A Planner may need read-only repository context. An Implementer may write only within an isolated surface. A Security Reviewer should not automatically receive deployment credentials.
+
+==== Secret Handling
+
+Provider credentials should enter through secure environment/OS credential mechanisms rather than canonical project configuration. Audit should record provider identity but not tokens. Logs and telemetry should redact sensitive payloads by default.
+
+==== Network Policy
+
+A future Sandbox Port should support network modes such as disabled, allowlisted, unrestricted-with-approval or provider-specific gateway. Exact V0 enforcement is TBD.
+
+==== Multi-Tenant Future
+
+If a hosted enterprise control plane is introduced, tenant separation becomes a first-class security requirement. The current local-first design deliberately avoids inventing that deployment before needed.

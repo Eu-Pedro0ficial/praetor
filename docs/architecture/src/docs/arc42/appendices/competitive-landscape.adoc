@@ -1,0 +1,28 @@
+=== Competitive / Conceptual Landscape
+
+This section records the product-positioning hypothesis that informed architecture. It is not a claim that competitors cannot evolve.
+
+[cols="1,2",options="header"]
+|===
+|Tool/category |Observed center of gravity relevant to this project
+|Lovable |Product/application generation from intent
+|Claude Code |Coding agent / developer agent
+|OpenAI Codex |Coding agent with sandbox/approval capabilities
+|GitHub Copilot |Developer assistance/agent capabilities
+|OpenHands |Agent runtime/SDK
+|Continue |Agent plus rules/context customization
+|Qodo |Code review/governance
+|GitHub Spec Kit |Spec-driven development workflow/harness
+|Kiro |Spec-driven/agentic development category
+|Cline |Coding agent category
+|This project |Governed software-engineering runtime + institutional engineering memory + change provenance
+|===
+
+The benchmark closest to the workflow side is GitHub Spec Kit. Therefore “we support specs” is not treated as a differentiator. The architectural differentiation to validate is the integrated chain:
+
+[quote]
+____
+change impact -> bounded change surface -> executable engineering policy -> deterministic verification -> heterogeneous separation of duties -> evidence/provenance -> human exception approval -> learning from regressions
+____
+
+with particular emphasis on existing and legacy software.

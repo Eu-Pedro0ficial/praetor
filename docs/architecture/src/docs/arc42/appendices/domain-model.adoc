@@ -1,0 +1,127 @@
+=== Domain Model
+
+The following model is conceptual and intended to anchor implementation vocabulary. It is not a demand that every concept become a Go struct on day one.
+
+==== Change Aggregate
+
+`Change` is the consistency boundary for a requested software evolution. Its responsibilities include preserving the original intent, current state, selected workflow version, relevant source/memory/policy snapshots, risk and change-surface information, and references to generated artifacts/evidence.
+
+Candidate invariants:
+
+* a Change has exactly one stable `ChangeId`;
+* a Change is associated with exactly one registered Project in a single execution context;
+* every state transition is attributable to an Actor/System action and a workflow transition;
+* an implementation cannot become accepted before all mandatory evidence for the active workflow/policy snapshot is satisfied;
+* a FORBIDDEN policy result cannot be overridden by an ordinary approval path;
+* an exception must name the policy/constraint being excepted, its authority, reason, scope and optional expiry;
+* the source commit used for planning/impact must be identifiable so drift can be detected before application;
+* the memory snapshot and policy/workflow versions used to produce an AI Context Pack are identifiable;
+* rejected attempts remain part of the Change history.
+
+Potential value objects/entities:
+
+[cols="1,3",options="header"]
+|===
+|Concept |Responsibility
+|ChangeId |Stable identifier independent of Git branch/PR number
+|ProjectId |Stable project identity resolved through Project Registry
+|ChangeIntent |Normalized human/issue intent and acceptance objective
+|SourceSnapshot |Repository identity + commit/tree reference used as input
+|MemorySnapshot |Stable reference/fingerprint of relevant canonical memory state
+|WorkflowSnapshot |Workflow identity/version/hash
+|PolicySnapshot |Applicable policy set identity/version/hash
+|RiskProfile |Data/operational/architecture/security risk classification
+|ChangeSurface |Expected/possible/protected/actual source scope
+|Specification |Explicit requirements/invariants for the change
+|ChangePlan |Ordered implementation plan and expected modifications
+|ExecutionAttempt |One implementation/tool/agent attempt with provider and sandbox provenance
+|Patch |Proposed source modification artifact
+|EvidenceSet |Normalized evidence produced by validators/reviewers
+|Review |Reviewer role, findings, confidence/evidence and disposition
+|Approval |Authorized actor decision permitting a transition
+|Exception |Explicit bounded departure from a policy
+|Postmortem |Outcome analysis and candidate learning artifacts
+|===
+
+==== Project Aggregate / Registry
+
+A registered Project provides stable association among source location, memory location and tool configuration. The registry should not require application source code modification merely to establish this link.
+
+Potential fields include project identifier, source remote, memory remote, local workspace locations, default branch, organization scope, policy profile reference and data-classification defaults.
+
+==== Agent Role Model
+
+A Role describes responsibility and required capabilities. A Provider supplies capabilities. A RoutingPolicy decides whether a Provider may fulfill a Role for a particular data classification and execution.
+
+This prevents domain terminology such as `ClaudePlanner` or `CodexImplementer` from becoming architectural dependencies.
+
+==== Evidence Model
+
+Evidence should be typed. Candidate evidence types include:
+
+* SourceDiffEvidence
+* ChangeSurfaceEvidence
+* CompilationEvidence
+* TypeCheckEvidence
+* StaticAnalysisEvidence
+* UnitTestEvidence
+* IntegrationTestEvidence
+* ContractTestEvidence
+* ArchitectureTestEvidence
+* CoverageEvidence
+* MutationTestEvidence
+* SecurityScanEvidence
+* SecretScanEvidence
+* DependencyScanEvidence
+* PerformanceEvidence
+* AIReviewEvidence
+* HumanReviewEvidence
+* ApprovalEvidence
+
+Each item should identify producer/tool, version where possible, input snapshot, execution timestamp, normalized result and artifact/hash references.
+
+==== Memory Aggregate
+
+Canonical memory is not one mutable “memory object.” It is a collection/stream of typed records and lifecycle events. The Memory Engine derives the currently active knowledge view from canonical history.
+
+The separation between a record's *statement* and its *status* is important. A record can remain historically true (“the system used RabbitMQ before migration X”) while no longer being an active description of current architecture.
+
+==== Policy Model
+
+Policy is a governance rule, not merely instructions appended to an LLM prompt. A Policy may have deterministic checks, advisory semantic checks, applicability selectors, severity, enforcement disposition, evidence requirements, authority requirements and exception rules.
+
+==== Audit Event Model
+
+An AuditEvent should be immutable after append in the logical model. Candidate fields:
+
+[source,yaml]
+----
+event_id: EVT-...
+timestamp: ...
+actor:
+  type: human|system|agent
+  id: ...
+project_id: ...
+change_id: ...
+run_id: ...
+command:
+  name: ...
+  version: ...
+provider:
+  adapter: ...
+  model: ...
+inputs:
+  source_snapshot: ...
+  memory_snapshot: ...
+  workflow_hash: ...
+  policy_hash: ...
+  context_pack_hash: ...
+outputs:
+  artifacts: [...]
+  patch_hash: ...
+decision:
+  result: ...
+  reason: ...
+----
+
+This is conceptual; final canonical schemas require explicit versioning.

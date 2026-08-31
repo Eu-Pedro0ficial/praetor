@@ -1,0 +1,17 @@
+=== Documentation Governance
+
+Architecture documentation is part of the product and should evolve with implementation.
+
+==== Rules
+
+. Any accepted architectural change that contradicts this baseline requires an ADR update/new ADR.
+. C4 diagrams are version-controlled text, not manually maintained binary diagrams.
+. TBD decisions remain marked until explicitly resolved.
+. Examples must not silently become contracts unless an ADR/spec declares them as such.
+. Source code and documentation should use the same domain vocabulary.
+. Every release milestone should review the arc42 sections for drift.
+. Generated HTML/PDF output is a build artifact; the AsciiDoc/PlantUML source is canonical documentation.
+
+==== docToolchain
+
+The project uses the docToolchain wrapper (`dtcw`) so contributors can generate documentation without committing a full tool distribution. HTML and PDF are generated from the same AsciiDoc source. PlantUML diagrams are rendered through Asciidoctor Diagram.

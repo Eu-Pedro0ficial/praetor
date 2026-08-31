@@ -1,0 +1,9 @@
+=== Prefer Deterministic Verification Where Available
+
+*Status:* ACCEPTED
+
+*Context:* AI review cannot prove compiler/test/security facts reliably.
+
+*Decision:* Run deterministic analysis/tests/scans/contracts/architecture checks and treat AI review as complementary semantic evidence.
+
+*Consequences:* Higher trust and reproducibility, at the cost of adapter/tool complexity and runtime latency.

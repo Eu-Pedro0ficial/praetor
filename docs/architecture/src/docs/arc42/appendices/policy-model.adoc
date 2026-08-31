@@ -1,0 +1,48 @@
+=== Policy Model
+
+==== Policy Families
+
+[source,text]
+----
+engineering/policies/
+  clean-code/
+  testing/
+  architecture/
+  security/
+  dependency-management/
+  change-surface/
+  backward-compatibility/
+  performance/
+  observability/
+  error-handling/
+  api-contracts/
+  database/
+----
+
+A policy package may eventually contain specification, machine-readable rules, executable checks, evidence schema, severity and exception rules. The exact on-disk DSL is TBD.
+
+==== Enforcement Outcomes
+
+* `AUTO` — transition/action may continue automatically after evidence passes.
+* `REVIEW` — human review must occur.
+* `APPROVAL` — an explicit authorized approval is required before continuation.
+* `FORBIDDEN` — action cannot proceed under the current policy; policy change or an explicitly defined higher-order exception mechanism would be required.
+
+==== Policy Is Not Prompt Advice
+
+A rule such as “do not write outside the approved change surface” must be enforced by runtime capabilities/filesystem/sandbox validation where feasible. Prompting may reinforce the rule, but the prompt is not the security boundary.
+
+==== Example Project Policy Profile
+
+[source,yaml]
+----
+policies:
+  clean-code: strict
+  architecture: strict
+  testing: strict
+  backward-compatibility: strict
+  security: critical
+  performance: advisory
+----
+
+This example conveys intent only; exact syntax is not yet decided.

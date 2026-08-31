@@ -1,0 +1,9 @@
+=== Use Change as Primary Work Aggregate with Explicit State Machine
+
+*Status:* ACCEPTED
+
+*Context:* Chat/session-centric execution makes progression implicit and hard to audit.
+
+*Decision:* Represent a software Change as the auditable aggregate and let Workflow Engine control explicit state transitions with contracts/evidence.
+
+*Consequences:* Every step becomes traceable and resumable. Workflow/state modeling requires careful idempotency and migration/versioning.

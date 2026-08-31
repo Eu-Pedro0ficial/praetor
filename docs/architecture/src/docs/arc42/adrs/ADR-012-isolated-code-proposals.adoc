@@ -1,0 +1,9 @@
+=== AI Produces Isolated Proposed Changes Before Acceptance
+
+*Status:* ACCEPTED
+
+*Context:* Direct writes by agents blur proposal and accepted source state.
+
+*Decision:* Use isolated worktree/container/sandbox, extract a patch, validate it, then apply only accepted changes.
+
+*Consequences:* Safer rollback/control and cleaner audit. Platform-specific sandbox strategy remains to be chosen.

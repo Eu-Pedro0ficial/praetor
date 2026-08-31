@@ -1,0 +1,9 @@
+=== Memory is Typed, Revisable and Invalidatable
+
+*Status:* ACCEPTED
+
+*Context:* Code-derived knowledge becomes obsolete after source changes.
+
+*Decision:* Memory carries type, source/provenance, validity and lifecycle. Evidence fingerprints trigger revalidation/staleness; successors supersede prior records.
+
+*Consequences:* Reduces stale-context risk and preserves knowledge history. Invalidation dependencies add complexity.

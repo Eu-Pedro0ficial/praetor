@@ -1,0 +1,22 @@
+== Architecture Decisions
+
+Architecture Decision Records are stored under `src/docs/arc42/adrs/`.
+
+include::../adrs/ADR-001-go.adoc[]
+include::../adrs/ADR-002-layered-ports-adapters.adoc[]
+include::../adrs/ADR-003-provider-capability-routing.adoc[]
+include::../adrs/ADR-004-change-aggregate-state-machine.adoc[]
+include::../adrs/ADR-005-change-surface-control.adoc[]
+include::../adrs/ADR-006-deterministic-verification.adoc[]
+include::../adrs/ADR-007-external-project-memory.adoc[]
+include::../adrs/ADR-008-memory-representation.adoc[]
+include::../adrs/ADR-009-local-memory-index.adoc[]
+include::../adrs/ADR-010-append-oriented-audit.adoc[]
+include::../adrs/ADR-011-memory-lifecycle-invalidation.adoc[]
+include::../adrs/ADR-012-isolated-code-proposals.adoc[]
+include::../adrs/ADR-013-maker-checker.adoc[]
+include::../adrs/ADR-014-provider-trust-boundaries.adoc[]
+include::../adrs/ADR-015-doctoolchain.adoc[]
+include::../adrs/ADR-016-naming-clarity.adoc[]
+include::../adrs/ADR-017-project-organization-memory.adoc[]
+include::../adrs/ADR-018-source-memory-workflow-separation.adoc[]

@@ -1,0 +1,66 @@
+=== Architectural Roadmap
+
+The roadmap is intentionally capability-oriented; milestone scope should be finalized before implementation.
+
+==== V0 — Governance Kernel / Walking Skeleton
+
+Recommended objective: demonstrate one complete governed Change on one real repository without attempting broad ecosystem support.
+
+Candidate capabilities:
+
+* Go CLI skeleton;
+* layered + Ports & Adapters boundaries;
+* local Git repository adapter;
+* one AI provider adapter behind generic capability interface;
+* Project Registry local configuration;
+* Change aggregate and persisted state;
+* workflow state machine;
+* repository discovery sufficient for one target language/project;
+* basic Change Surface Control;
+* isolated Git worktree implementation proposal;
+* deterministic command/test adapter;
+* evidence normalization;
+* approval/rejection flow;
+* append-oriented audit;
+* project memory candidate + validation + canonical promotion;
+* local SQLite/FTS projection;
+* Context Pack assembly;
+* docToolchain/arc42/C4 documentation kept executable.
+
+==== V1 — Multi-Agent and Rich Verification
+
+* Planner / Implementer / Reviewer separation;
+* second provider adapter to prove provider independence;
+* richer static analysis;
+* risk classification;
+* policy bundles;
+* PR integration;
+* memory invalidation from source fingerprints;
+* postmortem learning;
+* rejected-review learning candidate;
+* conflict/supersession handling.
+
+==== V2 — Multi-Developer / Organization
+
+* remote project-memory collaboration workflow;
+* organization memory;
+* governed project->organization promotion;
+* organization policy inheritance and project exceptions;
+* identity/RBAC adapter;
+* stronger audit indexing;
+* provider trust levels/data classification.
+
+==== Later / Enterprise-Compatible
+
+* SSO/OIDC;
+* cryptographic signatures;
+* centralized audit/retention;
+* air-gapped distribution;
+* hosted control plane if justified;
+* advanced semantic retrieval/vector index if benchmarks show value;
+* IDE/GUI adapters;
+* broader SCM/issue tracker/security tool ecosystem.
+
+==== Explicit Anti-Roadmap
+
+Do not start by implementing every provider, every language, a GUI, a vector database, a distributed control plane, or a custom DSL for all policies. Prove the governance loop first.

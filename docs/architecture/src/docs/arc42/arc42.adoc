@@ -1,0 +1,47 @@
+= Governed AI Software Engineering Runtime
+:doctype: book
+:toc: left
+:toclevels: 4
+:sectnums:
+:sectnumlevels: 4
+:icons: font
+:source-highlighter: rouge
+:imagesdir: images
+:plantUMLDir: {docdir}/generated-diagrams/
+:project-name: Governed AI Software Engineering Runtime
+:project-status: Architecture Baseline — Pre-Implementation
+
+[abstract]
+== Document Purpose
+
+This document is the architecture baseline for a software engineering governance runtime in which AI agents are replaceable, constrained executors rather than autonomous owners of the development process. The system is designed primarily for controlled maintenance and evolution of existing and legacy software, while remaining usable for greenfield work.
+
+The product name is intentionally **TBD**. “Governed AI Software Engineering Runtime” is a descriptive working title, not a branding decision.
+
+include::chapters/01-introduction-and-goals.adoc[]
+include::chapters/02-constraints.adoc[]
+include::chapters/03-context-and-scope.adoc[]
+include::chapters/04-solution-strategy.adoc[]
+include::chapters/05-building-block-view.adoc[]
+include::chapters/06-runtime-view.adoc[]
+include::chapters/07-deployment-view.adoc[]
+include::chapters/08-crosscutting-concepts.adoc[]
+include::chapters/09-architecture-decisions.adoc[]
+include::chapters/10-quality-requirements.adoc[]
+include::chapters/11-risks-and-technical-debt.adoc[]
+include::chapters/12-glossary.adoc[]
+
+== Appendices
+include::appendices/requirements-catalog.adoc[]
+include::appendices/change-state-machine.adoc[]
+include::appendices/memory-model.adoc[]
+include::appendices/policy-model.adoc[]
+include::appendices/competitive-landscape.adoc[]
+include::appendices/domain-model.adoc[]
+include::appendices/workflow-and-command-model.adoc[]
+include::appendices/validation-strategy.adoc[]
+include::appendices/configuration-model.adoc[]
+include::appendices/security-threat-model.adoc[]
+include::appendices/roadmap.adoc[]
+include::appendices/documentation-governance.adoc[]
+include::appendices/source-notes.adoc[]

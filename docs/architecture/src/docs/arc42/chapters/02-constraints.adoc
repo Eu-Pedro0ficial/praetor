@@ -1,0 +1,47 @@
+== Architecture Constraints
+
+=== Explicitly Decided Constraints
+
+[cols="1,2,3",options="header"]
+|===
+|ID |Constraint |Consequence
+|CON-001 |Implementation language is Go |Core runtime, CLI, domain and orchestration are implemented in Go unless an adapter has a justified external implementation.
+|CON-002 |Layered architecture |Dependencies must remain understandable and organized into explicit responsibility layers.
+|CON-003 |Ports and Adapters |External AI, Git/SCM, issue trackers, analyzers, runners, stores, identity and telemetry are reached through ports.
+|CON-004 |SOLID, KISS, YAGNI and DRY |The implementation optimizes for maintainability and explicit design rather than speculative abstraction.
+|CON-005 |No abbreviated identifiers when a full meaningful word exists |Examples such as `c` for `context` are forbidden. Naming quality is part of the coding policy.
+|CON-006 |Developer remains sovereign |No AI provider becomes an authority that can bypass workflow or policy.
+|CON-007 |Memory is independent from AI provider |Long-term knowledge survives provider replacement.
+|CON-008 |Project memory is separated from the application source repository |The source repository does not have to be modified merely to adopt the tool.
+|CON-009 |AI does not write canonical project memory directly |Agent output becomes a candidate that must pass validation and, where applicable, approval.
+|CON-010 |AI implementation does not directly become accepted source |Changes should be isolated as patches/worktrees/sandbox outputs and become accepted only after validation.
+|===
+
+=== Strong Directions, Not Yet Irrevocably Final
+
+* CLI-first product surface. A future GUI is not forbidden, but the core must not depend on one.
+* Git as the first durable collaboration mechanism for memory repositories and change provenance.
+* SQLite + FTS as a local query projection of memory, not the canonical Git artifact.
+* Small independent records as the likely canonical Git representation for memory.
+* Markdown or provider-optimized context packs as the AI-facing representation.
+* Embeddings as an optional later retrieval layer, not the first retrieval mechanism.
+
+=== Deliberately Open Decisions
+
+The following MUST remain explicit design questions until benchmarked or otherwise decided:
+
+* final product name and CLI executable name;
+* canonical serialized memory format: JSON, YAML, XML, TOML, or another compact representation;
+* exact workflow-definition DSL or configuration format;
+* exact policy-definition DSL;
+* exact plugin/adapter loading mechanism in Go;
+* exact local sandbox technology on each operating system;
+* initial SCM and issue-tracker adapters beyond local Git/GitHub;
+* persistence choice for organization-scale hosted deployments, if/when introduced;
+* whether cryptographic audit signatures are required before an enterprise edition;
+* exact semantic-conflict detection method for memory;
+* whether a GUI/server control plane exists in an early release.
+
+=== Documentation Constraint
+
+Documentation uses arc42 + C4 and is maintained as code through docToolchain. The current docToolchain wrapper pins a release rather than relying on an unversioned global installation.

@@ -1,0 +1,30 @@
+== Risks and Technical Debt
+
+[cols="1,2,2,2",options="header"]
+|===
+|ID |Risk |Impact |Mitigation direction
+|R-001 |Policy engine becomes a prompt collection instead of executable governance |False safety |Separate deterministic enforcement from advisory AI rules
+|R-002 |Repository intelligence infers incorrect architecture |Bad change surface/context |Represent confidence/gaps; allow human correction; validate against code evidence
+|R-003 |Memory becomes stale |Agents act on obsolete knowledge |Evidence fingerprints, lifecycle, invalidation and revalidation
+|R-004 |Memory repository leaks sensitive information |Security/compliance incident |classification, secret/PII scanning, redaction, access/retention controls
+|R-005 |Multi-agent review creates consensus illusion |False confidence |maker-checker, provenance, preserve disagreement, deterministic evidence
+|R-006 |Provider-specific features leak into core |Vendor lock-in |Ports & Adapters plus capability abstraction
+|R-007 |Canonical memory format chosen prematurely |Migration/merge/token problems |benchmark JSON/YAML/XML/TOML/other before ADR acceptance
+|R-008 |Git-backed memory conflicts at scale |Collaboration friction |small independent append-oriented records; semantic merge layer
+|R-009 |Context packs omit critical knowledge |Regression |structural retrieval, gap reporting, relevance audit, configurable budgets
+|R-010 |Context packs include too much |Cost/latency/confusion |token budget and ranked evidence selection
+|R-011 |Sandbox differs from real CI/runtime |False pass |local verification plus CI adapter and explicit evidence provenance
+|R-012 |Change Surface Control is over-restrictive |Developer friction |possible/expected/protected tiers and explicit surface expansion workflow
+|R-013 |Change Surface Control is under-restrictive |Unrelated regressions |dependency/symbol analysis and postmortem feedback
+|R-014 |Audit volume becomes unmanageable |Operational cost |structured event schema, retention/index strategy, derived views
+|R-015 |Organization memory propagates a wrong rule widely |Cross-project harm |higher promotion authority, evidence, versioning, exceptions and supersession
+|R-016 |Human approvals become a new bottleneck |Lost productivity |risk-based policy and exception-oriented review, not approval everywhere
+|R-017 |The product becomes another autonomous agent UI |Strategic failure |protect “engineering workflow first” as architectural product principle
+|R-018 |Too many abstractions are built before V0 |Delivery failure |YAGNI; implement ports only when a concrete adapter/use case exists
+|R-019 |Go plugin mechanism becomes portability/security issue |Operational complexity |prefer process/protocol adapters where dynamic Go plugins are unsuitable; decision TBD
+|R-020 |AI output parser accepts malformed/ambiguous data |State corruption |strict schemas, validation and rejection before canonical mutation
+|===
+
+=== Known Architectural Debt at Baseline
+
+Because implementation has not started, the principal debt is **decision debt**, not code debt. The most important unresolved items are the canonical memory serialization, workflow DSL, policy DSL, sandbox implementation, adapter/plugin extension strategy and exact V0 scope.

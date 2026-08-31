@@ -1,0 +1,9 @@
+=== Route AI Providers by Capabilities and Governance
+
+*Status:* ACCEPTED
+
+*Context:* Roles need different model capabilities, and providers may change.
+
+*Decision:* Model provider adapters expose capabilities. Agent Router chooses an allowed provider based on role requirements plus data/trust policy rather than hard-coded provider names.
+
+*Consequences:* Provider independence improves. Capability normalization and routing policy become core responsibilities.

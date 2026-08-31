@@ -1,0 +1,29 @@
+@startuml
+!include <C4/C4_Deployment>
+title C4 Deployment — Local Developer Workstation
+Deployment_Node(dev, "Developer Workstation", "Linux/macOS/Windows") {
+  Container(cli, "Runtime CLI", "Go binary")
+  ContainerDb(index, "Memory Query Projection", "SQLite + FTS")
+  Deployment_Node(workspace, "Workspace") {
+    Container(srcLocal, "Source clone", "Git working copy")
+    Container(memLocal, "Memory clone", "Separate Git working copy")
+  }
+  Deployment_Node(isolated, "Isolated Execution") {
+    Container(sandbox, "Agent Sandbox", "Git worktree/container")
+  }
+}
+Deployment_Node(remote, "Remote / Enterprise Services") {
+  System_Ext(srcRemote, "Source SCM")
+  System_Ext(memRemote, "Memory Git Remote")
+  System_Ext(ai, "Allowed AI Provider(s)")
+  System_Ext(tools, "Optional remote CI/scanners")
+}
+Rel(cli, index, "queries")
+Rel(cli, srcLocal, "reads/applies accepted changes")
+Rel(cli, memLocal, "reads/writes governed memory")
+Rel(cli, sandbox, "runs proposed implementation")
+Rel(srcLocal, srcRemote, "fetch/push")
+Rel(memLocal, memRemote, "fetch/push")
+Rel(cli, ai, "provider adapter")
+Rel(cli, tools, "optional verification adapter")
+@enduml

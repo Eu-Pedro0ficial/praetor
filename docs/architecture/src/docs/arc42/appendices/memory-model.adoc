@@ -1,0 +1,94 @@
+=== Memory Model
+
+==== Conceptual Record
+
+[source,yaml]
+----
+id: MEM-<unique-id>
+type: ArchitectureFact
+scope: project
+subject: PaymentService.payment_gateway_dependency
+statement: PaymentService depends on PaymentGateway rather than the Stripe SDK directly.
+status: active
+classification: internal
+origin:
+  change_id: CHG-01842
+  run_id: RUN-00192
+  actor_id: <resolved-identity>
+  created_at: <timestamp>
+evidence:
+  - repository: payment-service
+    commit: 928ab38
+    path: internal/payment/service.go
+    symbol: PaymentService
+    fingerprint: sha256:<digest>
+validation:
+  static_analysis: true
+  runtime_test: false
+  human_validated: true
+confidence:
+  level: high
+  basis:
+    - code_evidence
+    - human_validation
+validity:
+  last_verified_commit: 928ab38
+supersedes: []
+tags:
+  - payments
+  - architecture
+----
+
+This is conceptual and does **not** decide the final canonical serialization format.
+
+==== Invalidation
+
+A record whose evidence fingerprint changes is not necessarily false. It becomes suspect and should move to a state such as `NEEDS_REVALIDATION` or `STALE` until the system or an authorized human establishes its current validity.
+
+==== Append-Oriented Knowledge Evolution
+
+If `MEM-103` says RabbitMQ is used and the project migrates to Kafka, the preferred history is a successor record that supersedes the previous knowledge. Historical context remains traceable.
+
+==== Canonical Repository Shape — Candidate
+
+[source,text]
+----
+memory/
+  architecture/
+  domain/
+  conventions/
+  decisions/
+  components/
+  incidents/
+  regressions/
+  dependencies/
+  integrations/
+  testing/
+  security/
+  glossary/
+  debt/
+  exceptions/
+  audit/
+----
+
+The exact taxonomy may evolve, but the key property is avoiding one monolithic multi-developer file.
+
+==== Memory Format Benchmark — Required Before Final ADR
+
+Candidate formats: JSON, YAML, XML, TOML, Markdown and a custom compact representation.
+
+Benchmark dimensions:
+
+* token consumption across target providers;
+* parse accuracy;
+* generation accuracy;
+* round-trip fidelity;
+* schema adherence;
+* latency;
+* cost;
+* Git diff readability;
+* merge behavior;
+* tooling maturity;
+* canonical-to-AI projection complexity.
+
+The architecture must allow canonical and AI-facing formats to differ.

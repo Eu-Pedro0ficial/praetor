@@ -1,0 +1,20 @@
+=== Configuration and Precedence Model
+
+Configuration is likely to exist at multiple scopes. Exact filenames and syntax are TBD, but precedence must be explicit to prevent silent governance drift.
+
+Candidate scopes from broadest to narrowest:
+
+. built-in safe defaults;
+. organization configuration/policy;
+. project configuration/policy;
+. workflow/change-type configuration;
+. explicitly approved Change exception;
+. runtime/session preference where it cannot weaken mandatory governance.
+
+A lower scope must not be able to weaken a higher-scope FORBIDDEN rule unless the higher scope explicitly defines an exception mechanism and authority.
+
+Provider credentials are not normal project configuration and must not be stored in canonical memory/source configuration.
+
+==== Configuration Drift
+
+The runtime should be able to show the effective configuration for a Change, including source of each rule. This is analogous to a compiler explaining effective flags and is important when organization/project policies overlap.

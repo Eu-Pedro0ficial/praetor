@@ -1,0 +1,9 @@
+=== Keep Project Memory in a Separate Repository
+
+*Status:* ACCEPTED
+
+*Context:* Project knowledge should be shared and persistent without contaminating the application repository.
+
+*Decision:* Associate source and memory repositories through Project Registry; do not require Git submodule linkage.
+
+*Consequences:* Independent lifecycle/access controls and adoption without source metadata. Synchronization and authorization must be managed by the runtime.

@@ -1,0 +1,9 @@
+=== Use arc42 + C4 + docToolchain as Documentation Stack
+
+*Status:* ACCEPTED
+
+*Context:* Architecture must be comprehensive, text-versioned and renderable to HTML/PDF.
+
+*Decision:* Use AsciiDoc/arc42, PlantUML C4 views and docToolchain wrapper.
+
+*Consequences:* Docs-as-code, reproducible rendering, architecture drift can be reviewed in Git.

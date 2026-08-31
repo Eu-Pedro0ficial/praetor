@@ -1,0 +1,9 @@
+=== Treat Source, Memory and Workflow as Independent Assets
+
+*Status:* ACCEPTED
+
+*Context:* Provider-centric tools often entangle knowledge and execution with a session/model.
+
+*Decision:* Model source state, durable knowledge and workflow/policy state independently; providers execute against these assets.
+
+*Consequences:* Provider replacement and knowledge continuity improve; snapshots must identify all relevant states for reproducibility.

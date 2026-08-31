@@ -1,0 +1,51 @@
+== System Scope and Context
+
+=== Business Context
+
+[plantuml, "{plantUMLDir}c4-context", png]
+----
+include::../diagrams/c4-context.puml[]
+----
+
+The runtime sits between the engineer and a set of external engineering/AI systems. It governs when external capabilities are allowed to participate and what evidence must be produced before a state transition is accepted.
+
+=== In-Scope External Systems
+
+[cols="1,2,2",options="header"]
+|===
+|External system |Purpose |Integration posture
+|AI Providers |Planning, implementation, review, classification, semantic analysis |Port/adapter; capability and trust-level routed
+|Git Repository |Source state, diff, history, worktree/branch information |Primary source state reference
+|Memory Git Repository |Durable project/organization engineering knowledge |Separate repository; append-oriented records
+|SCM Hosting |PRs, commits, reviews, identities, repository creation |GitHub first candidate; GitLab/Bitbucket later adapters
+|Issue Tracker |Change intake and requirement context |Adapter-based
+|Static Analysis Tools |Deterministic code checks |Adapter/runner based
+|Test Frameworks |Dynamic correctness evidence |Adapter/runner based
+|Security Scanners |SAST, secrets, dependency/container checks |Adapter/runner based
+|Identity Provider |Human identity, role and approval authority |Local/Git identity initially; enterprise OIDC/SSO later
+|Telemetry Backend |Execution metrics and traces |Port/adapter; optional and policy-governed
+|===
+
+=== Technical Context
+
+[plantuml, "{plantUMLDir}c4-container", png]
+----
+include::../diagrams/c4-container.puml[]
+----
+
+=== Fundamental Trust Boundary
+
+AI-provider output is **untrusted proposal data**. It does not become source code, project memory, policy, architectural decision, or accepted evidence merely because an agent emitted it. Every conversion into canonical state is mediated by system rules.
+
+=== Project Registration Context
+
+A project association is conceptually:
+
+[source,yaml]
+----
+project_id: payment-service
+source_repository: git@host:company/payment-service.git
+memory_repository: git@host:company/payment-service.ai-memory.git
+----
+
+This association is maintained by the runtime's Project Registry. A Git submodule is not required and is not the default architectural interpretation. Source and memory repositories may live side-by-side in a workspace while remaining independently versioned.

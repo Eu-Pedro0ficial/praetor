@@ -1,0 +1,9 @@
+=== Separate Implementation and Review Responsibilities
+
+*Status:* ACCEPTED
+
+*Context:* Self-review by the same logical actor/provider role can create confirmation bias.
+
+*Decision:* The default workflow prevents the Implementer role from being its own final Reviewer/Approver.
+
+*Consequences:* Improves separation of duties. More model/tool calls may increase cost and latency.

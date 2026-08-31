@@ -1,0 +1,17 @@
+@startuml
+!include <C4/C4_Dynamic>
+title Dynamic View — Attach Existing Project
+Person(engineer, "Engineer")
+Container(cli, "CLI", "Go")
+Container(core, "Governance Core", "Go")
+ContainerDb(index, "Local Memory Index", "SQLite/FTS")
+System_Ext(src, "Source Repository", "Git")
+System_Ext(mem, "Memory Repository", "Git")
+RelIndex(1, engineer, cli, "project attach/init")
+RelIndex(2, cli, core, "invoke attach use case")
+RelIndex(3, core, src, "inspect repository/history")
+RelIndex(4, core, mem, "clone/pull or provision when authorized")
+RelIndex(5, core, index, "build local projection")
+RelIndex(6, core, src, "validate memory evidence freshness")
+RelIndex(7, core, cli, "return repository context + gaps")
+@enduml

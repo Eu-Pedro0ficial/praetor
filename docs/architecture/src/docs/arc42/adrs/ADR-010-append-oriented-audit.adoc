@@ -1,0 +1,9 @@
+=== Use Append-Oriented Audit History
+
+*Status:* ACCEPTED
+
+*Context:* Enterprise-grade provenance requires preserving what actually happened.
+
+*Decision:* Audit corrections are new events; historical events are not silently deleted or rewritten.
+
+*Consequences:* Strong traceability. Retention/indexing volume must later be managed.

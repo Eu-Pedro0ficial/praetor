@@ -1,0 +1,27 @@
+@startuml
+!include <C4/C4_Component>
+LAYOUT_WITH_LEGEND()
+title C4 Level 3 — Memory Engine
+Container_Boundary(mem, "Memory Engine") {
+  Component(model, "Memory Domain Model", "Go", "Typed records, scopes, lifecycle, provenance and validity.")
+  Component(candidate, "Candidate Pipeline", "Go", "Schema, data, conflict and policy validation before canonical promotion.")
+  Component(invalidation, "Invalidation Engine", "Go", "Detects evidence/source fingerprint changes.")
+  Component(retrieval, "Retrieval Engine", "Go", "Path/symbol/domain/dependency/FTS/optional semantic retrieval.")
+  Component(context, "Context Pack Builder", "Go", "Task-specific provider projection under context/token budget.")
+  Component(conflict, "Memory Conflict Resolver", "Go + optional AI", "Duplicates, contradiction, supersession and scope conflicts.")
+  Component(projection, "Projection Builder", "Go", "Canonical records -> SQLite/FTS and provider-facing formats.")
+}
+ContainerDb(local, "Local Query Projection", "SQLite + FTS")
+System_Ext(canonical, "Canonical Memory Git Repository", "Small independent records; serialization TBD")
+System_Ext(source, "Source Repository", "Evidence fingerprints and current commit")
+Rel(candidate, model, "validates typed record")
+Rel(candidate, conflict, "checks")
+Rel(candidate, canonical, "appends accepted record")
+Rel(invalidation, source, "compares source evidence")
+Rel(invalidation, canonical, "marks/proposes lifecycle change")
+Rel(projection, canonical, "reads")
+Rel(projection, local, "materializes")
+Rel(retrieval, local, "queries")
+Rel(retrieval, canonical, "resolves records")
+Rel(context, retrieval, "requests relevant knowledge")
+@enduml

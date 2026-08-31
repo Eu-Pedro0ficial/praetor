@@ -1,0 +1,87 @@
+== Runtime View
+
+=== Scenario 1 — Attach to an Existing Legacy Project
+
+[plantuml, "{plantUMLDir}dynamic-project-attach", png]
+----
+include::../diagrams/dynamic-project-attach.puml[]
+----
+
+. Engineer asks the CLI to attach or initialize against an existing repository.
+. Project Registry resolves source identity and an existing memory repository or provisions one through the configured SCM adapter if authorized.
+. Repository Intelligence scans source, manifests, history, tests and configuration.
+. Memory Engine clones/updates the project memory repository and builds a local query projection.
+. Memory Invalidation compares memory evidence fingerprints against current source state.
+. Knowledge gaps are explicitly recorded rather than invented.
+. A repository/context snapshot becomes available for future Change executions.
+
+=== Scenario 2 — Plan a Change
+
+. Intake normalizes issue/request intent.
+. Workflow Engine creates a Change.
+. Context Pack Builder retrieves relevant project and organization knowledge under a token/context budget.
+. Repository Intelligence and Impact Engine identify likely affected symbols/modules and expected change surface.
+. Specification Engine generates or validates a specification.
+. Planner role proposes a plan.
+. Policy Engine evaluates whether the plan requires approval, violates constraints, or attempts protected operations.
+. If required, an authorized human approves before implementation becomes available.
+
+=== Scenario 3 — Implement and Verify a Change
+
+[plantuml, "{plantUMLDir}dynamic-change-execution", png]
+----
+include::../diagrams/dynamic-change-execution.puml[]
+----
+
+. Workflow Engine opens an isolated Sandbox Runtime.
+. Agent Router selects an allowed provider for the Implementer role.
+. The implementer receives the approved spec, plan, bounded surface and context pack.
+. Sandbox enforces the write boundary and returns a patch/diff.
+. Verification Engine executes deterministic checks selected from language/project/policy metadata.
+. Change Surface Control compares actual and authorized surface.
+. Independent review roles evaluate the proposed change and evidence.
+. Policy Engine determines pass, failure, exception-required, or human-approval-required state.
+. Only after acceptance is the patch eligible to be applied/committed or submitted as a PR.
+
+=== Scenario 4 — Unexpected Change Surface
+
+A request in the `order` domain produces a modification in `authentication` outside the approved surface. The runtime:
+
+. records the unexpected file/symbol and causal execution run;
+. rejects or pauses the transition according to policy;
+. does not let the implementer self-authorize the expansion;
+. requires plan/surface revision and/or explicit human exception;
+. preserves the violation as audit evidence.
+
+=== Scenario 5 — Memory Candidate Promotion
+
+[plantuml, "{plantUMLDir}dynamic-memory-promotion", png]
+----
+include::../diagrams/dynamic-memory-promotion.puml[]
+----
+
+. A run, PR review or postmortem generates an observation.
+. AI MAY propose a typed Memory Candidate.
+. Candidate schema is validated.
+. Secret/PII/data-classification checks run before durable storage.
+. Conflict detection checks existing active records.
+. Provenance/evidence links are validated.
+. Policy determines whether automated validation is enough or human approval is mandatory.
+. Canonical Memory Store accepts a new immutable record/event only after the required gate.
+. Local query projection is rebuilt or incrementally updated.
+
+=== Scenario 6 — Memory Invalidation After Source Change
+
+. A source commit modifies a file/symbol referenced by active memory.
+. Fingerprint comparison identifies potentially stale records.
+. Memory state becomes `NEEDS_REVALIDATION`/`STALE` according to policy; the old record is not silently rewritten.
+. Future Context Packs avoid representing stale knowledge as active fact.
+. Revalidation may create a successor record that supersedes the previous one.
+
+=== Scenario 7 — Rejected PR Becomes Learning Signal
+
+A human rejects a PR because the change violates a local convention not yet formalized. The system records the review reason, links it to the Change, proposes a Convention or Policy Candidate, and requires normal promotion governance. Rejection therefore improves future context without silently training or mutating an AI model.
+
+=== Scenario 8 — Project Knowledge Promoted to Organization Knowledge
+
+Repeated, validated project-level knowledge may become a candidate for Organization Memory. Promotion is governed separately and may require a higher authority. Organization policies can flow downward to projects, with explicit project exceptions where allowed.

@@ -1,0 +1,64 @@
+== Quality Requirements
+
+=== Quality Tree
+
+[plantuml, "{plantUMLDir}quality-tree", png]
+----
+@startmindmap
+* Governed AI Engineering Runtime
+** Safety / Correctness
+*** bounded changes
+*** deterministic evidence
+*** no silent policy bypass
+** Maintainability
+*** Go clarity
+*** ports/adapters
+*** no provider coupling
+** Auditability
+*** provenance
+*** hashes/snapshots
+*** append-oriented events
+** Scalability of Knowledge
+*** multi-project
+*** multi-developer
+*** project/organization memory
+** Replaceability
+*** provider independence
+*** adapter independence
+** Security
+*** provider trust boundary
+*** secret/PII controls
+*** sandbox
+** Usability
+*** CLI-first
+*** explicit states
+*** actionable failure messages
+@endmindmap
+----
+
+=== Quality Scenarios
+
+[cols="1,2,2,2,2",options="header"]
+|===
+|ID |Stimulus |Environment |Expected response |Measure
+|QS-001 |Implementer attempts write outside approved surface |Normal change execution |Runtime blocks/pauses modification and records violation |No unauthorized write reaches accepted patch
+|QS-002 |Primary AI provider is unavailable |Planning/review |Router selects an allowed compatible provider or fails explicitly |No domain behavior depends on provider-specific APIs
+|QS-003 |A source file referenced by active memory changes |After pull/commit |Memory becomes stale/needs revalidation |Affected memory not presented as unquestioned active fact
+|QS-004 |New developer joins existing project |Fresh workstation |Project + memory can be attached and indexed |Useful project context available without prior chat history
+|QS-005 |Two developers add unrelated memories concurrently |Normal collaboration |Git merge is low-conflict |No monolithic memory artifact required
+|QS-006 |AI proposes architecture rule |Postmortem |Stored only as candidate until authority approves |No AI-created architecture rule becomes active automatically
+|QS-007 |Restricted context is routed to external provider |Any execution |Policy denies route before transmission |Zero disallowed provider calls
+|QS-008 |Agent claims implementation is correct but tests fail |Verification |Workflow remains unaccepted |Model confidence cannot override deterministic failure
+|QS-009 |PR rejected due undocumented convention |Review/postmortem |Reason becomes candidate knowledge |Future changes can retrieve validated convention after promotion
+|QS-010 |All current developers leave project |Organizational turnover |Project memory remains independently accessible |Knowledge continuity not tied to user account/model session
+|QS-011 |Audit record is corrected |Audit |New corrective event appended |Historical event remains visible
+|QS-012 |A trivial bug fix proposes broad refactor |Planning/implementation |Minimum Necessary Change policy flags scope expansion |Broader change requires explicit plan/approval
+|===
+
+=== Performance Direction
+
+No hard latency SLO is yet approved. The architecture should minimize unnecessary model calls by using deterministic repository analysis and retrieval before semantic/LLM processing. Local memory lookup should be fast enough for interactive CLI use; precise budgets are TBD and should be benchmarked.
+
+=== Reliability Direction
+
+Workflow state and canonical memory/source transitions must be recoverable after process interruption. AI/provider invocations are assumed non-deterministic and potentially transient; durable state must not depend on in-memory conversation state alone.

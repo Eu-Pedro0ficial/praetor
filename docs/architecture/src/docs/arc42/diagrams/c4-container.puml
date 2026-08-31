@@ -1,0 +1,26 @@
+@startuml
+!include <C4/C4_Container>
+LAYOUT_WITH_LEGEND()
+title C4 Level 2 — Container View
+Person(engineer, "Engineer")
+System_Boundary(system, "Governed AI Software Engineering Runtime") {
+  Container(cli, "CLI", "Go", "Primary local interface; inbound adapter.")
+  Container(core, "Governance Core", "Go", "Change/workflow, policy, repository intelligence, routing, verification coordination, memory orchestration, audit.")
+  ContainerDb(index, "Local Memory Index", "SQLite + FTS (proposed)", "Derived query projection; not canonical Git storage.")
+  Container(sandbox, "Sandbox / Isolated Worktree", "Git worktree/container (TBD)", "Produces proposed patch without directly accepting source mutation.")
+}
+System_Ext(ai, "AI Providers", "External/local model runtimes")
+System_Ext(src, "Source Repository / SCM", "Git + hosting")
+System_Ext(mem, "Project/Organization Memory Repository", "Separate Git repository")
+System_Ext(tools, "Deterministic Engineering Tools", "Tests, analyzers, scanners")
+System_Ext(idp, "Identity / Approval Sources", "Local/Git identity initially; enterprise later")
+Rel(engineer, cli, "Runs commands / approves")
+Rel(cli, core, "Invokes use cases")
+Rel(core, index, "Builds/queries")
+Rel(core, sandbox, "Creates constrained execution")
+Rel(core, ai, "Routes role requests")
+Rel(core, src, "Reads state/history; applies accepted patch")
+Rel(core, mem, "Synchronizes canonical memory")
+Rel(core, tools, "Executes verification")
+Rel(core, idp, "Resolves actor/authority")
+@enduml

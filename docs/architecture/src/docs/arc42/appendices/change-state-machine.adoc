@@ -1,0 +1,36 @@
+=== Change State Machine
+
+The exact enum names are implementation decisions, but the domain requires explicit lifecycle gating. A candidate baseline is:
+
+[plantuml, "{plantUMLDir}change-state-machine", png]
+----
+@startuml
+[*] --> CREATED
+CREATED --> CONTEXT_READY : inspect/context
+CONTEXT_READY --> IMPACT_READY : impact analysis
+IMPACT_READY --> SPECIFIED : spec accepted
+SPECIFIED --> PLANNED : plan generated
+PLANNED --> AWAITING_PLAN_APPROVAL : policy requires approval
+PLANNED --> IMPLEMENTATION_ALLOWED : approval not required
+AWAITING_PLAN_APPROVAL --> IMPLEMENTATION_ALLOWED : approve
+AWAITING_PLAN_APPROVAL --> REJECTED : reject
+IMPLEMENTATION_ALLOWED --> IMPLEMENTATION_PROPOSED : sandbox execution
+IMPLEMENTATION_PROPOSED --> VERIFYING
+VERIFYING --> VERIFICATION_FAILED : required evidence fails
+VERIFYING --> REVIEWING : deterministic gates pass
+VERIFICATION_FAILED --> IMPLEMENTATION_ALLOWED : revise/retry
+REVIEWING --> AWAITING_ACCEPTANCE : review complete
+AWAITING_ACCEPTANCE --> ACCEPTED : human/policy acceptance
+AWAITING_ACCEPTANCE --> IMPLEMENTATION_ALLOWED : revision requested
+AWAITING_ACCEPTANCE --> REJECTED : reject
+ACCEPTED --> PR_OR_COMMIT_READY
+PR_OR_COMMIT_READY --> COMPLETED : integration recorded
+COMPLETED --> POSTMORTEM_COMPLETE : postmortem
+POSTMORTEM_COMPLETE --> [*]
+REJECTED --> POSTMORTEM_COMPLETE : optional postmortem
+@enduml
+----
+
+==== Transition Rule
+
+No agent output directly changes a Change state. The Workflow Engine performs a transition only after validating the transition preconditions and required evidence.

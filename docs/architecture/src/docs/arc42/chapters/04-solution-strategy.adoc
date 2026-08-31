@@ -1,0 +1,168 @@
+== Solution Strategy
+
+=== Strategic Decomposition
+
+The product is built around three independent durable assets:
+
+[source,text]
+----
+SOURCE + MEMORY + WORKFLOW
+----
+
+AI providers are resources invoked against these assets. They are not themselves the architecture.
+
+=== Core Change Pipeline
+
+The reference pipeline is:
+
+[source,text]
+----
+INTAKE
+  -> REPOSITORY DISCOVERY / CONTEXT
+  -> CHANGE IMPACT ANALYSIS
+  -> SPECIFICATION
+  -> ARCHITECTURAL CONSTRAINTS
+  -> CHANGE PLAN
+  -> HUMAN APPROVAL (when policy requires)
+  -> IMPLEMENTATION IN ISOLATION
+  -> STATIC VALIDATION
+  -> TEST SELECTION
+  -> DYNAMIC VALIDATION
+  -> ARCHITECTURAL VALIDATION
+  -> REGRESSION ANALYSIS
+  -> INDEPENDENT AI REVIEW
+  -> DIFF RISK ANALYSIS
+  -> HUMAN ACCEPTANCE / EXCEPTION HANDLING
+  -> COMMIT / PR
+  -> POSTMORTEM
+  -> MEMORY/POLICY CANDIDATES
+----
+
+A workflow MAY omit or add stages for a particular change type, but it cannot silently bypass mandatory gates imposed by policy.
+
+=== The `Change` as the Primary Work Aggregate
+
+The primary work object is **Change**, not chat, session, model invocation, branch, or PR. A change is the auditable container for intent and engineering evidence.
+
+Conceptual artifacts include:
+
+[source,text]
+----
+.changes/CHG-01842/
+  intake.json
+  context.json
+  impact.json
+  specification.md
+  plan.json
+  approvals.json
+  implementation.json
+  diff.patch
+  static-analysis.json
+  tests.json
+  architecture-review.json
+  ai-review.json
+  final-review.json
+  postmortem.json
+----
+
+The physical layout remains implementation-specific, but the **logical artifact model is architectural**.
+
+=== State-Machine Control
+
+Each stage has an input contract, execution capability, output contract, validation, evidence requirement, and state transition. Agents do not decide by themselves that the process is ready to advance.
+
+Examples:
+
+[source,text]
+----
+SPECIFICATION_CREATED
+    -> PLAN_ALLOWED
+    -> PLAN_CREATED
+    -> PLAN_APPROVAL_REQUIRED or IMPLEMENTATION_ALLOWED
+    -> IMPLEMENTATION_PROPOSED
+    -> VERIFICATION_REQUIRED
+    -> REVIEW_REQUIRED
+    -> ACCEPTANCE_REQUIRED
+    -> ACCEPTED / REJECTED
+----
+
+=== Change Surface Control
+
+Before implementation, repository intelligence and impact analysis derive an expected modification surface:
+
+[source,yaml]
+----
+expected_files:
+  - internal/order/service.go
+  - internal/order/service_test.go
+possible_files:
+  - internal/order/repository.go
+protected_files:
+  - internal/payment/**
+  - internal/auth/**
+----
+
+The implementation runtime can enforce this as a capability boundary. A write outside the allowed surface is a policy event, not merely a prompt suggestion.
+
+=== Deterministic Verification First
+
+Where deterministic evidence exists, it precedes or supplements model judgment. Candidate verification categories are:
+
+* Git diff and file-surface comparison;
+* AST change analysis;
+* dependency-graph diff;
+* linting and formatting;
+* compilation / type checking;
+* unit tests;
+* integration tests;
+* contract tests;
+* architecture tests;
+* mutation testing where justified;
+* coverage delta;
+* SAST;
+* dependency and container scanning;
+* secret scanning;
+* policy checks;
+* backwards-compatibility checks;
+* performance checks when the change profile requires them.
+
+AI review is useful for semantic judgment but must not substitute for deterministic evidence that can be computed.
+
+=== Separation of Duties for Agents
+
+Roles are logical responsibilities rather than provider identities:
+
+* Planner
+* Implementer
+* Reviewer
+* Test Analyst
+* Architecture Reviewer
+* Security Reviewer
+* Regression Analyst
+* Adjudicator
+
+The default rule is that the implementation role does not approve its own implementation. This is the maker-checker principle applied to AI-assisted software engineering.
+
+=== Legacy-First Repository Archaeology
+
+Before the system can safely modify a previously unknown project, it should construct a repository model from source and history. The discovery process may identify:
+
+* languages and frameworks;
+* module/package boundaries;
+* symbol and dependency graph;
+* databases and persistence mechanisms;
+* external integrations;
+* test topology;
+* CI topology;
+* inferred architectural style and constraints;
+* high-change/hotspot areas;
+* ownership evidence;
+* historical change patterns;
+* known risks and legacy constraints;
+* knowledge gaps that cannot be safely inferred.
+
+Derived artifacts may include `repository-model`, system context, architecture map, domain map, dependency map, testing strategy, known risks, and legacy constraints.
+
+=== Human Review Strategy
+
+The desired future operating model is exception-based review. Human attention is concentrated on architectural decisions, high-risk changes, exceptions, contract changes, security-sensitive behavior, ambiguous evidence, policy conflicts, and unexpected surface expansion rather than treating every AI-generated line as equally risky.

@@ -1,0 +1,61 @@
+=== Workflow and Command Model
+
+The final executable name is TBD. The examples below use `tool` generically and are **not** a naming decision.
+
+==== Command Families
+
+[source,text]
+----
+tool project init|attach|inspect|status
+tool change new|show|status
+tool change specify
+tool change impact
+tool change plan
+tool change implement
+tool change verify
+tool change review
+tool change approve|reject|except
+tool change diff
+tool change pr
+tool change postmortem
+
+tool memory status|search|show|propose|validate|approve|reject|revalidate
+tool policy list|check|explain|exceptions
+tool audit show|timeline|run
+tool provider list|capabilities|doctor
+----
+
+A good CLI should explain **why** a command is unavailable. For example, `implement` should say that plan approval is missing or a policy is blocking it rather than returning a generic state error.
+
+==== Predefined Workloads
+
+The system should support well-defined workflows rather than one universal autonomous loop. Candidate change types may include:
+
+* bug fix;
+* small feature;
+* refactor;
+* dependency upgrade;
+* API contract change;
+* database migration;
+* security fix;
+* test-only change;
+* documentation-only change;
+* legacy characterization / repository archaeology.
+
+Each may select different mandatory gates. A dependency upgrade may require dependency/security verification; a database migration may require explicit approval and migration/backward-compatibility policy; documentation-only work may omit runtime tests.
+
+==== Workflow Versioning
+
+Because workflows influence source changes, the workflow definition/version/hash is part of execution provenance. A Change begun under workflow version X should not silently continue under X+1 without an explicit migration or re-evaluation rule.
+
+==== Pause / Resume
+
+Change state should be durable enough that a developer or another authorized developer can resume a Change without reconstructing an LLM chat history. Required context is rebuilt from canonical artifacts, source snapshot and memory.
+
+==== Idempotency
+
+Commands that can be retried should distinguish between pure/rebuildable operations and consequential mutations. For example, rebuilding the local memory index is idempotent; applying a patch or creating a remote PR requires explicit idempotency keys/state checks.
+
+==== Human Interaction Principle
+
+The runtime should make approval cheap when the evidence is good and friction explicit when it is necessary. Human gates are not intended to exist after every model call. Policies determine where humans provide unique governance value.
