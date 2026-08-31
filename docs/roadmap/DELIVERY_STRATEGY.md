@@ -8,6 +8,14 @@ The primary anti-pattern to avoid is horizontal infrastructure build-up before t
 
 Can Praetor create a Change, constrain it, validate it, and accept or reject it with auditable evidence and human authority?
 
+## Mandatory architecture decision closure rule
+
+A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
+
+When a milestone reaches a deferred or benchmark trigger, the milestone must stop at that point and complete the required spike/benchmark, ADR, and human approval before continuing. An implementation convenience is not an architecture decision.
+
+This rule is part of the delivery gate, not an optional policy note.
+
 ## Revised delivery order
 
 ### Step 1 — M0.0 baseline verification
@@ -22,17 +30,23 @@ This is the first meaningful implementation milestone. The runtime must know the
 
 The runtime introduces the Change aggregate and the state machine that governs it. This is prerequisite to all later governance logic.
 
+Workflow representation is DECIDED as declarative YAML with schema validation. No custom workflow DSL is accepted without a demonstrated limitation and an approved ADR.
+
 ### Step 4 — M0.3 repository intelligence and bounded scope
 
 The runtime must inspect the repository and define the approved change surface before implementation begins.
 
 ### Step 5 — M0.4 isolated patch generation
 
-The runtime creates a patch in a sandbox or worktree and keeps canonical source untouched until approval.
+The runtime creates a patch in a Git worktree and keeps canonical source untouched until approval.
+
+Git worktree is source/workspace isolation, not a claim of a hostile-code security sandbox. Stronger process/container/OS isolation is future work that requires a separate security spike and ADR.
 
 ### Step 6 — M0.5 AI Provider Port and first adapter
 
 The AI Provider Port is integrated before the release gate so the runtime can prove provider-independent execution, while remaining behind a domain contract.
+
+Adapter loading is DECIDED as compile-time registration and composition-root selection. Go plugin loading is not the initial architecture and is not silently introduced later without a dedicated ADR.
 
 ### Step 7 — M0.6 deterministic verification and evidence
 
@@ -58,9 +72,13 @@ The runtime enforces independent review after the proof exists.
 
 Memory is added only after the governed-change loop is stable.
 
+Canonical project memory serialization remains BENCHMARK REQUIRED. Project memory persistence may not begin until the benchmark, ADR and human approval are complete.
+
 ### Step 13 — M1.3 capability routing and trust boundaries
 
 Capability-based routing and trust classification follow the proven system, not precede it. They depend on the mature policy model and governance layer, not on project memory.
+
+Provider trust levels and data classification are DECIDED and authoritative. Future changes require architecture review and ADR approval.
 
 ### Step 14 — M1.4 multi-provider maturity
 
@@ -77,6 +95,8 @@ CI and external evidence inputs are normalized separately from SCM integration a
 ### Step 17 — M1.7 organization memory and learning loop
 
 Institutional learning and organization memory remain downstream extensions, not V0 prerequisites, and are primarily derived from project memory, audit, governance, and promotion authority.
+
+Hosted organization memory remains DEFERRED; this milestone may not proceed beyond concept design until the persistence spike, ADR, and human approval are complete.
 
 ## Delivery discipline
 

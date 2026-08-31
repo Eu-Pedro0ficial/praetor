@@ -1,9 +1,9 @@
 === Separate Canonical Memory from Query and AI Projections
 
-*Status:* PROPOSED / FORMAT TBD
+*Status:* BENCHMARK REQUIRED
 
 *Context:* Git collaboration, local search and LLM token efficiency have different optimal formats.
 
-*Decision:* Adopt a semantic Memory Model and allow canonical Git serialization, local SQLite/FTS projection and provider-facing projection to differ. Benchmark canonical serialization before deciding JSON/YAML/XML/TOML/etc.
+*Decision:* Adopt a semantic Memory Model and allow canonical Git serialization, local SQLite/FTS projection and provider-facing projection to differ. The canonical memory format remains benchmark-required and undecided until the memory-format benchmark, ADR and human approval are complete.
 
-*Consequences:* Avoids forcing one representation on incompatible concerns. Requires reliable round-trip/projection validation.
+*Consequences:* Avoids forcing one representation on incompatible concerns. Requires reliable round-trip/projection validation and explicit authority before persistence begins.

@@ -25,6 +25,20 @@ Hash/fingerprint candidates include prompt/spec hash, workflow hash, policy hash
 
 Audit is append-oriented. Correction is represented by a later event, not deletion of history. Exact cryptographic immutability is DEFERRED, but the model must permit signed commits/event signatures later.
 
+=== Architecture Decision Closure
+
+A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
+
+When a milestone reaches the trigger for such a decision:
+
+. dependent implementation must stop;
+. the required spike/benchmark/research must be performed;
+. an ADR or explicit architecture decision must be produced;
+. human approval is required;
+. only then may implementation continue.
+
+An implementation convenience is NOT an architecture decision.
+
 === Memory Architecture
 
 ==== Scopes
@@ -51,7 +65,7 @@ A memory record may reference file, symbol, source commit, hash/fingerprint, ori
 
 The architecture deliberately separates three representations:
 
-. **Canonical Git representation** — merge-friendly, reviewable durable records; exact serialization format TBD.
+. **Canonical Git representation** — merge-friendly, reviewable durable records. The exact serialization format remains BENCHMARK REQUIRED until a benchmark and human-approved ADR are complete.
 . **Local query projection** — likely SQLite + FTS for fast deterministic retrieval and indexes.
 . **AI/context projection** — Markdown/compact/provider-optimized Context Packs selected for the current task.
 
@@ -94,7 +108,7 @@ Memory can contain architecture, vulnerabilities, internal endpoints, service na
 * encryption strategy;
 * future organization/tenant isolation.
 
-Provider trust levels are conceptually:
+Provider trust levels are:
 
 * LOCAL
 * ENTERPRISE
@@ -102,7 +116,20 @@ Provider trust levels are conceptually:
 * EXTERNAL_RESTRICTED
 * FORBIDDEN
 
+Data classification is:
+
+* PUBLIC
+* INTERNAL
+* CONFIDENTIAL
+* RESTRICTED
+
 The router must not send context to a provider that violates the data policy, even if that provider is otherwise technically capable.
+
+Configuration precedence is conceptually:
+
+built-in defaults < user configuration < project configuration < workflow configuration < Change-specific configuration
+
+However, configuration precedence does not override governance authority. A lower-level configuration cannot weaken a higher-authority non-overridable policy.
 
 === Role-Based Authority
 

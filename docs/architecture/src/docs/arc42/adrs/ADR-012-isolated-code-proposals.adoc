@@ -4,6 +4,6 @@
 
 *Context:* Direct writes by agents blur proposal and accepted source state.
 
-*Decision:* Use isolated worktree/container/sandbox, extract a patch, validate it, then apply only accepted changes.
+*Decision:* Use Git worktrees as the initial source/workspace isolation mechanism, extract a patch, validate it, then apply only accepted changes. Worktree isolation is not itself a security sandbox; stronger process/container/OS isolation requires a separate security spike and ADR before being claimed for untrusted workloads.
 
-*Consequences:* Safer rollback/control and cleaner audit. Platform-specific sandbox strategy remains to be chosen.
+*Consequences:* Safer rollback/control and cleaner audit. Platform-specific sandbox strategy remains a future concern for stronger security boundaries.

@@ -11,11 +11,13 @@ The first deployment model is local-first:
 
 * one Go executable / CLI runtime;
 * local source repository/workspace;
-* isolated worktree/container/sandbox for AI changes;
+* isolated Git worktree for AI changes;
 * local SQLite + FTS projection for memory queries;
 * external Git/SCM remotes for source and memory repositories;
 * external or local AI providers through adapters;
 * local deterministic tools invoked as subprocesses/adapters.
+
+Git worktree provides source/workspace isolation; it is not itself a security sandbox. Stronger process/container/OS isolation remains a future adapter concern and must not be silently substituted for worktree isolation.
 
 === Enterprise Deployment — Architectural Compatibility
 

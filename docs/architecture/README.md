@@ -1,8 +1,6 @@
-# Governed AI Software Engineering Runtime — Architecture Documentation
+# Praetor — Architecture Documentation
 
-> **Working title only.** The product name has not been decided.
-
-This repository contains the architecture documentation for a developer-governed software engineering orchestration platform that uses AI agents as constrained executors inside deterministic, spec-driven, policy-enforced development workflows.
+This repository contains the architecture documentation for Praetor, a developer-governed software engineering orchestration platform that uses AI agents as constrained executors inside deterministic, spec-driven, policy-enforced development workflows.
 
 The documentation follows **arc42**, uses **C4 Model** views rendered with PlantUML/C4-PlantUML, and is structured for **docToolchain**.
 
@@ -35,10 +33,23 @@ Outputs are normally produced under:
 
 ## Status vocabulary
 
-- **DECIDED** — explicitly adopted in the project discussion.
-- **PROPOSED** — strong architectural direction, not yet formally locked.
-- **TBD** — deliberately unresolved and must not be silently decided by implementation.
-- **DEFERRED** — intentionally outside the first implementation milestone, while the architecture must not prevent later support.
+- **DECIDED** — explicitly adopted and authoritative.
+- **DECIDED FOR INITIAL ARCHITECTURE** — approved for the initial implementation, with a documented reopen trigger.
+- **DEFERRED** — intentionally outside the first implementation milestone, with explicit trigger and approval requirements.
+- **BENCHMARK REQUIRED** — mandatory benchmark and human approval before the decision becomes authoritative.
+- **SPIKE REQUIRED** — dedicated investigation and ADR required before adopting the technical direction.
+
+## Mandatory decision closure rule
+
+A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
+
+When a milestone reaches the trigger for such a decision:
+
+1. dependent implementation must stop;
+2. the required spike/benchmark/research must be performed;
+3. an ADR or explicit architecture decision must be produced;
+4. human approval is required;
+5. only then may dependent implementation continue.
 
 ## Important principle
 

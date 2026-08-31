@@ -7,7 +7,7 @@ System_Boundary(system, "Governed AI Software Engineering Runtime") {
   Container(cli, "CLI", "Go", "Primary local interface; inbound adapter.")
   Container(core, "Governance Core", "Go", "Change/workflow, policy, repository intelligence, routing, verification coordination, memory orchestration, audit.")
   ContainerDb(index, "Local Memory Index", "SQLite + FTS (proposed)", "Derived query projection; not canonical Git storage.")
-  Container(sandbox, "Sandbox / Isolated Worktree", "Git worktree/container (TBD)", "Produces proposed patch without directly accepting source mutation.")
+  Container(sandbox, "Sandbox / Isolated Worktree", "Git worktree / source-workspace isolation", "Produces proposed patch without directly accepting source mutation; stronger sandboxing remains future work.")
 }
 System_Ext(ai, "AI Providers", "External/local model runtimes")
 System_Ext(src, "Source Repository / SCM", "Git + hosting")

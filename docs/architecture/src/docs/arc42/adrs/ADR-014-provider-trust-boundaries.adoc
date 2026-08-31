@@ -4,6 +4,6 @@
 
 *Context:* Project memory/source can contain sensitive corporate information.
 
-*Decision:* Classify providers and context; router blocks provider use that violates policy before data transmission.
+*Decision:* Classify providers and context with the authoritative trust taxonomy LOCAL, ENTERPRISE, EXTERNAL_APPROVED, EXTERNAL_RESTRICTED, FORBIDDEN and the data classification taxonomy PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED; the router blocks provider use that violates policy before data transmission.
 
-*Consequences:* Supports enterprise governance and local/air-gapped models. Requires classification and configuration hygiene.
+*Consequences:* Supports enterprise governance and local/air-gapped models. Requires classification and configuration hygiene. Any future taxonomy change requires explicit architecture review and ADR approval.

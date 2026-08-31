@@ -15,32 +15,27 @@
 |CON-008 |Project memory is separated from the application source repository |The source repository does not have to be modified merely to adopt the tool.
 |CON-009 |AI does not write canonical project memory directly |Agent output becomes a candidate that must pass validation and, where applicable, approval.
 |CON-010 |AI implementation does not directly become accepted source |Changes should be isolated as patches/worktrees/sandbox outputs and become accepted only after validation.
+|CON-011 |Workflow definitions use declarative YAML with schema validation |Workflow state/storage may be modeled independently from YAML, but the representation is not a custom DSL unless a later ADR and human approval justify the exception.
+|CON-012 |Policy definitions use declarative YAML with schema validation |The Policy domain model stays representation-independent and simple by default.
+|CON-013 |Go plugin loading is not the initial adapter strategy |Compile-time registration and composition-root selection remain the approved initial architecture.
+|CON-014 |Git worktree is the initial source/workspace isolation mechanism |It is not described as a security sandbox; stronger isolation must await a separate spike and ADR.
+|CON-015 |Provider trust and data-classification taxonomies are authoritative |Provider routing and governance reject disallowed provider/data combinations before transmission.
 |===
 
-=== Strong Directions, Not Yet Irrevocably Final
+=== Architectural Decision Closure Rule
 
-* CLI-first product surface. A future GUI is not forbidden, but the core must not depend on one.
-* Git as the first durable collaboration mechanism for memory repositories and change provenance.
-* SQLite + FTS as a local query projection of memory, not the canonical Git artifact.
-* Small independent records as the likely canonical Git representation for memory.
-* Markdown or provider-optimized context packs as the AI-facing representation.
-* Embeddings as an optional later retrieval layer, not the first retrieval mechanism.
+A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
 
-=== Deliberately Open Decisions
+When a milestone reaches the trigger for such a decision, implementation must stop, the benchmark/spike must be completed, an ADR or explicit architecture decision must be produced, human approval is required, and only then may implementation continue.
 
-The following MUST remain explicit design questions until benchmarked or otherwise decided:
+=== Deliberately Deferred Decisions
 
-* final product name and CLI executable name;
-* canonical serialized memory format: JSON, YAML, XML, TOML, or another compact representation;
-* exact workflow-definition DSL or configuration format;
-* exact policy-definition DSL;
-* exact plugin/adapter loading mechanism in Go;
-* exact local sandbox technology on each operating system;
-* initial SCM and issue-tracker adapters beyond local Git/GitHub;
-* persistence choice for organization-scale hosted deployments, if/when introduced;
-* whether cryptographic audit signatures are required before an enterprise edition;
-* exact semantic-conflict detection method for memory;
-* whether a GUI/server control plane exists in an early release.
+The following remain explicit design questions with known triggers and approval gates:
+
+* hosted organization memory / persistence architecture;
+* GUI or server control plane;
+* semantic memory conflict detection beyond structural rules;
+* canonical project memory serialization format benchmark.
 
 === Documentation Constraint
 

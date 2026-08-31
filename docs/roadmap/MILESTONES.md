@@ -6,6 +6,20 @@ The roadmap must not treat memory, routing sophistication, or organizational lea
 
 The project must prove a governed change loop first, then expand capability after V0.
 
+## Mandatory decision closure rule
+
+A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
+
+When a milestone reaches the trigger for such a decision:
+
+1. dependent implementation must stop;
+2. the required spike/benchmark/research must be performed;
+3. an ADR or explicit architecture decision must be produced;
+4. human approval is required;
+5. only then may dependent implementation continue.
+
+This rule is part of the Definition of Done for any milestone that depends on a deferred or benchmarked decision.
+
 ## Phase 0 — Core V0 build-up
 
 ### Milestone M0.0 — Baseline Verification
@@ -289,6 +303,7 @@ A governed change must be scoped to a bounded surface before any implementation 
 #### Preconditions
 - project identity exists
 - Change lifecycle is active
+- ARCHITECTURE DECISION GATE: workflow representation is DECIDED as declarative YAML with schema validation; no custom workflow DSL may be introduced without an explicit ADR and human approval
 
 #### Implementation boundaries
 - only minimal repository analysis needed for V0
@@ -368,6 +383,7 @@ Praetor is only distinct from a direct AI coding API when implementation happens
 #### Preconditions
 - change surface is known
 - workflow state is active
+- ARCHITECTURE DECISION GATE: Git worktree is the initial source/workspace isolation mechanism; stronger security sandboxing remains a deferred spike-and-ADR concern and must not be silently claimed as equivalent
 
 #### Implementation boundaries
 - no provider-specific execution integration yet
@@ -444,6 +460,7 @@ The core domain must remain provider-independent, but V0 still needs one concret
 #### Preconditions
 - sandbox path is available
 - isolated patch workflow exists
+- ARCHITECTURE DECISION GATE: Go adapter loading is DECIDED as compile-time registration and composition-root selection; Go plugin loading is not the initial model and requires a separate spike and ADR before adoption
 
 #### Implementation boundaries
 - exactly one concrete provider adapter for the V0 path
@@ -908,6 +925,7 @@ Memory becomes valuable when the governed-change loop is stable; it is not part 
 
 #### Preconditions
 - V0 change loop already works and is considered stable
+- ARCHITECTURE DECISION GATE: canonical project memory serialization is BENCHMARK REQUIRED; persistence must not begin before the benchmark, ADR, and human approval are complete
 
 #### Implementation boundaries
 - local memory only
@@ -1007,15 +1025,16 @@ Capability-based routing and trust boundaries work in a way that is policy-gover
 ### Milestone M1.4 — Multi-provider Maturity
 
 #### Objective
-Extend Praetor beyond its local proof path with a governed multi-provider ecosystem.
+Extend Praetor beyond its local proof path with a governed multi-provider ecosystem that consumes the capability, routing, and trust model established in M1.3.
 
 #### Motivation
-Further operational support is a second-order value after the local proof is complete.
+Further operational support is a second-order value after the local proof is complete, and it must build on the capability and trust model rather than duplicate provider-selection logic.
 
 #### Architectural components involved
 - provider adapter ecosystem
 - provider selection policy
 - cross-provider execution normalization
+- M1.3 capability/routing/trust model
 
 #### Domain concepts introduced
 - ProviderSet
@@ -1028,11 +1047,13 @@ Further operational support is a second-order value after the local proof is com
 
 #### Required adapters
 - additional provider adapters behind the same port
+- provider adapters that consume the M1.3 routing/trust metadata contract
 
 #### Inputs
 - task routing requirements
 - provider capability metadata
 - project governance constraints
+- M1.3 trust and classification outputs
 
 #### Outputs
 - provider selection decisions
@@ -1040,12 +1061,15 @@ Further operational support is a second-order value after the local proof is com
 
 #### Dependencies
 - M1.0
+- M1.3
 
 #### Preconditions
 - the base provider port and first adapter are stable
+- M1.3 capability/routing/trust boundaries are in place
 
 #### Implementation boundaries
 - no broad SCM or CI coupling yet
+- no duplicated provider-selection rules beyond the M1.3 model
 
 #### Explicit non-goals
 - issue-tracker parity
@@ -1056,33 +1080,35 @@ Further operational support is a second-order value after the local proof is com
 - multi-provider selection tests
 - provider fallback and failure tests
 - route policy tests
+- trust-boundary enforcement tests using the M1.3 model
 
 #### Validation
-- provider operations remain governed by the policy and routing layer
+- provider operations remain governed by the policy and routing layer introduced in M1.3
 
 #### Documentation changes
 - provider maturity docs
 
 #### Acceptance criteria
-- the runtime can operate across multiple providers behind the same port without weakening governance
+- the runtime can operate across multiple providers behind the same port without weakening governance or reintroducing provider selection logic that bypasses the M1.3 capability/routing/trust model
 
 #### Definition of Done
-Multi-provider execution is supported as an extension layer, not a V0 prerequisite.
+Multi-provider execution is supported as an extension layer that consumes the M1.3 routing and trust model, not a V0 prerequisite or parallel provider-selection implementation.
 
 ---
 
 ### Milestone M1.5 — SCM Integration
 
 #### Objective
-Add source-control integration as an independently testable capability after the local governance loop is proven.
+Add source-control integration as an independently testable capability after the local governance loop is proven, using the GitHub SCM adapter as the first concrete remote adapter behind a provider-independent SCM port.
 
 #### Motivation
-SCM integration is operationally valuable, but it is not the core proof of Praetor and should not be bundled with provider maturity or CI evidence.
+SCM integration is operationally valuable, but it is not the core proof of Praetor and should not be bundled with provider maturity or CI evidence. Local Git remains foundational; GitHub is the first remote SCM integration after Core V0.
 
 #### Architectural components involved
 - SCM port
 - repository workflow adapter
 - change-source traceability
+- GitHub SCM adapter as the first remote adapter
 
 #### Domain concepts introduced
 - SCMEvent
@@ -1094,7 +1120,8 @@ SCM integration is operationally valuable, but it is not the core proof of Praet
 - Audit Port
 
 #### Required adapters
-- SCM adapter under the selected architecture
+- GitHub SCM adapter as the first concrete remote SCM adapter
+- additional SCM adapters only after the provider-independent contract is proven
 
 #### Inputs
 - accepted project changes
@@ -1109,9 +1136,11 @@ SCM integration is operationally valuable, but it is not the core proof of Praet
 
 #### Preconditions
 - local governance loop is stable
+- the provider-independent SCM contract is stable
 
 #### Implementation boundaries
 - isolated SCM workflow support only
+- no GitHub concepts embedded in the domain/core; GitHub belongs in the adapter layer
 
 #### Explicit non-goals
 - issue tracker parity
@@ -1121,19 +1150,20 @@ SCM integration is operationally valuable, but it is not the core proof of Praet
 #### Tests
 - SCM contract tests
 - repository linkage tests
+- GitHub adapter integration tests
 - audit continuity tests
 
 #### Validation
-- SCM actions remain governed and evidence-linked
+- SCM actions remain governed, auditable, and provider-independent at the domain/core layer
 
 #### Documentation changes
 - SCM integration docs
 
 #### Acceptance criteria
-- SCM operations remain explicit, auditable, and controlled by project governance
+- SCM operations remain explicit, auditable, and controlled by project governance, with GitHub as the first concrete remote adapter behind a provider-independent SCM port
 
 #### Definition of Done
-SCM integration works as a separate extension of the local governance model.
+SCM integration works as a separate extension of the local governance model, with GitHub as the first supported remote adapter and no GitHub-specific behavior in the domain/core.
 
 ---
 
@@ -1251,6 +1281,7 @@ Institutional learning matters after the local proof is established and should n
 #### Preconditions
 - local governance, audit, and project memory are stable
 - promotion authority is explicit
+- ARCHITECTURE DECISION GATE: hosted organization memory and persistence remain DEFERRED; this milestone may not proceed beyond concept design until the workload, consistency, tenancy, security, persistence spike, ADR and human approval are complete
 
 #### Implementation boundaries
 - explicit promotion only

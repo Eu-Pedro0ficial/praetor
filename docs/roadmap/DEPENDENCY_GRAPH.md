@@ -19,7 +19,7 @@ flowchart TD
     I --> K[M1.1 Review Engine + Maker-Checker Enforcement]
     I --> L[M1.2 Local Project Memory]
     J --> M[M1.3 Capability Model + Routing + Trust Boundaries]
-    J --> N[M1.4 Multi-provider Maturity]
+    M --> N[M1.4 Multi-provider Maturity]
     N --> O[M1.5 SCM Integration]
     N --> P[M1.6 CI + External Evidence Integration]
     L --> Q[M1.7 Organization Memory + Learning Loop]
@@ -57,6 +57,27 @@ flowchart TD
 5. M1.0 policy maturity is the dependency for formalized routing and trust-based policy decisions; project memory is not required for capability routing.
 6. Memory becomes valuable only after the core change loop works.
 7. Organization-scale memory and learning derive primarily from project memory, governance, audit, and promotion authority, not SCM/CI integration.
+8. A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED must stop dependent implementation until the required spike/benchmark, ADR and human approval are complete.
+
+## Decision closure gates
+
+Approved decisions now authoritative:
+
+- Workflow representation: declarative YAML with schema validation.
+- Policy representation: declarative YAML with schema validation.
+- Adapter loading: compile-time registration + composition root; no Go plugin loading in the initial architecture.
+- Sandbox isolation: Git worktree for source/workspace isolation; not a security sandbox.
+- First remote SCM: local Git first; GitHub is the first remote SCM adapter after Core V0, behind a provider-independent SCM Port. GitHub concepts stay in the adapter layer, not in the domain/core.
+- Provider trust taxonomy: LOCAL, ENTERPRISE, EXTERNAL_APPROVED, EXTERNAL_RESTRICTED, FORBIDDEN.
+- Data classification taxonomy: PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED.
+- Configuration precedence: built-in defaults < user < project < workflow < Change-specific, while governance authority remains higher priority.
+
+Deferred or benchmarked decisions are explicit gates, not silent assumptions:
+
+- Hosted organization memory: DEFERRED, requires persistence spike + ADR + human approval.
+- GUI / server control plane: DEFERRED, requires explicit capability justification + ADR + human approval.
+- Semantic memory conflict detection: DEFERRED / SPIKE REQUIRED before semantic conflict authority can be adopted.
+- Canonical project memory serialization: BENCHMARK REQUIRED before persistence implementation begins.
 
 ## Critical path
 

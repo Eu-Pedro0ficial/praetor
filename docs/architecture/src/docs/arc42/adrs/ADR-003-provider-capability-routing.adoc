@@ -4,6 +4,6 @@
 
 *Context:* Roles need different model capabilities, and providers may change.
 
-*Decision:* Model provider adapters expose capabilities. Agent Router chooses an allowed provider based on role requirements plus data/trust policy rather than hard-coded provider names.
+*Decision:* Model provider adapters expose capabilities. Agent Router chooses an allowed provider based on role requirements plus data/trust policy rather than hard-coded provider names. The provider trust taxonomy is LOCAL, ENTERPRISE, EXTERNAL_APPROVED, EXTERNAL_RESTRICTED, FORBIDDEN; the data classification taxonomy is PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED.
 
-*Consequences:* Provider independence improves. Capability normalization and routing policy become core responsibilities.
+*Consequences:* Provider independence improves. Capability normalization and routing policy become core responsibilities. Future taxonomy changes require architecture review and approval.

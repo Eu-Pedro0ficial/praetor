@@ -4,6 +4,6 @@
 
 *Context:* Enterprise-grade provenance requires preserving what actually happened.
 
-*Decision:* Audit corrections are new events; historical events are not silently deleted or rewritten.
+*Decision:* Audit corrections are new events; historical events are not silently deleted or rewritten. Hash chaining/tamper-evidence is a future capability, but cryptographic signatures and PKI are not Core V0 requirements.
 
-*Consequences:* Strong traceability. Retention/indexing volume must later be managed.
+*Consequences:* Strong traceability. Retention/indexing volume must later be managed. Future cryptographic evolution requires a dedicated security spike and ADR before enterprise claims.

@@ -1,28 +1,28 @@
 === Workflow and Command Model
 
-The final executable name is TBD. The examples below use `tool` generically and are **not** a naming decision.
+The CLI executable is named `praetor`. The examples below use the command family name `praetor` explicitly and should remain aligned with the accepted product naming.
 
 ==== Command Families
 
 [source,text]
 ----
-tool project init|attach|inspect|status
-tool change new|show|status
-tool change specify
-tool change impact
-tool change plan
-tool change implement
-tool change verify
-tool change review
-tool change approve|reject|except
-tool change diff
-tool change pr
-tool change postmortem
+praetor project init|attach|inspect|status
+praetor change new|show|status
+praetor change specify
+praetor change impact
+praetor change plan
+praetor change implement
+praetor change verify
+praetor change review
+praetor change approve|reject|except
+praetor change diff
+praetor change pr
+praetor change postmortem
 
-tool memory status|search|show|propose|validate|approve|reject|revalidate
-tool policy list|check|explain|exceptions
-tool audit show|timeline|run
-tool provider list|capabilities|doctor
+praetor memory status|search|show|propose|validate|approve|reject|revalidate
+praetor policy list|check|explain|exceptions
+praetor audit show|timeline|run
+praetor provider list|capabilities|doctor
 ----
 
 A good CLI should explain **why** a command is unavailable. For example, `implement` should say that plan approval is missing or a policy is blocking it rather than returning a generic state error.
@@ -47,6 +47,8 @@ Each may select different mandatory gates. A dependency upgrade may require depe
 ==== Workflow Versioning
 
 Because workflows influence source changes, the workflow definition/version/hash is part of execution provenance. A Change begun under workflow version X should not silently continue under X+1 without an explicit migration or re-evaluation rule.
+
+Workflow definitions use declarative, versioned YAML with schema validation. The domain model remains independent from YAML; a custom Praetor workflow DSL is not the default and requires demonstrated limitations plus an approved ADR.
 
 ==== Pause / Resume
 

@@ -1,17 +1,21 @@
 === Configuration and Precedence Model
 
-Configuration is likely to exist at multiple scopes. Exact filenames and syntax are TBD, but precedence must be explicit to prevent silent governance drift.
+Configuration is explicit and ordered by precedence. The authoritative model is:
 
-Candidate scopes from broadest to narrowest:
+built-in defaults < user configuration < project configuration < workflow configuration < Change-specific configuration
 
-. built-in safe defaults;
-. organization configuration/policy;
-. project configuration/policy;
-. workflow/change-type configuration;
-. explicitly approved Change exception;
-. runtime/session preference where it cannot weaken mandatory governance.
+Governance authority is not subordinate to configuration precedence. A lower-level configuration cannot weaken a higher-authority non-overridable policy.
 
-A lower scope must not be able to weaken a higher-scope FORBIDDEN rule unless the higher scope explicitly defines an exception mechanism and authority.
+Example: if organization governance forbids an external provider, project or Change configuration cannot re-enable it.
+
+==== Required Distinction
+
+The system must distinguish between:
+
+* CONFIGURATION PRECEDENCE — which value wins when multiple layers define the same setting;
+* GOVERNANCE AUTHORITY — which source is allowed to override a mandatory rule or deny an operation.
+
+Configuration precedence explains the effective value. Governance authority explains whether a value is allowed to be effective at all.
 
 Provider credentials are not normal project configuration and must not be stored in canonical memory/source configuration.
 

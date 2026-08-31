@@ -21,10 +21,10 @@
 |R-016 |Human approvals become a new bottleneck |Lost productivity |risk-based policy and exception-oriented review, not approval everywhere
 |R-017 |The product becomes another autonomous agent UI |Strategic failure |protect “engineering workflow first” as architectural product principle
 |R-018 |Too many abstractions are built before V0 |Delivery failure |YAGNI; implement ports only when a concrete adapter/use case exists
-|R-019 |Go plugin mechanism becomes portability/security issue |Operational complexity |prefer process/protocol adapters where dynamic Go plugins are unsuitable; decision TBD
+|R-019 |Go plugin mechanism becomes portability/security issue |Operational complexity |prefer process/protocol adapters; compile-time registration and composition-root selection remain the approved initial strategy
 |R-020 |AI output parser accepts malformed/ambiguous data |State corruption |strict schemas, validation and rejection before canonical mutation
 |===
 
 === Known Architectural Debt at Baseline
 
-Because implementation has not started, the principal debt is **decision debt**, not code debt. The most important unresolved items are the canonical memory serialization, workflow DSL, policy DSL, sandbox implementation, adapter/plugin extension strategy and exact V0 scope.
+Because implementation has not started, the principal debt is **decision debt**, not code debt. The most important deferred items are the canonical memory serialization benchmark, hosted organization memory, semantic conflict detection, and any stronger sandboxing beyond the approved worktree-based isolation strategy. These items remain explicitly gated by benchmark, ADR and human approval rather than silently being implemented.

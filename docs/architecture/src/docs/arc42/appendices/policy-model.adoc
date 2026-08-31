@@ -19,7 +19,9 @@ engineering/policies/
   database/
 ----
 
-A policy package may eventually contain specification, machine-readable rules, executable checks, evidence schema, severity and exception rules. The exact on-disk DSL is TBD.
+A policy package contains specification, machine-readable rules, executable checks, evidence schema, severity and exception rules. Policy definitions use declarative, versioned YAML with schema validation.
+
+The domain Policy model remains representation-independent. A custom policy DSL is not selected by default and requires demonstrated need plus an approved ADR.
 
 ==== Enforcement Outcomes
 
@@ -45,4 +47,4 @@ policies:
   performance: advisory
 ----
 
-This example conveys intent only; exact syntax is not yet decided.
+This example conveys intent only; the YAML schema remains the authoritative representation.

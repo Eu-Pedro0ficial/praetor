@@ -10,6 +10,20 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
+## Mandatory architecture decision closure rule
+
+A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
+
+When a milestone reaches the trigger for such a decision:
+
+1. dependent implementation must stop;
+2. the required spike/benchmark/research must be performed;
+3. an ADR or explicit architecture decision must be produced;
+4. human approval is required;
+5. only then may dependent implementation continue.
+
+An implementation convenience is NOT an architecture decision.
+
 ## Hierarchical structure
 
 ### Phase 0 — Core V0 build-up
@@ -40,6 +54,7 @@ The normative V0 target is:
 - Capability: minimal workflow model
   - Sub-capability: change-state orchestration
   - Implementation tasks: define workflow transitions for created, planned, isolated, validated, approved, rejected, and audit-locked states
+- Architecture decision gate: Workflow representation is DECIDED as declarative versioned YAML with schema validation. This milestone may not proceed beyond state-machine modeling without that workflow decision being recorded as an explicit architecture decision and kept separate from the domain model.
 
 #### M0.3 — Repository Intelligence + Change Surface
 - Capability: repository model
@@ -59,6 +74,7 @@ The normative V0 target is:
 - Capability: patch lifecycle
   - Sub-capability: proposal, extraction, validation gate, and rejection path
   - Implementation tasks: record patch generation, validation intent, and rejection/acceptance disposition
+- Architecture decision gate: Git worktree is the initial source/workspace isolation mechanism. This milestone may not be described as a security sandbox; stronger host/process/network isolation remains a future spike-and-ADR concern.
 
 #### M0.5 — AI Provider Port + First Adapter
 - Capability: provider-independent AI execution contract
@@ -67,6 +83,7 @@ The normative V0 target is:
 - Capability: first AI executor path
   - Sub-capability: isolated implementation request execution
   - Implementation tasks: connect the AI executor to the sandboxed change lifecycle without coupling the domain to provider-specific types
+- Architecture decision gate: Go adapter loading is DECIDED as compile-time registration, dependency injection, and configuration-driven selection. Go plugin loading is not the initial model; any future dynamic adapter deployment requires a dedicated spike and ADR.
 
 #### M0.6 — Deterministic Verification + Evidence
 - Capability: minimal verification gate
@@ -111,12 +128,14 @@ The normative V0 target is:
 - Capability: project memory foundation
   - Sub-capability: memory candidate lifecycle and retrieval projection
   - Implementation tasks: add governed local memory, candidate validation, provenance, and local indexing without making memory a V0 prerequisite
+- Architecture decision gate: canonical project memory serialization is benchmark-required and undecided. This milestone may not proceed beyond the persistence design until the benchmark, ADR, and human approval are complete.
 
 #### M1.3 — Capability Model + Routing + Trust Boundaries
 - Capability: provider maturity
   - Sub-capability: capability model, routing, trust levels, and data classification
   - Implementation tasks: route providers by capability and trust policy; normalize provider metadata and enforce data-classification constraints
   - Dependencies: M1.0 policy maturity and the proven V0 governance loop
+- Architecture decision gate: provider trust taxonomy and data classification are DECIDED. Any future taxonomy change requires architecture review and ADR approval before implementation changes.
 
 #### M1.4 — Multi-provider Maturity
 - Capability: provider ecosystem maturity
@@ -137,6 +156,7 @@ The normative V0 target is:
 - Capability: organization-level learning
   - Sub-capability: promotion, policy inheritance, and rejected-change learning
   - Implementation tasks: govern project-to-organization memory promotion and derived learning from failures and postmortems, using project memory, governance, audit, and promotion authority as the primary inputs
+- Architecture decision gate: hosted organization memory and persistence remain DEFERRED. This milestone may not proceed beyond concept design until the workload, tenancy, consistency, security, persistence spike, ADR and human approval have been completed.
 
 ## Core V0 release gate
 

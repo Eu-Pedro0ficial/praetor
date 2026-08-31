@@ -12,7 +12,7 @@ Container_Boundary(mem, "Memory Engine") {
   Component(projection, "Projection Builder", "Go", "Canonical records -> SQLite/FTS and provider-facing formats.")
 }
 ContainerDb(local, "Local Query Projection", "SQLite + FTS")
-System_Ext(canonical, "Canonical Memory Git Repository", "Small independent records; serialization TBD")
+System_Ext(canonical, "Canonical Memory Git Repository", "Small independent records; serialization benchmark and ADR required before canonical selection")
 System_Ext(source, "Source Repository", "Evidence fingerprints and current commit")
 Rel(candidate, model, "validates typed record")
 Rel(candidate, conflict, "checks")

@@ -1,0 +1,47 @@
+=== Decision Registry
+
+This registry summarizes the authoritative architecture decisions for Praetor. It is intended to make the closure points explicit and to prevent silent reinterpretation during implementation.
+
+==== Decision Closure Rule
+
+A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
+
+When a milestone reaches a trigger for such a decision, the following must occur before dependent implementation may continue:
+
+. dependent implementation must stop;
+. the required benchmark/spike/research must be completed;
+. an ADR or explicit architecture decision must be produced;
+. human approval must be obtained;
+. implementation may resume only after approval.
+
+==== Registry
+
+[cols="1,2,2,3,2,2,2", options="header"]
+|===
+|ID |Title |Status |Decision |Trigger |Reopen/Review Trigger |Required Evidence
+|ADR-001 |Go implementation language |DECIDED |Use Go as the runtime and CLI implementation language. |Project baseline and runtime shell creation. |Any language change must be explicit and reviewed. |Module build and project baseline verification.
+|ADR-002 |Layered architecture with ports and adapters |DECIDED |Use a layered architecture with ports and adapters; domain/core stays independent from external systems. |Baseline design and implementation layering. |Any new cross-layer dependency requires ADR review. |Architecture boundary checks, dependency review.
+|ADR-003 |Provider capability routing |DECIDED |Route providers by capability and governance policy; do not hard-code provider names. |M1.3 capability routing milestone. |Any trust or taxonomy change must be reviewed. |Route policy tests, provider capability metadata, policy enforcement evidence.
+|ADR-004 |Change aggregate and workflow state machine |DECIDED |Use a Change aggregate with explicit workflow transitions and audit linkage. |M0.2 Change domain milestone. |Workflow or state transition redesign requires ADR. |State transition tests, audit records.
+|ADR-005 |Change surface control |DECIDED |Bound repository writes to an approved change surface before implementation. |M0.3 repository intelligence milestone. |Change-surface policy mismatch requires review. |Surface validation evidence, diff comparison.
+|ADR-006 |Deterministic verification |DECIDED |Require deterministic validation and evidence before acceptance. |M0.6 verification milestone. |Any new validation authority or bypass requires ADR. |Build/test evidence, verification artifact records.
+|ADR-007 |External project memory |DECIDED |Keep project memory separate from the canonical source repository. |M1.2 local memory milestone. |Any hosted or shared memory topology requires ADR. |Provenance and retention evidence.
+|ADR-008 |Canonical memory representation |BENCHMARK REQUIRED |Keep canonical memory independent from query and AI projections; benchmark before selecting a format. |Before canonical Project Memory persistence begins. |Any selection change requires benchmark and ADR. |Memory-format benchmark, results, recommendation, human approval.
+|ADR-009 |Local memory index |DECIDED |Use local retrieval projections such as SQLite + FTS for index/query behavior. |M1.2 local memory milestone. |Any alternative local indexing technology requires ADR review. |Retrieval and provenance tests.
+|ADR-010 |Append-oriented audit |DECIDED |Use append-only audit history; corrections appear as new events. |M0.7 approval + audit milestone. |Any non-append semantics require ADR and security review. |Audit continuity and replay evidence.
+|ADR-011 |Memory invalidation lifecycle |DECIDED |Invalidate or supersede memory records based on provenance and evidence changes. |Local memory maturity and revalidation milestones. |Any canonical invalidation model change requires ADR. |Revalidation and provenance tests.
+|ADR-012 |Isolated code proposals |DECIDED FOR INITIAL IMPLEMENTATION |Use Git worktrees as the initial source/workspace isolation mechanism and never mutate canonical source before approval. |M0.4 sandbox milestone. |Any stronger security sandbox or hostile-workload strategy requires security spike and ADR. |Patch isolation tests, canonical source integrity tests.
+|ADR-013 |Maker-checker enforcement |DECIDED |Separate implementer and approver authority. |M1.1 review engine milestone. |Any bypass of review separation requires ADR. |Review and approval evidence.
+|ADR-014 |Provider trust boundaries |DECIDED |Enforce provider trust levels and data classification before provider transmission. |M1.3 capability routing milestone. |Any taxonomy change requires architecture review and ADR. |Provider-route denial/allow evidence.
+|ADR-015 |docToolchain baseline |DECIDED |Use docToolchain and arc42 as the documentation baseline. |Initial documentation baseline. |Any doc build or governance change requires review. |Documentation build output and repository checks.
+|ADR-016 |Naming clarity |DECIDED |Use Praetor, praetor and praetor as the canonical product/repository/CLI names. |Project baseline. |Any rename requires explicit architecture review. |Repository naming consistency.
+|ADR-017 |Project to organization memory promotion |DEFERRED |Local project memory may be promoted only after explicit governance, audit, and approval. Hosted organization memory is deferred. |M1.7 organization memory milestone. |Any hosted topology or promotion model requires benchmark, security review, ADR and human approval. |Promotion authority and audit evidence.
+|ADR-018 |Source, memory and workflow separation |DECIDED |Keep source state, memory state and workflow/policy state independent. |Architecture baseline. |Any conflation of those categories requires ADR review. |Separation and provenance tests.
+|ADR-019 |Workflow representation |DECIDED |Use declarative, versioned YAML with schema validation for workflow definitions. |M0.2 workflow milestone. |Any custom DSL or alternative workflow representation requires ADR. |Workflow validation and schema checks.
+|ADR-020 |Policy representation |DECIDED |Use declarative, versioned YAML with schema validation for policies. |M1.0 policy engine milestone. |Any custom policy DSL requires ADR. |Policy schema validation and enforcement tests.
+|ADR-021 |Adapter loading strategy |DECIDED FOR INITIAL ARCHITECTURE |Use compile-time registration and composition-root selection; no Go plugin loading initially. |M0.5 provider port milestone. |Any dynamic external adapter deployment requires spike and ADR. |Adapter composition and selection tests.
+|ADR-022 |Hosted memory and control plane |DEFERRED |Do not implement hosted organization memory or a server control plane in the initial architecture. |Before any hosted memory/control-plane implementation. |Triggered by new multi-user or remote orchestration requirements. |Workload, tenancy, security and persistence spike plus ADR approval.
+|ADR-023 |Semantic conflict detection |DEFERRED / SPIKE REQUIRED |Use deterministic structure-based conflict detection first; semantic detection remains deferred. |After structural conflicts are live and real semantic cases justify the extension. |Any semantic or embedding-based conflict authority requires benchmark, ADR and human approval. |Conflict dataset, false-positive/false-negative analysis, provider independence analysis.
+|ADR-024 |Canonical project memory serialization |BENCHMARK REQUIRED |Do not choose a canonical serialization format before benchmarking. |Before canonical Project Memory persistence begins. |Only after benchmark, ADR and human approval. |Benchmark dataset, results, recommendation, ADR.
+|ADR-025 |Configuration precedence and governance authority |DECIDED |Use precedence ordering with governance authority dominating lower-level overrides. |Project and runtime configuration milestones. |Any override rule change requires ADR review. |Effective configuration tests and governance enforcement tests.
+|===

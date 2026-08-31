@@ -1,9 +1,9 @@
 === Use Governed Project-to-Organization Memory Promotion
 
-*Status:* ACCEPTED
+*Status:* DEFERRED
 
 *Context:* Useful learning may span projects but unchecked propagation magnifies errors.
 
-*Decision:* Project knowledge may become an organization candidate; higher governance validates promotion. Organization policy can flow down with explicit allowed exceptions.
+*Decision:* Project knowledge may become an organization candidate; higher governance validates promotion. Hosted organization memory and persistence remain DEFERRED until the workload, tenancy, consistency, security, persistence spike, ADR and human approval are complete.
 
-*Consequences:* Creates institutional learning while preserving authority boundaries. Requires scope/version/conflict handling.
+*Consequences:* Creates institutional learning while preserving authority boundaries. Requires scope/version/conflict handling and explicit promotion authority. The local/project architecture must not assume a future hosted organization topology.

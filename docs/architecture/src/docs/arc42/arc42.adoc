@@ -14,9 +14,9 @@
 [abstract]
 == Document Purpose
 
-This document is the architecture baseline for a software engineering governance runtime in which AI agents are replaceable, constrained executors rather than autonomous owners of the development process. The system is designed primarily for controlled maintenance and evolution of existing and legacy software, while remaining usable for greenfield work.
+This document is the architecture baseline for Praetor, a software engineering governance runtime in which AI agents are replaceable, constrained executors rather than autonomous owners of the development process. The system is designed primarily for controlled maintenance and evolution of existing and legacy software, while remaining usable for greenfield work.
 
-The product name is intentionally **TBD**. “Governed AI Software Engineering Runtime” is a descriptive working title, not a branding decision.
+The product name is officially **Praetor**. The repository name is **praetor** and the CLI executable is **praetor**.
 
 include::chapters/01-introduction-and-goals.adoc[]
 include::chapters/02-constraints.adoc[]
@@ -44,4 +44,5 @@ include::appendices/configuration-model.adoc[]
 include::appendices/security-threat-model.adoc[]
 include::appendices/roadmap.adoc[]
 include::appendices/documentation-governance.adoc[]
+include::appendices/decision-registry.adoc[]
 include::appendices/source-notes.adoc[]
