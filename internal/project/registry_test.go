@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/V1n1v131r4/praetor/internal/repository"
+	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
 )
 
 func initGitRepo(t *testing.T) string {

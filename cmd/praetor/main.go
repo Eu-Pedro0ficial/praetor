@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/V1n1v131r4/praetor/internal/composition"
+	"github.com/Eu-Pedro0ficial/praetor/internal/composition"
 )
 
 func run(args []string) error {
@@ -13,13 +13,33 @@ func run(args []string) error {
 	}
 
 	container := composition.New()
-	reg, err := container.EnsureProjectRegistration(".")
+	registration, err := container.EnsureProjectRegistration(".")
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Project ID: %s\n", reg.ProjectId)
-	fmt.Printf("Repository root: %s\n", reg.RepositoryRoot)
+	if _, err := container.RecordInitialization(registration, map[string]any{
+		"command": "status",
+		"phase":   "startup",
+	}); err != nil {
+		return err
+	}
+	if _, err := container.RecordProjectAttach(registration, map[string]any{
+		"command":  "status",
+		"attached": true,
+	}); err != nil {
+		return err
+	}
+	if _, err := container.RecordConfiguration(registration, map[string]any{
+		"command":   "status",
+		"runtime":   "local",
+		"directory": "data",
+	}); err != nil {
+		return err
+	}
+
+	fmt.Printf("Project ID: %s\n", registration.ProjectId)
+	fmt.Printf("Repository root: %s\n", registration.RepositoryRoot)
 	fmt.Println("Git repository: true")
 	return nil
 }

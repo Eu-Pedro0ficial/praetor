@@ -1,3 +1,3 @@
-module github.com/V1n1v131r4/praetor
+module github.com/Eu-Pedro0ficial/praetor
 
 go 1.25.1
