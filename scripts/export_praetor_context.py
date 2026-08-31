@@ -6,6 +6,7 @@ import argparse
 import datetime as dt
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -460,6 +461,36 @@ def export_context(
     output.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def copy_to_x11_clipboard(snapshot: Path) -> None:
+    try:
+        with snapshot.open("rb") as snapshot_file:
+            with tempfile.TemporaryFile() as error_file:
+                result = subprocess.run(
+                    ["xclip", "-selection", "clipboard"],
+                    stdin=snapshot_file,
+                    stdout=subprocess.DEVNULL,
+                    stderr=error_file,
+                    check=False,
+                )
+                error_file.seek(0)
+                error = error_file.read().decode(errors="replace").strip()
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "xclip não foi encontrado. Instale xclip ou use --no-clipboard."
+        ) from exc
+    except OSError as exc:
+        raise RuntimeError(
+            f"Não foi possível ler o snapshot para o clipboard: {exc}"
+        ) from exc
+
+    if result.returncode != 0:
+        detail = f": {error}" if error else ""
+        raise RuntimeError(
+            "xclip -selection clipboard falhou"
+            f"{detail}. Use --no-clipboard para ignorar esta etapa."
+        )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -492,6 +523,12 @@ def parse_args() -> argparse.Namespace:
         ),
     )
 
+    parser.add_argument(
+        "--no-clipboard",
+        action="store_true",
+        help="Gera o snapshot sem copiá-lo para o clipboard X11.",
+    )
+
     return parser.parse_args()
 
 
@@ -519,6 +556,12 @@ def main() -> int:
         print("✅ Contexto do Praetor exportado.")
         print(f"Arquivo: {output}")
         print(f"Tamanho: {format_size(size)}")
+
+        if args.no_clipboard:
+            print("Clipboard X11: ignorado (--no-clipboard).")
+        else:
+            copy_to_x11_clipboard(output)
+            print("Clipboard X11: copiado com xclip -selection clipboard.")
 
         return 0
 

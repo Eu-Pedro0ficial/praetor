@@ -27,4 +27,4 @@
 
 === Known Architectural Debt at Baseline
 
-Because implementation has not started, the principal debt is **decision debt**, not code debt. The most important deferred items are the canonical memory serialization benchmark, hosted organization memory, semantic conflict detection, and any stronger sandboxing beyond the approved worktree-based isolation strategy. These items remain explicitly gated by benchmark, ADR and human approval rather than silently being implemented.
+With implementation complete through M0.1, the principal debt remains **decision debt**, not code debt. The most important deferred items are the canonical memory serialization benchmark, hosted organization memory, semantic conflict detection, and any stronger sandboxing beyond the approved worktree-based isolation strategy. These items remain explicitly gated by benchmark, ADR and human approval rather than silently being implemented.

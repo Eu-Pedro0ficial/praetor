@@ -43,6 +43,7 @@ See:
 
 ## Status
 
-Architecture baseline / pre-implementation.
+Implementation in progress.
 
-Production code has not yet been implemented.
+M0.0 — Baseline Verification and M0.1 — Runtime Shell + Project Identity are
+complete.

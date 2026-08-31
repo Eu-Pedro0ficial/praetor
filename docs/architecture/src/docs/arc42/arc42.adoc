@@ -9,7 +9,7 @@
 :imagesdir: images
 :plantUMLDir: {docdir}/generated-diagrams/
 :project-name: Governed AI Software Engineering Runtime
-:project-status: Architecture Baseline — Pre-Implementation
+:project-status: Implementation in Progress — M0.1 Complete
 
 [abstract]
 == Document Purpose

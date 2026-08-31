@@ -6,6 +6,7 @@ dist/
 coverage.out
 *.test
 *.prof
+praetor-project-context.txt
 
 # ------------------------------------------------------------
 # Local Praetor runtime state
