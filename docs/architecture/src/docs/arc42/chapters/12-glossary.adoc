@@ -23,7 +23,9 @@
 |Minimum Necessary Change |Optimization principle minimizing modification surface while satisfying correctness and constraints.
 |Policy |Executable or governable engineering invariant that can allow, deny, require review/approval, or mark advisory findings.
 |Port |Core-owned interface describing a capability required from external systems.
-|Project Registry |Mapping between project identity, source repository, memory repository and configuration.
+|Project |The logical governed software-engineering project. It is distinct from any repository checkout, worktree, Git remote, source revision, or repository location.
+|ProjectId |Opaque generated logical identifier for a Project. It is persistent local identity and is not derived from filesystem path, repository location, Git remote, Git HEAD, Git history, repository fingerprint, or machine identity.
+|Project Registry |Mapping between project identity, source repository, memory repository and configuration. The durable local registry lives outside the source repository and does not require repository mutation.
 |Provider |External or local AI service/runtime supplying model execution.
 |Provider Trust Level |Governance classification restricting which data can be sent to a provider.
 |Provenance |Evidence of origin: actor, command, source commit, memory snapshot, model, input/output and hashes.

@@ -45,9 +45,11 @@ Potential value objects/entities:
 
 ==== Project Aggregate / Registry
 
-A registered Project provides stable association among source location, memory location and tool configuration. The registry should not require application source code modification merely to establish this link.
+A registered Project provides stable association among a logical project identity, the source repository association, memory repository association and local tool configuration. The registry should not require application source code modification merely to establish this link.
 
-Potential fields include project identifier, source remote, memory remote, local workspace locations, default branch, organization scope, policy profile reference and data-classification defaults.
+The logical Project is distinct from repository location, checkout, worktree, Git remote, and source revision. ProjectId is an opaque generated identifier, while RepositoryRoot is operational association metadata and not identity. The durable local registry lives outside the repository and remains local-user application data.
+
+Potential fields include project identifier, repository root, schema version, creation timestamp, and future association metadata only when a concrete requirement justifies it. A repository fingerprint is intentionally deferred and is not part of the initial C02 metadata contract.
 
 ==== Agent Role Model
 

@@ -254,6 +254,14 @@ Status: BENCHMARK REQUIRED — UNDECIDED
 
 Do not choose the canonical memory format now.
 
+## 17. Repository fingerprint correlation / reassociation
+
+Status: DEFERRED
+
+C02 does not require a repository fingerprint. Repository move detection, clone association, fork association, and mirror correlation are not required by M0.1 and remain explicitly out of scope for this milestone.
+
+Introduce a repository fingerprint only when a concrete future requirement requires repository correlation or reassociation. Until then, repository association remains operational metadata only and does not become project identity.
+
 Candidate formats should include at minimum:
 
 - JSON

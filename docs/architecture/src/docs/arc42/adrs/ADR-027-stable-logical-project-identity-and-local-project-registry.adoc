@@ -1,0 +1,84 @@
+== ADR-027: Stable Logical Project Identity and Local Project Registry
+
+*Status:* DECIDED
+
+=== Context
+
+M0.1 establishes the first local runtime shell and the first minimal Project Registry. At this milestone the runtime must know which repository it is operating in and which logical project it is serving, without introducing broader memory, provider, workflow, or source-mutation behavior.
+
+The implementation must remain local-first, developer-sovereign, and compatible with future project-memory and project-registry evolution. It must not confuse the logical project with a checkout, worktree, repository location, Git remote, or source revision.
+
+=== Decision
+
+Praetor defines Project as the logical governed software-engineering project. It is not equivalent to a repository checkout, Git worktree, source revision, repository path, or remote URL.
+
+ProjectId is an opaque, generated, persistent logical identifier. It is not derived from filesystem path, repository location, Git remote, Git HEAD, Git history, repository fingerprint, or machine identity. The initial C02 representation is UUIDv7.
+
+RepositoryRoot is operational association metadata. It is not ProjectId. Repository information may be associated with a ProjectId through the Project Registry, but repository location and repository identity remain separate concepts. Automatic reassociation for moves, clones, forks, or mirrors is out of scope for C02.
+
+Repository fingerprinting is deliberately deferred. C02 does not require a repository fingerprint, and a repository fingerprint may only be introduced when a concrete future requirement justifies correlation or reassociation logic.
+
+The initial Project Registry is durable user-local application data. It lives outside the source repository and is stored in the user data directory rather than the source tree. On Linux, the default storage location is the XDG data directory, with the canonical default of $XDG_DATA_HOME/praetor or ~/.local/share/praetor.
+
+The runtime directory model remains distinct:
+
+* CONFIG — configuration;
+* DATA — durable application/project data;
+* STATE — operational runtime state;
+* CACHE — reconstructible cache.
+
+These concepts must remain separate.
+
+C02 persists only the minimum metadata required to establish and recover a local project association:
+
+* ProjectId;
+* RepositoryRoot;
+* SchemaVersion;
+* CreatedAt.
+
+No speculative fields are added in the initial registry version.
+
+Project Registry V1 uses internal versioned JSON with Go standard-library encoding/json. The schema/version field is explicit. This representation is an internal runtime contract only and is not a public interoperability standard. It does not define canonical Project Memory serialization and must not be generalized to configuration, workflow definitions, policies, evidence, or provider protocols.
+
+C02 implements only the resolved runtime configuration required by the current runtime. Initial values are derived from built-in defaults and platform/environment directory semantics. A user-editable configuration file is not required by C02. The globally approved precedence model remains authoritative, but layers without a concrete C02 requirement remain unimplemented.
+
+Project registration must not mutate the source repository. C02 must not create .praetor/ or any equivalent metadata directory within the repository.
+
+No external UUID dependency is introduced for C02. UUIDv7 generation will use Go standard-library primitives when implementation is authorized. The implementation must preserve the correct UUIDv7 timestamp layout, version bits, RFC variant bits, cryptographically secure randomness and canonical textual representation. These properties must be covered by tests.
+
+=== Consequences
+
+Positive:
+
+* Project identity remains stable without coupling to repository path or remote metadata.
+* Local runtime data remains outside source control and source repositories remain clean.
+* C02 remains narrow, local-first, and compatible with future Project Registry evolution.
+* Future Project Memory, workflow, policy, or repository-correlation features remain separated by architecture and scope.
+* The design remains compatible with multi-worktree, move, clone, and fork scenarios without prematurely choosing a repository-correlation model.
+
+Negative:
+
+* Repository moves or equivalent-clone association are not automatically resolved at C02.
+* Some future repository-drift and fork-correlation scenarios require explicit follow-on design work.
+* A generated logical ProjectId is less directly human-readable than a path or URL.
+
+=== Reopen / review trigger
+
+Any future change that requires repository fingerprint correlation, clone/fork association, user-editable project config, or a different local registry topology requires architecture review and may require a new ADR.
+
+=== Relationship to future milestones
+
+This decision intentionally does not solve:
+
+* canonical Project Memory serialization;
+* at-scale registry correlation across clones, forks, or mirrors;
+* Git remote-based project identity;
+* source-tree mutation or in-repo metadata;
+* workflow, policy, or audit persistence; and
+* user-editable runtime configuration layers beyond the current runtime requirement.
+
+These remain future milestones and are deliberately not part of C02.
+
+=== Relationship to Developer Sovereignty
+
+The Project Registry remains local and user-owned application data. It does not create a remote authority, does not force repository mutation, and does not make source location or remote metadata authoritative for project identity. This preserves developer sovereignty while still enabling local runtime stability.
