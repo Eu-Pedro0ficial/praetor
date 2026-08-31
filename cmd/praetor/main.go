@@ -13,12 +13,13 @@ func run(args []string) error {
 	}
 
 	container := composition.New()
-	ctx, err := container.DiscoverRepository(".")
+	reg, err := container.EnsureProjectRegistration(".")
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Repository root: %s\n", ctx.Root)
+	fmt.Printf("Project ID: %s\n", reg.ProjectId)
+	fmt.Printf("Repository root: %s\n", reg.RepositoryRoot)
 	fmt.Println("Git repository: true")
 	return nil
 }
