@@ -1,0 +1,89 @@
+== ADR-028: Interactive Praetor Shell as Primary Developer Interface
+
+*Status:* DECIDED
+
+=== Context
+
+Praetor is a persistent engineering console, not primarily a conventional
+one-process-per-command CLI. The initial runtime proof exposed direct argv
+commands, but continuing that shape would require developers to repeatedly
+reconstruct Project context and would split help, dispatch and completion
+metadata as the command surface grows.
+
+The primary interface needs live slash-command discovery, descriptions,
+history, cursor navigation, completion and candidate selection. A basic
+line-oriented standard-library REPL does not provide that terminal behavior,
+and Praetor must not grow a bespoke terminal editor inside its command model.
+
+=== Decision
+
+Running `praetor` without an ordinary subcommand starts the interactive
+developer shell. Slash commands are the primary human interaction model.
+
+The shell resolves the repository registration at startup and retains the
+active `ProjectId` and operational `RepositoryRoot` as session context. This
+does not change ADR-027: Project identity remains governed by the Project
+Registry and is never derived from repository location or source state.
+
+Praetor owns an explicit, compile-time command registry. A command definition
+provides its slash path, description, usage, optional subcommand metadata and
+handler. The same metadata drives dispatch, help, usage, discovery and
+completion so those behaviors do not acquire separate sources of truth.
+
+Command handlers delegate to application and domain capabilities. The shell
+owns only presentation and session interaction state. Domain and application
+packages do not depend on terminal libraries, command-line parsing libraries,
+or the shell.
+
+`github.com/reeflective/readline` version `v1.3.0` is the approved initial
+terminal editing and completion adapter. It is pinned for this milestone and
+is used only for line editing, slash-command completion, live discovery,
+descriptions, history, cursor/navigation behavior and candidate selection.
+The readline library does not define Praetor commands and must not leak into
+domain, workflow/application contracts, repository intelligence, source,
+audit, Project identity or provider abstractions.
+
+Registration is explicit at composition time. No Service Locator, global
+mutable command registry, reflection registration, command plugin system or
+command DSL is introduced.
+
+The canonical M0.3 human path is `/analysis impact`. Existing M0.1 status and
+M0.2 Change capabilities remain reusable through `/status` and `/change`.
+
+Non-interactive automation may later use a separate adapter over the same
+application command handlers. It is not the primary human interface and must
+not duplicate capability implementations.
+
+=== Consequences
+
+Positive:
+
+* one retained Project context supports a coherent engineering session;
+* command metadata remains Praetor-owned and drives every presentation view;
+* terminal behavior stays replaceable and outside governed business logic;
+* current and future application capabilities can be reused by other adapters;
+* slash-command discovery is consistent with help and dispatch.
+
+Negative:
+
+* the executable gains one pinned external presentation dependency and its
+  transitive terminal-support modules;
+* terminal behavior requires focused adapter tests and real-terminal smoke
+  validation in addition to terminal-independent command tests;
+* M0.2 Change state remains process-local, so shell session state is not a
+  durable resume mechanism.
+
+=== Reopen / review trigger
+
+Changing the primary human interaction model, replacing or upgrading the
+pinned terminal adapter, introducing dynamic command loading, or moving shell
+concerns into domain/application packages requires explicit architecture and
+dependency review.
+
+=== Relationship to future milestones
+
+This decision does not add worktrees, patch generation, sandbox execution,
+providers, verification evidence, policy, mature approval or Project Memory.
+It defines only the primary presentation architecture through which approved
+milestone capabilities are reached.
+
