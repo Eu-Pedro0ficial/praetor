@@ -127,22 +127,35 @@ func TestAppendChangeRejectsMissingChangeId(t *testing.T) {
 }
 
 func TestAppendCannotWriteChangeEventWithoutChangeId(t *testing.T) {
-	dir := t.TempDir()
-	if _, err := Append(
-		dir,
+	eventTypes := []string{
 		EventChangeCreated,
-		"project-1",
-		"/tmp/repo",
-		nil,
-	); err == nil {
-		t.Fatal("Append() wrote a Change event without ChangeId")
+		EventChangeTransition,
+		EventSourceSnapshotCaptured,
+		EventImpactAnalysisProduced,
+		EventChangeSurfaceEstablished,
+		EventChangeSurfaceValidated,
+		EventChangeSurfaceViolation,
 	}
-	events, err := Read(dir)
-	if err != nil {
-		t.Fatalf("Read() error = %v", err)
-	}
-	if len(events) != 0 {
-		t.Fatalf("invalid Change event reached the ledger: %#v", events)
+	for _, eventType := range eventTypes {
+		t.Run(eventType, func(t *testing.T) {
+			dir := t.TempDir()
+			if _, err := Append(
+				dir,
+				eventType,
+				"project-1",
+				"/tmp/repo",
+				nil,
+			); err == nil {
+				t.Fatalf("Append() wrote %s without ChangeId", eventType)
+			}
+			events, err := Read(dir)
+			if err != nil {
+				t.Fatalf("Read() error = %v", err)
+			}
+			if len(events) != 0 {
+				t.Fatalf("invalid Change event reached the ledger: %#v", events)
+			}
+		})
 	}
 }
 

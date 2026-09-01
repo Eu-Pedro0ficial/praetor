@@ -67,9 +67,19 @@ Policy families include clean code, testing, architecture, security, dependency 
 
 Builds and incrementally updates the repository model. It is responsible for discovery, symbol/dependency relationships, test topology, history-derived context, impact evidence and knowledge-gap detection.
 
+The executable M0.3 subset is intentionally smaller: the local Git adapter
+captures repository root, `HEAD`, clean/dirty status, tracked path inventory
+and a source-state integrity digest. It does not persist an index or implement
+symbol, dependency, semantic, or history-mining intelligence.
+
 ==== Impact Engine
 
 Computes the likely blast radius of a requested change and produces an expected/possible/protected surface. It provides evidence to Policy Engine and Sandbox Runtime.
+
+In M0.3, candidate selection is deterministic and explicit: developer-supplied
+file paths are normalized and verified against the SourceSnapshot tracked
+inventory. Exact file-level actual paths can then be accepted or rejected
+against the ApprovedScope. Richer inference remains future capability.
 
 ==== Agent Router
 

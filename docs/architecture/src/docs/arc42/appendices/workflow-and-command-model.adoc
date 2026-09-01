@@ -1,41 +1,38 @@
 === Workflow and Command Model
 
-The CLI executable is named `praetor`. The examples below use the command family name `praetor` explicitly and should remain aligned with the accepted product naming.
+The executable is named `praetor`. Running it starts the interactive developer
+shell, which retains the active Project context for the session. Slash commands
+are the primary human interface. Their Praetor-owned metadata drives dispatch,
+help, usage, descriptions and completion.
 
 ==== Command Families
 
 [source,text]
 ----
-praetor project init|attach|inspect|status
-praetor change new|show|status
-praetor change specify
-praetor change impact
-praetor change plan
-praetor change implement
-praetor change verify
-praetor change review
-praetor change approve|reject|except
-praetor change diff
-praetor change pr
-praetor change postmortem
-
-praetor memory status|search|show|propose|validate|approve|reject|revalidate
-praetor policy list|check|explain|exceptions
-praetor audit show|timeline|run
-praetor provider list|capabilities|doctor
+/status
+/project init|attach|inspect|status
+/change new|show|status
+/change specify|plan|implement|verify|review|approve|reject|except|diff|pr|postmortem
+/analysis impact
+/memory status|search|show|propose|validate|approve|reject|revalidate
+/policy list|check|explain|exceptions
+/audit show|timeline|run
+/provider list|capabilities|doctor
+/help
+/exit
 ----
 
 A good CLI should explain **why** a command is unavailable. For example, `implement` should say that plan approval is missing or a policy is blocking it rather than returning a generic state error.
 
-==== M0.2 Executable CLI Proof
+==== M0.2 Executable Shell Proof
 
 The current M0.2 runtime exposes only the smallest command paths needed to
 prove project attachment and the Change lifecycle:
 
 [source,text]
 ----
-praetor status
-praetor change new <change-id> <intent> [<state> ...]
+/status
+/change new <change-id> <intent> [<state> ...]
 ----
 
 `change new` creates the Change in `created`. Optional state arguments request
@@ -48,6 +45,33 @@ The M0.2 state adapter is intentionally process-local, as permitted by the
 milestone. The optional transition sequence is therefore an end-to-end proof
 surface, not a durable resume interface. Cross-process Change resume and the
 other command families above require later persistence and milestone behavior.
+
+==== M0.3 Executable Shell Proof
+
+M0.3 exposes one explicit file-level proof command under the canonical
+high-level analysis family:
+
+[source,text]
+----
+/analysis impact <change-id> <intent> \
+  --expected <path>... \
+  [--possible <path>...] \
+  [--protected <path>...] \
+  --actual <path>...
+----
+
+The shell resolves and retains the current registered project at startup. The
+command creates the process-local M0.2 Change, captures a SourceSnapshot, produces deterministic
+ImpactAnalysis from the explicit path input, establishes the resulting
+ApprovedScope and validates the complete actual path set. It prints snapshot,
+surface, classification and violation details. A protected, unexpected or
+invalid path is rejected and reported while the interactive shell remains
+active, after the violation is appended to audit history.
+
+The command does not modify source, infer semantic impact, enforce symbols,
+create a worktree or produce a patch. `reeflective/readline` v1.3.0 supplies
+terminal editing and discovery only; command definitions and behavior remain
+Praetor-owned and terminal-independent.
 
 ==== Predefined Workloads
 

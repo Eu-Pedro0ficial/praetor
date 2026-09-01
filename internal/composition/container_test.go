@@ -9,6 +9,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
+	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 )
 
 const compositionProjectId project.ProjectId = "01890c29-7a78-7abc-8def-0123456789ab"
@@ -127,5 +128,125 @@ func TestNewChangeWorkflowPropagatesAuditFailureWithoutStateMutation(t *testing.
 	}
 	if _, err := changeWorkflow.Get("change-failed-audit"); err == nil {
 		t.Fatal("audit-failed Change was committed to the store")
+	}
+}
+
+func TestNewRepositoryIntelligencePersistsM03AuditLinkage(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "xdg"))
+	registration := project.Registration{
+		ProjectId:      compositionProjectId,
+		RepositoryRoot: "/tmp/repository",
+	}
+	currentChange, err := change.New(
+		"change-surface-composed",
+		compositionProjectId,
+		"bound source paths",
+		time.Date(2026, time.August, 31, 12, 0, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("change.New() error = %v", err)
+	}
+	snapshot, err := source.NewSourceSnapshot(
+		compositionProjectId,
+		registration.RepositoryRoot,
+		"0123456789abcdef",
+		source.WorkingTreeClean,
+		[]string{"go.mod", "internal/service/service.go", "internal/service/service_test.go"},
+		"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+	)
+	if err != nil {
+		t.Fatalf("source.NewSourceSnapshot() error = %v", err)
+	}
+
+	container := New()
+	container.RepositoryInspection = func(project.ProjectId, string) (source.SourceSnapshot, error) {
+		return snapshot, nil
+	}
+	repositoryIntelligence, err := container.NewRepositoryIntelligence(registration)
+	if err != nil {
+		t.Fatalf("NewRepositoryIntelligence() error = %v", err)
+	}
+	prepared, err := repositoryIntelligence.EstablishSurface(
+		currentChange,
+		registration.RepositoryRoot,
+		source.ScopeRequest{
+			Expected:  []string{"internal/service/service.go"},
+			Possible:  []string{"internal/service/service_test.go"},
+			Protected: []string{"go.mod"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("EstablishSurface() error = %v", err)
+	}
+	validation, err := repositoryIntelligence.ValidateActualSurface(
+		prepared.ApprovedScope(),
+		[]string{"internal/service/service.go", "go.mod"},
+	)
+	var validationError *source.SurfaceValidationError
+	if !errors.As(err, &validationError) || validation.Allowed() {
+		t.Fatalf("ValidateActualSurface() result = %#v, error = %v", validation, err)
+	}
+
+	dataDirectory, err := audit.ResolveDataDir()
+	if err != nil {
+		t.Fatalf("audit.ResolveDataDir() error = %v", err)
+	}
+	events, err := audit.Read(dataDirectory)
+	if err != nil {
+		t.Fatalf("audit.Read() error = %v", err)
+	}
+	if len(events) != 4 {
+		t.Fatalf("M0.3 audit contains %d events, want 4", len(events))
+	}
+	wantTypes := []string{
+		audit.EventSourceSnapshotCaptured,
+		audit.EventImpactAnalysisProduced,
+		audit.EventChangeSurfaceEstablished,
+		audit.EventChangeSurfaceViolation,
+	}
+	for index, event := range events {
+		if event.EventType != wantTypes[index] || event.ChangeID != "change-surface-composed" || event.ProjectID != string(compositionProjectId) {
+			t.Fatalf("M0.3 event %d linkage = %#v", index, event)
+		}
+		if event.RepositoryRoot != registration.RepositoryRoot || event.Metadata["source_state_digest"] != string(snapshot.SourceStateDigest()) {
+			t.Fatalf("M0.3 event %d source context = %#v", index, event)
+		}
+	}
+	if events[0].Metadata["head_revision"] != snapshot.HeadRevision() || events[0].Metadata["working_tree_state"] != "clean" {
+		t.Fatalf("SourceSnapshot audit metadata = %#v", events[0].Metadata)
+	}
+	if events[2].Metadata["scope_status"] != "approved-for-m0.3-validation" {
+		t.Fatalf("ApprovedScope audit metadata = %#v", events[2].Metadata)
+	}
+	if events[3].Metadata["allowed"] != false {
+		t.Fatalf("violation audit metadata = %#v", events[3].Metadata)
+	}
+	violations, ok := events[3].Metadata["violations"].([]any)
+	if !ok || len(violations) != 1 {
+		t.Fatalf("violation audit details = %#v", events[3].Metadata["violations"])
+	}
+}
+
+func TestNewRepositoryIntelligenceRequiresM03Dependencies(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "xdg"))
+	registration := project.Registration{
+		ProjectId:      compositionProjectId,
+		RepositoryRoot: "/tmp/repository",
+	}
+	tests := []struct {
+		name   string
+		mutate func(*Container)
+	}{
+		{name: "repository inspection", mutate: func(container *Container) { container.RepositoryInspection = nil }},
+		{name: "Change audit logger", mutate: func(container *Container) { container.ChangeAuditLogger = nil }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			container := New()
+			test.mutate(&container)
+			if _, err := container.NewRepositoryIntelligence(registration); err == nil {
+				t.Fatalf("NewRepositoryIntelligence() accepted missing %s", test.name)
+			}
+		})
 	}
 }

@@ -11,8 +11,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
 )
 
 func initGitRepo(t *testing.T) string {
@@ -138,20 +136,17 @@ func TestEnsureRegistrationNestedPathReusesSameProjectId(t *testing.T) {
 		t.Fatalf("create nested dir: %v", err)
 	}
 
-	rootInfo, err := repository.Discover(repoDir)
-	if err != nil {
-		t.Fatalf("repository.Discover(repoDir) error = %v", err)
-	}
-	regRoot, err := EnsureRegistration(rootInfo.Root)
+	regRoot, err := EnsureRegistration(repoDir)
 	if err != nil {
 		t.Fatalf("EnsureRegistration(repo root) error = %v", err)
 	}
 
-	nestedInfo, err := repository.Discover(nestedDir)
+	command := exec.Command("git", "-C", nestedDir, "rev-parse", "--show-toplevel")
+	rootOutput, err := command.Output()
 	if err != nil {
-		t.Fatalf("repository.Discover(nestedDir) error = %v", err)
+		t.Fatalf("resolve nested Git root: %v", err)
 	}
-	regNested, err := EnsureRegistration(nestedInfo.Root)
+	regNested, err := EnsureRegistration(strings.TrimSpace(string(rootOutput)))
 	if err != nil {
 		t.Fatalf("EnsureRegistration(nested repo root) error = %v", err)
 	}

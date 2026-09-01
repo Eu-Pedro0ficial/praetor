@@ -21,11 +21,16 @@ const (
 	lockTimeout       = 5 * time.Second
 	lockRetryInterval = 10 * time.Millisecond
 
-	EventInitialization   = "INITIALIZATION"
-	EventProjectAttach    = "PROJECT_ATTACH"
-	EventConfiguration    = "CONFIGURATION"
-	EventChangeCreated    = "CHANGE_CREATED"
-	EventChangeTransition = "CHANGE_TRANSITION"
+	EventInitialization           = "INITIALIZATION"
+	EventProjectAttach            = "PROJECT_ATTACH"
+	EventConfiguration            = "CONFIGURATION"
+	EventChangeCreated            = "CHANGE_CREATED"
+	EventChangeTransition         = "CHANGE_TRANSITION"
+	EventSourceSnapshotCaptured   = "SOURCE_SNAPSHOT_CAPTURED"
+	EventImpactAnalysisProduced   = "IMPACT_ANALYSIS_PRODUCED"
+	EventChangeSurfaceEstablished = "CHANGE_SURFACE_ESTABLISHED"
+	EventChangeSurfaceValidated   = "CHANGE_SURFACE_VALIDATED"
+	EventChangeSurfaceViolation   = "CHANGE_SURFACE_VIOLATION"
 )
 
 // Event is one append-oriented local runtime audit record.
@@ -266,7 +271,7 @@ func validateEvent(event Event) error {
 	if strings.TrimSpace(event.ProjectID) == "" {
 		return errors.New("empty ProjectId")
 	}
-	if (event.EventType == EventChangeCreated || event.EventType == EventChangeTransition) && strings.TrimSpace(event.ChangeID) == "" {
+	if eventRequiresChangeId(event.EventType) && strings.TrimSpace(event.ChangeID) == "" {
 		return errors.New("empty ChangeId")
 	}
 	if strings.TrimSpace(event.RepositoryRoot) == "" {
@@ -276,4 +281,19 @@ func validateEvent(event Event) error {
 		return fmt.Errorf("unsupported SchemaVersion %d", event.SchemaVersion)
 	}
 	return nil
+}
+
+func eventRequiresChangeId(eventType string) bool {
+	switch eventType {
+	case EventChangeCreated,
+		EventChangeTransition,
+		EventSourceSnapshotCaptured,
+		EventImpactAnalysisProduced,
+		EventChangeSurfaceEstablished,
+		EventChangeSurfaceValidated,
+		EventChangeSurfaceViolation:
+		return true
+	default:
+		return false
+	}
 }

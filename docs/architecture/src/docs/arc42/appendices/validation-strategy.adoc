@@ -56,3 +56,26 @@ The runtime must test its own governance promises. High-value platform tests inc
 * provider routing/data-classification tests;
 * audit completeness tests;
 * deterministic replay of non-LLM workflow stages.
+
+==== M0.3 Executable Source-Surface Validation
+
+M0.3 compares a complete set of actual repository-relative file paths with an
+`ApprovedScope`. Paths use `/` as the domain separator. Absolute paths,
+Windows drive forms, backslashes, control characters, empty paths, surrounding
+whitespace and any `..` segment are rejected. Safe `.` segments, repeated
+separators and trailing separators are normalized before category comparison,
+so spelling variations cannot bypass a protected path.
+
+Validation applies the following precedence:
+
+. a protected actual path is a violation;
+. an expected actual path is accepted and classified as expected;
+. a possible actual path is accepted and classified as possible;
+. any other normalized path is an unexpected-path violation;
+. malformed actual input is an invalid-path violation.
+
+Duplicate normalized actual paths are classified once. If any actual path is
+protected, unexpected or invalid, the complete validation result is rejected
+while retaining every accepted classification and violation for inspection.
+This small result is Change Surface enforcement for M0.3, not the mature
+`EvidenceSet` or deterministic build/test verification introduced by M0.6.

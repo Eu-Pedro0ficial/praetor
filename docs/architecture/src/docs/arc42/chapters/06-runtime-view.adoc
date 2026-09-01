@@ -7,8 +7,8 @@
 include::../diagrams/dynamic-project-attach.puml[]
 ----
 
-. Engineer asks the CLI to attach or initialize against an existing repository.
-. Project Registry resolves source identity and an existing memory repository or provisions one through the configured SCM adapter if authorized.
+. Engineer starts `praetor` in an existing repository; the interactive shell resolves and retains the active Project context.
+. Project Registry resolves the operational repository association and an existing memory repository or provisions one through the configured SCM adapter if authorized.
 . Repository Intelligence scans source, manifests, history, tests and configuration.
 . Memory Engine clones/updates the project memory repository and builds a local query projection.
 . Memory Invalidation compares memory evidence fingerprints against current source state.

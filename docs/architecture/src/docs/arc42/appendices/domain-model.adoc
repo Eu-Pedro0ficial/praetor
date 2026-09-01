@@ -34,6 +34,46 @@ time, Git state or mutable workflow state.
 by M0.2 because provider execution, patches, evidence, review, policy and
 sandbox behavior begin in later milestones.
 
+===== M0.3 Executable Source Boundary
+
+M0.3 adds a source-state model associated with the existing `ChangeId` and
+`ProjectId` without modifying the M0.2 lifecycle state machine.
+
+`SourceSnapshot` contains:
+
+* `ProjectId` association;
+* operational `RepositoryRoot` metadata;
+* Git `HEAD` revision;
+* `clean` or `dirty` working-tree state, including untracked status;
+* a sorted, deduplicated inventory of Git-tracked repository-relative paths;
+* a versioned `SourceStateDigest` used only to establish snapshot integrity.
+
+`SourceStateDigest` is SHA-256 over length-delimited components: the
+`praetor-source-state-v1` label, `HEAD`, porcelain-v1 `-z` status, cached
+`ls-files -z` inventory, and the binary full-index tracked diff from `HEAD`.
+The status component captures untracked path/status information, but M0.3 does
+not read or hash untracked file contents. The digest is not repository
+identity, `ProjectId`, or evidence for move, clone, fork, mirror, or
+reassociation semantics.
+
+`ImpactAnalysis` takes the Change, SourceSnapshot and explicit developer path
+scope. It verifies every candidate against the tracked inventory; it performs
+no AI inference, AST analysis, dependency analysis or semantic code search.
+
+`ChangeSurface` keeps exact file paths in three distinct categories:
+
+* `expected` — strongly expected to change;
+* `possible` — additionally allowed if needed;
+* `protected` — forbidden even if also supplied in another category.
+
+Inputs are canonicalized with deterministic precedence: `protected` over
+`expected` over `possible`. `ApprovedScope` is the explicit M0.3 file boundary
+used for validation; it is not a mature M0.7 human approval decision.
+
+M0.3 validates exact file paths only. Symbol scope remains represented in the
+longer-term conceptual model below but is not claimed or enforced by the
+current runtime.
+
 Potential value objects/entities:
 
 [cols="1,3",options="header"]
@@ -42,7 +82,7 @@ Potential value objects/entities:
 |ChangeId |Stable identifier independent of Git branch/PR number
 |ProjectId |Stable project identity resolved through Project Registry
 |ChangeIntent |Normalized human/issue intent and acceptance objective
-|SourceSnapshot |Repository identity + commit/tree reference used as input
+|SourceSnapshot |Project association + repository root and deterministic source-state reference used as input
 |MemorySnapshot |Stable reference/fingerprint of relevant canonical memory state
 |WorkflowSnapshot |Workflow identity/version/hash
 |PolicySnapshot |Applicable policy set identity/version/hash
