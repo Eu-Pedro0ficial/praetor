@@ -2,6 +2,12 @@
 
 *Status:* DECIDED
 
+*Relationship:* ADR-029 supersedes the interaction-model portions that made
+slash commands primary and used slash paths for discovery. The retained
+interactive process, Project context, Praetor-owned metadata, compile-time
+registration, readline adapter boundary, and dependency choice remain in
+force.
+
 === Context
 
 Praetor is a persistent engineering console, not primarily a conventional
@@ -87,3 +93,9 @@ providers, verification evidence, policy, mature approval or Project Memory.
 It defines only the primary presentation architecture through which approved
 milestone capabilities are reached.
 
+=== Superseding interaction decision
+
+See ADR-029 for the current canonical plain-command hierarchy, contextual mode
+stack, `end` navigation, root-only `exit`, and non-executing contextual `?`
+help. The slash-command statements above record the initial ADR-028 decision
+and are no longer the canonical interaction model.

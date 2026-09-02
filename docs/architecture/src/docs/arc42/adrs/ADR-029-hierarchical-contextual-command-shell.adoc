@@ -1,0 +1,92 @@
+== ADR-029: Hierarchical Contextual Command Shell
+
+*Status:* DECIDED
+
+=== Context
+
+ADR-028 established a persistent interactive Praetor shell with retained
+Project context, Praetor-owned command metadata, and `reeflective/readline`
+as a presentation adapter. Its initial flat slash-command interaction model
+does not scale cleanly as Praetor gains Project, Change, Analysis, Memory,
+Policy, Audit, Provider, and SCM command families.
+
+Network-device-style command contexts bound the visible command surface,
+improve discovery, and retain useful interaction state without turning shell
+navigation into workflow or domain state.
+
+=== Decision
+
+The persistent interactive shell remains Praetor's primary developer
+interface. It uses hierarchical contextual modes and plain command words as
+the canonical syntax.
+
+Praetor owns one explicit, immutable-after-construction, compile-time command
+tree. The same tree supplies dispatch, help, usage, descriptions, completion,
+contextual `?` results, and mode-valid command discovery. Commands are scoped
+to modes. Direct path invocation, such as `analysis impact ...`, may coexist
+with interactive traversal through `analysis` followed by `impact ...`; both
+forms resolve the same command definition and handler.
+
+The current context stack is shell interaction state. It is retained by the
+interactive session and is independent from Project identity, Change state,
+workflow state, and persisted configuration. `end` pops exactly one mode.
+`exit` terminates the shell only at root. Nested `exit` is unavailable.
+
+Contextual `?` help is available without executing the partially entered
+command. Semantic candidate resolution belongs to the Praetor command tree.
+The readline adapter owns only key detection, rendering, redisplay, line-buffer
+preservation, cursor mechanics, history, and completion presentation.
+Readline types do not enter command, application, or domain packages.
+
+The prompt is derived from retained shell context. A sanitized repository
+basename may be used as a presentation-only project label. It is not
+`ProjectId`, does not change ADR-027 identity semantics, and is not durable
+user-editable project configuration.
+
+`github.com/reeflective/readline` remains pinned at version `v1.3.0`. Command
+registration remains explicit. No Service Locator, global mutable registry,
+reflection registration, dynamic command loading, plugin command DSL, or
+additional terminal framework is introduced.
+
+ADR-029 supersedes only the ADR-028 statements that made slash commands the
+primary syntax and slash paths the basis of command discovery. ADR-028 remains
+authoritative for the persistent process, retained Project context,
+Praetor-owned metadata, compile-time registration, terminal isolation, and
+approved readline adapter.
+
+=== Consequences
+
+Positive:
+
+* the command surface can scale through bounded contexts;
+* developers discover only commands valid in the current mode;
+* hierarchical navigation lowers cognitive load and follows familiar
+  network-console interaction;
+* Project, Change, Policy, Memory, Provider, and other future domains fit the
+  same interaction architecture without being implemented early;
+* direct expert invocation and retained interactive traversal reuse handlers.
+
+Negative:
+
+* parser and registry resolution become more sophisticated;
+* mode-stack, direct/contextual equivalence, and `?` behavior require stronger
+  tests;
+* terminal-adapter buffer restoration and interaction require real PTY
+  validation.
+
+=== Explicit boundary
+
+This is not a custom workflow DSL, a shell scripting language, or a domain
+state machine. It is presentation and application-command navigation.
+
+The configuration modes prove hierarchy only. They do not authorize a new
+configuration schema, persistent Project display name, repository mutation,
+or change to `ProjectId` semantics.
+
+=== Reopen / review trigger
+
+Replacing the hierarchical mode architecture, introducing dynamic command
+loading, changing the terminal dependency, moving mode semantics into domain
+or application behavior, or introducing a general scripting language requires
+explicit architecture review.
+
