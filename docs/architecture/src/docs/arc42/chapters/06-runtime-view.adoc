@@ -56,7 +56,7 @@ A request in the `order` domain produces a modification in `authentication` outs
 
 ==== M0.4 Executable Isolation and Patch Subset
 
-The current executable subset implements only the source/workspace and patch
+The M0.4 executable subset implemented only the source/workspace and patch
 portion of the broader implementation scenario:
 
 . `change isolate` creates a process-local Change, advances it through
@@ -80,6 +80,40 @@ The same M0.4 handlers are reachable by entering `change` and invoking
 without changing the retained Change. Contextual `?` resolves and displays
 mode-valid command metadata without executing input or mutating session/domain
 state.
+
+==== M0.5 Executable Provider Subset
+
+The M0.5 implementation extends the retained M0.4 proposal flow:
+
+. the developer creates an active isolated proposal with `change isolate`;
+. the composition root has exactly one compile-time registered adapter,
+  `codex-cli`, and the session holds an explicit provider plus optional
+  provider-scoped model selection;
+. `change implement` creates a Praetor-owned execution-attempt identity and a
+  provider-independent request linked to the Change, ApprovedScope, workspace,
+  base revision, and source-state digest;
+. the canonical-source guard verifies the source boundary, then `codex-cli`
+  performs bounded local version/capability preflight and runs non-interactive
+  `codex exec` with the ProposalWorkspace as its process and Codex working
+  root;
+. the adapter returns bounded normalized provenance; its textual response and
+  any claimed file list have no source authority;
+. Git extracts the actual patch and complete changed-path set, and the M0.4
+  service compares it to the ApprovedScope;
+. an expected/possible patch is retained while the Change stays `isolated`;
+  an empty, protected, unexpected, malformed, provider-failed, cancelled, or
+  drifted attempt fails without deterministic-validation or approval claims.
+
+Provider start/completion/failure and the resulting patch events share the
+Praetor attempt identity. Failed attempts record normalized failure and
+Git-observed partial changed paths when available, never raw provider output.
+The command cleans its process-owned failed proposal; canonical source remains
+untouched and external drift is not repaired.
+
+`provider list`, `provider show`, `provider select`, and `provider model`
+expose only explicit session selection. There is no automatic provider
+selection, fallback, capability/trust/data routing, ranking, load balancing,
+or multi-provider execution in this scenario.
 
 === Scenario 5 — Memory Candidate Promotion
 

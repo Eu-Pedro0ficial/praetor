@@ -19,6 +19,22 @@ Configuration precedence explains the effective value. Governance authority expl
 
 Provider credentials are not normal project configuration and must not be stored in canonical memory/source configuration.
 
+==== M0.5 Runtime Provider Selection
+
+M0.5 implements a narrow process-runtime bridge while the mature layered
+configuration system remains future work. `PRAETOR_AI_PROVIDER` selects an
+exact compile-time registered adapter and defaults to `codex-cli`.
+`PRAETOR_AI_MODEL` optionally selects a provider-scoped model; absence means
+the provider default. The interactive `provider select <provider>` and
+`provider model <model>` commands may replace these values for the active
+session without recompilation or persistent Project configuration.
+
+Unknown providers fail; selection does not route, rank, fall back, retry on a
+different provider, or override governance. The startup configuration audit
+records only provider identity and model identity or `provider-default`.
+Codex CLI authentication remains outside these values and is not copied into
+Praetor configuration or audit.
+
 ==== Configuration Drift
 
 The runtime should be able to show the effective configuration for a Change, including source of each rule. This is analogous to a compiler explaining effective flags and is important when organization/project policies overlap.

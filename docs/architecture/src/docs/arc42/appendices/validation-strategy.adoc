@@ -101,3 +101,28 @@ mutation seam, extraction, classification and cleanup. Tests use temporary
 Git repositories and prove `HEAD`, index/working-tree status and canonical
 file contents remain unchanged, while external drift is reported without
 destructive repair.
+
+==== M0.5 Provider Execution Validation
+
+M0.5 places provider execution inside the same canonical-source guard and
+ProposalWorkspace lifecycle. The provider adapter cannot supply an arbitrary
+writable root or canonical repository path. After provider completion, the
+existing Git adapter—not provider output—extracts patch bytes and actual
+changed paths, and the existing M0.3/M0.4 ApprovedScope rules remain the sole
+surface classifier.
+
+Provider contract tests validate identity and source-state linkage, safe
+workspace projection, role requirements, optional provider-scoped models, and
+exact selection without fallback. Concrete `codex-cli` tests exercise bounded
+version/capability preflight, request shaping, working directory, model
+omission/selection, JSONL normalization, bounded output, authentication,
+process, unsupported-interface, malformed-output, timeout, cancellation, and
+partial-mutation failures through an injected process seam and real fake
+executable.
+
+Fixture-repository integration covers expected, possible, protected,
+unexpected, mixed forbidden, empty, and partial-failure outcomes. It also
+proves canonical `HEAD`, index/working tree, files, tracked inventory and
+source digest remain unchanged, no `.praetor` metadata appears, and external
+drift fails closed. These checks establish M0.5 provider/patch behavior only;
+they are not M0.6 deterministic target-project evidence.

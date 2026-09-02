@@ -82,8 +82,9 @@ An implementation convenience is NOT an architecture decision.
   - Implementation tasks: define provider port, adapt one concrete provider, keep domain/core independent from provider details
 - Capability: first AI executor path
   - Sub-capability: isolated implementation request execution
-  - Implementation tasks: connect the AI executor to the sandboxed change lifecycle without coupling the domain to provider-specific types
+  - Implementation tasks: connect the `codex-cli` adapter through non-interactive `codex exec` to the isolated proposal lifecycle without coupling the domain to provider-specific types
 - Architecture decision gate: Go adapter loading is DECIDED as compile-time registration, dependency injection, and configuration-driven selection. Go plugin loading is not the initial model; any future dynamic adapter deployment requires a dedicated spike and ADR.
+- First-provider decision: `codex-cli` is the sole Core V0 adapter, selected explicitly with an optional provider-scoped model; ADR-030 forbids treating manual selection as routing or Codex CLI as a privileged universal provider.
 
 #### M0.6 — Deterministic Verification + Evidence
 - Capability: minimal verification gate

@@ -140,6 +140,9 @@ func TestAppendCannotWriteChangeEventWithoutChangeId(t *testing.T) {
 		EventPatchSurfaceValidated,
 		EventPatchRejected,
 		EventProposalWorkspaceDiscarded,
+		EventProviderExecutionStarted,
+		EventProviderExecutionCompleted,
+		EventProviderExecutionFailed,
 	}
 	for _, eventType := range eventTypes {
 		t.Run(eventType, func(t *testing.T) {

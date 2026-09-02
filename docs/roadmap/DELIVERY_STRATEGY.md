@@ -48,6 +48,11 @@ The AI Provider Port is integrated before the release gate so the runtime can pr
 
 Adapter loading is DECIDED as compile-time registration and composition-root selection. Go plugin loading is not the initial architecture and is not silently introduced later without a dedicated ADR.
 
+ADR-030 names `codex-cli` through non-interactive `codex exec` as the sole
+Core V0 adapter. Provider and optional model selection remain explicit runtime
+metadata; this manual selection does not implement M1.3 routing or M1.4
+multi-provider maturity.
+
 ### Step 7 — M0.6 deterministic verification and evidence
 
 The runtime validates the patch and collects evidence before any human approval decision.

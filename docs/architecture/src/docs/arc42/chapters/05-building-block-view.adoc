@@ -105,6 +105,28 @@ Selects an AI provider/model adapter based on the role's required capabilities a
 * data classification;
 * organizational allow/deny policy.
 
+The Agent Router is not part of the M0.5 executable subset. M0.5 performs
+exact configuration/session selection only; it does not rank, route, fall
+back, or choose providers by capability, trust, classification, cost, or
+latency.
+
+==== AI Provider Port and First Adapter
+
+The executable M0.5 AI Provider Port describes one implementation attempt in
+provider-independent Praetor semantics. It accepts a normalized
+`ExecutionRequest` tied to an existing active ProposalWorkspace and returns a
+normalized `ProviderResponse`. The response is untrusted execution
+provenance; Git-derived workspace state is authoritative.
+
+The composition root explicitly registers exactly one adapter, `codex-cli`,
+and resolves the active provider and optional provider-scoped model by exact
+name. Adapter and `OpenAI` vendor metadata remain distinct. `codex-cli` shapes
+the request, performs bounded local version/capability preflight, invokes
+non-interactive `codex exec` in the ProposalWorkspace, bounds and parses JSONL
+output, and normalizes failures.
+No Codex CLI process types, flags, or event structures cross the port. A
+future OpenAI HTTP/SDK adapter is a separate implementation of the same port.
+
 ==== Sandbox Runtime
 
 Provides isolated execution for agent-proposed source changes. Preferred strategies include isolated worktrees and/or containers. The main working tree is not the default direct write target.
@@ -120,7 +142,9 @@ set with the existing `ApprovedScope`.
 
 This subset is source/workspace isolation, not process, network, container,
 VM, credential, or hostile-code containment. M0.4 has no provider or AI
-executor and does not run arbitrary proposal commands.
+executor. M0.5 adds only the explicitly selected provider adapter operating in
+that workspace; it does not turn the worktree into a security sandbox or a
+generic command runner.
 
 ==== Verification Engine
 
@@ -156,7 +180,7 @@ The initial architectural port catalog includes:
 [cols="1,3",options="header"]
 |===
 |Port |Purpose
-|AI Provider Port |Execute role-scoped model requests and expose capabilities
+|AI Provider Port |Execute an explicitly selected role-scoped provider request in a ProposalWorkspace and expose descriptive capabilities through provider-independent types
 |Repository Port |Read source state, diff, history, symbols and working-copy metadata
 |SCM Port |PR/review/remote repository operations
 |Issue Tracker Port |Retrieve normalized change intent

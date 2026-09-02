@@ -109,6 +109,46 @@ workspace identity, base revision, source-state digest, disposition and, when
 present, patch digest, diff summary, changed paths and surface violations.
 They deliberately omit full patch bodies and temporary workspace paths.
 
+===== M0.5 Executable Provider Boundary
+
+M0.5 introduces a provider-independent AI Provider Port on the
+application/core side without modifying the authoritative Change state
+machine. The port is expressed in Praetor vocabulary:
+
+* `ProviderCapability` is descriptive adapter contract metadata. It is not a
+  routing score or policy;
+* `ProviderRoleContract` names only the M0.5 `implementation` role and
+  its required capabilities;
+* `ExecutionRequest` links a random Praetor-owned `ExecutionAttemptId`,
+  `ProjectId`, `ChangeId`, intent, ApprovedScope, base/source state, explicit
+  provider/model selection, and a safe `ProposalWorkspace` projection;
+* `ProviderResponse` normalizes provider version when safely available,
+  external execution identity, selected provider/model, completion, bounded
+  textual summary, optional usage, and timestamps. It is provenance, not
+  source authority.
+
+The safe workspace projection omits canonical `RepositoryRoot`; the adapter
+receives only the isolated writable workspace. Git remains authoritative for
+patch bytes and actual changed paths. A completed provider call therefore
+flows into the existing M0.4 patch extraction and surface comparison. A valid
+result retains the proposal and leaves the Change `isolated`; provider
+completion does not mean M0.6 validation or M0.7 approval.
+
+The first adapter is `codex-cli` under ADR-030, with structured vendor metadata
+`OpenAI`. Adapter, vendor, model, `implementation` role, and attempt identity
+remain distinct. Provider and optional provider-scoped model selection are
+session/runtime metadata and are not part of Change identity or the port's
+hard-coded defaults. `ExecutionAttemptId` is Praetor-owned; a Codex thread
+identifier is optional external provenance.
+
+The append-oriented M0.5 event set is `PROVIDER_EXECUTION_STARTED`,
+`PROVIDER_EXECUTION_COMPLETED`, and `PROVIDER_EXECUTION_FAILED`. Events link
+the attempt, Project, Change, workspace, provider/model, role, base/source
+state, timestamps, disposition and bounded success/failure metadata. Patch
+events produced by an execution also link the Praetor attempt identity. Raw
+prompts, source bodies, provider output, workspace paths, and credentials are
+not audit metadata.
+
 Potential value objects/entities:
 
 [cols="1,3",options="header"]
@@ -125,7 +165,7 @@ Potential value objects/entities:
 |ChangeSurface |Expected/possible/protected/actual source scope
 |Specification |Explicit requirements/invariants for the change
 |ChangePlan |Ordered implementation plan and expected modifications
-|ExecutionAttempt |One implementation/tool/agent attempt with provider and sandbox provenance
+|ExecutionAttempt |One implementation/provider attempt with Praetor-owned identity, selected provider/model, ProposalWorkspace, source-state and bounded audit provenance
 |Patch |Proposed source modification artifact
 |EvidenceSet |Normalized evidence produced by validators/reviewers
 |Review |Reviewer role, findings, confidence/evidence and disposition

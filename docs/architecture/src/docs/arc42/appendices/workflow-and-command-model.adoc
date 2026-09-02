@@ -12,15 +12,17 @@ mode-valid discovery. Readline remains a presentation adapter only.
 ----
 status
 analysis [impact ...]
-change [new|isolate|patch|discard ...]
+change [new|isolate|implement|patch|discard ...]
+provider [list|show|select|model ...]
 configure [project]
 help
 ?
 exit
 ----
 
-`analysis`, `change`, and `configure` enter child modes when invoked without a
-child. The same implemented child may be invoked directly from its parent;
+`analysis`, `change`, `provider`, and `configure` enter child modes when
+invoked without a child. The same implemented child may be invoked directly
+from its parent;
 `analysis impact ...` and `analysis` followed by `impact ...` resolve the same
 handler. `end` returns exactly one contextual level. `exit` is available only
 at root. The `configure project` mode currently has navigation/help only and
@@ -31,7 +33,7 @@ options without executing or clearing the partially typed input. The readline
 adapter redisplays the preserved buffer and cursor; semantic help remains
 terminal-independent in the command registry.
 
-Future Project, Memory, Policy, Audit, Provider, and SCM families remain
+Future Project, Memory, Policy, Audit, and SCM families remain
 roadmap capabilities and are not registered as empty placeholder commands.
 When added, unavailable operations should explain their governing state or
 policy rather than return a generic error.
@@ -118,6 +120,43 @@ M0.4 provides only a narrow application callback for isolated-mutation tests.
 It does not expose a provider, generic shell runner or AI execution command.
 The central command registry remains the single source for help, usage,
 completion and dispatch metadata.
+
+==== M0.5 Executable Provider Proof
+
+M0.5 adds one provider-independent workflow command and one infrastructure
+selection family:
+
+[source,text]
+----
+change implement
+provider list
+provider show
+provider select <provider>
+provider model <provider-scoped-model>
+----
+
+`change implement` consumes the current process-local active proposal created
+by `change isolate`. It executes the exactly selected adapter in that
+ProposalWorkspace, then delegates to the existing M0.4 patch extraction and
+surface classification. It neither repeats isolation nor accepts an arbitrary
+working directory. Direct `change implement` and contextual `change` followed
+by `implement` resolve the same handler. In Change mode, contextual `?`
+includes `implement` without exposing provider credentials or adapter flags.
+
+The `provider` mode lists compile-time registered adapter descriptors, shows
+adapter/vendor/model identity separately, and changes the active process-local
+provider and optional provider-scoped model through distinct commands.
+Selection is exact: an unknown name fails without fallback. `select ?` derives
+provider candidates from the registered catalog; models are not remotely
+enumerated. It is infrastructure/session configuration, not capability
+routing or domain state.
+No persistent Project configuration format is introduced.
+
+On provider, guard, empty-patch, or surface failure, the command rejects the
+Change and cleans the process-owned proposal according to the current M0.4
+ownership semantics. On success, it reports bounded provider provenance and
+the Git-derived patch summary; the proposal remains retained and the Change
+remains `isolated`.
 
 ==== Predefined Workloads
 

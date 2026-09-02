@@ -72,6 +72,26 @@ Do not describe worktree isolation as sufficient protection for hostile code exe
 
 Reopen/upgrade trigger: before Praetor claims or supports execution of genuinely untrusted workloads, or when the security-hardening milestone requires stronger host/process/network boundaries. That milestone must perform an isolation/security spike before choosing the concrete container/OS strategy.
 
+## 5A. First AI provider adapter
+
+Status: DECIDED FOR CORE V0
+
+Use `codex-cli` through non-interactive `codex exec` as the sole concrete M0.5
+provider adapter behind the provider-independent AI Provider Port. Codex CLI
+is the initial adapter, not a permanent, universal, or privileged provider.
+
+Provider and optional provider-scoped model selection are explicit runtime
+session/configuration values. Manual selection is not capability routing. M0.5
+does not implement automatic selection, fallback, ranking, trust routing,
+data-classification routing, load balancing, or multi-provider execution.
+
+A future OpenAI native HTTP/SDK integration is a separate adapter behind the
+same port and may coexist with `codex-cli`. See ADR-030.
+
+Reopen trigger: changing the first integration mechanism or credential
+boundary. Automatic routing remains governed by M1.3; multi-provider maturity
+remains governed by M1.4.
+
 ## 6. First remote SCM
 
 Status: DECIDED

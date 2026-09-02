@@ -15,6 +15,7 @@ const (
 	ModeRoot             ModeIdentity = "root"
 	ModeAnalysis         ModeIdentity = "analysis"
 	ModeChange           ModeIdentity = "change"
+	ModeProvider         ModeIdentity = "provider"
 	ModeConfigure        ModeIdentity = "configure"
 	ModeConfigureProject ModeIdentity = "configure-project"
 )

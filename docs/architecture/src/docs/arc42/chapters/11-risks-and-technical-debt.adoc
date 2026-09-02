@@ -23,14 +23,16 @@
 |R-018 |Too many abstractions are built before V0 |Delivery failure |YAGNI; implement ports only when a concrete adapter/use case exists
 |R-019 |Go plugin mechanism becomes portability/security issue |Operational complexity |prefer process/protocol adapters; compile-time registration and composition-root selection remain the approved initial strategy
 |R-020 |AI output parser accepts malformed/ambiguous data |State corruption |strict schemas, validation and rejection before canonical mutation
+|R-021 |External provider CLI behavior or JSONL contract drifts |Failed or misclassified execution |bounded strict parsing, normalized failure, adapter conformance tests, version-aware operational validation, and no source authority for provider output
 |===
 
 === Known Architectural Debt at Baseline
 
-With implementation complete through M0.3 and M0.4 worktree/patch lifecycle
-implementation active, the principal debt remains **decision debt**, not code
-debt. The most important deferred items are the canonical memory serialization
-benchmark, hosted organization memory, semantic conflict detection, and any
-stronger sandboxing beyond the approved worktree-based isolation strategy.
-These items remain explicitly gated by benchmark, ADR and human approval
-rather than silently being implemented.
+With implementation complete through M0.4 and the M0.5 provider-port slice
+active, the principal debt remains **decision debt**, not code debt. The most
+important deferred items are the canonical memory serialization benchmark,
+hosted organization memory, semantic conflict detection, M1.3 provider
+routing/trust enforcement, multi-provider maturity, and stronger sandboxing
+beyond the approved worktree-based isolation strategy. These items remain
+explicitly gated by their milestones, benchmark, ADR and human approval rather
+than silently being implemented.

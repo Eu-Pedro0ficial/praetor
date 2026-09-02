@@ -20,6 +20,7 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 	fmt.Fprintf(output, "Project ID: %s\n", registration.ProjectId)
 	fmt.Fprintf(output, "Repository root: %s\n", registration.RepositoryRoot)
 	fmt.Fprintln(output, "Git repository: true")
+	writeProviderSelection(output, session)
 	if currentChange, ok := session.CurrentChange(); ok {
 		fmt.Fprintf(output, "Current change: %s (%s)\n", currentChange.ChangeId(), currentChange.State())
 	} else {
@@ -32,6 +33,63 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 	} else {
 		fmt.Fprintln(output, "Current proposal: none")
 	}
+	return Result{}, nil
+}
+
+func handleProviderShow(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	writeProviderSelection(output, session)
+	return Result{}, nil
+}
+
+func handleProviderList(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	selected := session.ProviderSelection().ProviderIdentifier()
+	for _, descriptor := range session.ProviderDescriptors() {
+		marker := ""
+		if descriptor.Identifier() == selected {
+			marker = " (selected)"
+		}
+		capabilities := make([]string, len(descriptor.Capabilities()))
+		for index, capability := range descriptor.Capabilities() {
+			capabilities[index] = string(capability)
+		}
+		fmt.Fprintf(
+			output,
+			"%s%s — vendor=%s; name=%s; capabilities=%s\n",
+			descriptor.Identifier(),
+			marker,
+			descriptor.Vendor(),
+			descriptor.DisplayName(),
+			strings.Join(capabilities, ","),
+		)
+	}
+	return Result{}, nil
+}
+
+func handleProviderSelect(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 1 {
+		return Result{}, errInvalidArguments
+	}
+	if err := session.SelectProvider(invocation.Arguments[0]); err != nil {
+		return Result{}, err
+	}
+	writeProviderSelection(output, session)
+	return Result{}, nil
+}
+
+func handleProviderModel(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 1 {
+		return Result{}, errInvalidArguments
+	}
+	if err := session.SelectProviderModel(invocation.Arguments[0]); err != nil {
+		return Result{}, err
+	}
+	writeProviderSelection(output, session)
 	return Result{}, nil
 }
 
@@ -256,6 +314,54 @@ func handleChangePatch(session *Session, invocation Invocation, output io.Writer
 	return Result{}, errors.Join(extractionError, cleanupError)
 }
 
+func handleChangeImplement(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	currentProposal, ok := session.CurrentProposal()
+	if !ok {
+		return Result{}, fmt.Errorf("no current isolated proposal; use change isolate first")
+	}
+	currentChange, ok := session.CurrentChange()
+	if !ok || currentChange.State() != change.StateIsolated {
+		return Result{}, fmt.Errorf("current Change must be isolated before implementation")
+	}
+	if currentChange.ChangeId() != currentProposal.Workspace().ChangeId() {
+		return Result{}, fmt.Errorf("current Change and proposal linkage is inconsistent")
+	}
+
+	executionResult, implementationError := session.providerExecution.Implement(
+		invocation.Context,
+		currentChange,
+		currentProposal,
+		session.ProviderSelection(),
+	)
+	session.setCurrentProposal(executionResult.Proposal())
+	if implementationError != nil {
+		cleanupError := session.rejectAndDiscardProposal("provider implementation failed")
+		return Result{}, errors.Join(implementationError, cleanupError)
+	}
+
+	response, completed := executionResult.Response()
+	if !completed {
+		cleanupError := session.rejectAndDiscardProposal("provider implementation returned no response")
+		return Result{}, errors.Join(fmt.Errorf("provider implementation returned no completed response"), cleanupError)
+	}
+	fmt.Fprintf(output, "Execution attempt: %s\n", executionResult.AttemptId())
+	fmt.Fprintf(output, "Provider: %s\n", response.Selection().ProviderIdentifier())
+	if modelIdentifier, selected := response.Selection().ModelIdentifier(); selected {
+		fmt.Fprintf(output, "Model: %s\n", modelIdentifier)
+	} else {
+		fmt.Fprintln(output, "Model: provider default")
+	}
+	fmt.Fprintf(output, "Provider outcome: %s\n", response.Outcome())
+	if response.ExternalExecutionId() != "" {
+		fmt.Fprintf(output, "External execution ID: %s\n", response.ExternalExecutionId())
+	}
+	writePatchReport(output, executionResult.Proposal(), executionResult.Validation())
+	return Result{}, nil
+}
+
 func handleChangeDiscard(session *Session, invocation Invocation, output io.Writer) (Result, error) {
 	if len(invocation.Arguments) != 0 {
 		return Result{}, errInvalidArguments
@@ -281,6 +387,20 @@ func requireNoCurrentProposal(session *Session) error {
 		)
 	}
 	return nil
+}
+
+func writeProviderSelection(output io.Writer, session *Session) {
+	selection := session.ProviderSelection()
+	descriptor, available := session.SelectedProviderDescriptor()
+	fmt.Fprintf(output, "AI provider adapter: %s\n", selection.ProviderIdentifier())
+	if available {
+		fmt.Fprintf(output, "AI provider vendor: %s\n", descriptor.Vendor())
+	}
+	if modelIdentifier, selected := selection.ModelIdentifier(); selected {
+		fmt.Fprintf(output, "AI model: %s\n", modelIdentifier)
+	} else {
+		fmt.Fprintln(output, "AI model: provider default")
+	}
 }
 
 func parseSurfaceArguments(arguments []string) (source.ScopeRequest, []string, error) {

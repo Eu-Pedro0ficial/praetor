@@ -1,6 +1,7 @@
 package composition
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/aiprovider/codexcli"
+	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
@@ -17,6 +20,75 @@ import (
 )
 
 const compositionProjectId project.ProjectId = "01890c29-7a78-7abc-8def-0123456789ab"
+
+func TestNewExplicitlyRegistersOnlyCodexCLIWithRuntimeSelectionMetadata(t *testing.T) {
+	t.Setenv("PRAETOR_AI_PROVIDER", codexcli.Identifier)
+	t.Setenv("PRAETOR_AI_MODEL", "provider-scoped-model")
+	container := New()
+	if container.ConfiguredProvider != codexcli.Identifier ||
+		container.ConfiguredModel != "provider-scoped-model" {
+		t.Fatalf(
+			"runtime provider configuration = %q/%q",
+			container.ConfiguredProvider,
+			container.ConfiguredModel,
+		)
+	}
+	registry, err := container.NewProviderRegistry()
+	if err != nil {
+		t.Fatalf("NewProviderRegistry() error = %v", err)
+	}
+	descriptors := registry.Descriptors()
+	if len(descriptors) != 1 || descriptors[0].Identifier() != codexcli.Identifier ||
+		descriptors[0].Vendor() != "OpenAI" {
+		t.Fatalf("compile-time provider registrations = %#v", descriptors)
+	}
+	selection, err := registry.Select(container.ConfiguredProvider, container.ConfiguredModel)
+	if err != nil {
+		t.Fatalf("registry.Select() error = %v", err)
+	}
+	model, selected := selection.ModelIdentifier()
+	if !selected || model != "provider-scoped-model" {
+		t.Fatalf("provider-scoped model selection = %#v", selection)
+	}
+}
+
+func TestNewProviderRegistryRequiresExplicitAdapters(t *testing.T) {
+	container := New()
+	container.AIProviders = nil
+	if _, err := container.NewProviderRegistry(); err == nil {
+		t.Fatal("NewProviderRegistry() accepted no compile-time adapters")
+	}
+
+	descriptor, err := aiprovider.NewProviderDescriptor(
+		"duplicate",
+		"Test Vendor",
+		"Duplicate",
+		[]aiprovider.ProviderCapability{aiprovider.CapabilityWorkspaceMutation},
+	)
+	if err != nil {
+		t.Fatalf("NewProviderDescriptor() error = %v", err)
+	}
+	provider := &compositionProvider{descriptor: descriptor}
+	container.AIProviders = []aiprovider.Provider{provider, provider}
+	if _, err := container.NewProviderRegistry(); err == nil {
+		t.Fatal("NewProviderRegistry() accepted duplicate adapter identities")
+	}
+}
+
+type compositionProvider struct {
+	descriptor aiprovider.ProviderDescriptor
+}
+
+func (provider *compositionProvider) Descriptor() aiprovider.ProviderDescriptor {
+	return provider.descriptor
+}
+
+func (*compositionProvider) Execute(
+	context.Context,
+	aiprovider.ExecutionRequest,
+) (aiprovider.ProviderResponse, error) {
+	return aiprovider.ProviderResponse{}, errors.New("not executed")
+}
 
 func TestNewChangeWorkflowPersistsChangeAuditLinkage(t *testing.T) {
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")

@@ -21,7 +21,7 @@ import (
 func TestDefaultRegistryHasUniqueCompleteHierarchicalMetadata(t *testing.T) {
 	registry := newTestRegistry(t)
 	commands := registry.Commands()
-	wantTopLevel := []string{"status", "analysis", "change", "configure", "help", "?", "exit"}
+	wantTopLevel := []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"}
 	if len(commands) != len(wantTopLevel) {
 		t.Fatalf("Commands() = %#v", commands)
 	}
@@ -51,7 +51,10 @@ func TestDefaultRegistryHasUniqueCompleteHierarchicalMetadata(t *testing.T) {
 	if _, exists := seen["change new"]; !exists {
 		t.Fatal("registry lacks change new")
 	}
-	for _, commandPath := range []string{"change isolate", "change patch", "change discard", "configure project"} {
+	for _, commandPath := range []string{
+		"change isolate", "change implement", "change patch", "change discard",
+		"provider list", "provider show", "provider select", "provider model", "configure project",
+	} {
 		if _, exists := seen[commandPath]; !exists {
 			t.Fatalf("registry lacks %s", commandPath)
 		}
@@ -95,7 +98,7 @@ func TestRegistryHelpStatusAndActiveProjectContextReuse(t *testing.T) {
 	if _, err := registry.Dispatch(session, "help", &output); err != nil {
 		t.Fatalf("help error = %v", err)
 	}
-	for _, expected := range []string{"status", "analysis", "change", "configure", "help", "?", "exit"} {
+	for _, expected := range []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("/help output %q lacks %q", output.String(), expected)
 		}
@@ -581,12 +584,12 @@ func TestRegistryDispatchErrorsExitAndCompletion(t *testing.T) {
 		t.Fatalf("/exit result = %#v, error = %v", result, err)
 	}
 
-	assertSuggestions(t, registry.Complete(session, ""), []string{"status", "analysis", "change", "configure", "help", "?", "exit"})
+	assertSuggestions(t, registry.Complete(session, ""), []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"})
 	assertSuggestions(t, registry.Complete(session, "ana"), []string{"analysis"})
 	assertSuggestions(t, registry.Complete(session, "analysis "), []string{"impact"})
 	assertSuggestions(t, registry.Complete(session, "analysis im"), []string{"impact"})
-	assertSuggestions(t, registry.Complete(session, "change "), []string{"new", "isolate", "patch", "discard"})
-	assertSuggestions(t, registry.Complete(session, "change i"), []string{"isolate"})
+	assertSuggestions(t, registry.Complete(session, "change "), []string{"new", "isolate", "implement", "patch", "discard"})
+	assertSuggestions(t, registry.Complete(session, "change i"), []string{"isolate", "implement"})
 	if _, err := registry.Dispatch(session, "/status", io.Discard); err != nil {
 		t.Fatalf("small leading-slash compatibility alias failed: %v", err)
 	}
@@ -604,7 +607,7 @@ func TestRegistryContextModesNavigateWithoutDomainMutation(t *testing.T) {
 	}
 
 	assertMetadataNames(t, registry.ContextCommands(session), []string{
-		"status", "analysis", "change", "configure", "help", "?", "exit",
+		"status", "analysis", "change", "provider", "configure", "help", "?", "exit",
 	})
 	if _, err := registry.Dispatch(session, "analysis", io.Discard); err != nil {
 		t.Fatalf("enter analysis: %v", err)
@@ -712,7 +715,7 @@ func TestRegistryContextualHelpIsDeterministicAndNonMutating(t *testing.T) {
 	_, _, session, registry := prepareCommittedCommandTest(t)
 	registration := session.Registration()
 	root := registry.ContextualHelp(session, "")
-	assertSuggestions(t, root, []string{"status", "analysis", "change", "configure", "help", "?", "exit"})
+	assertSuggestions(t, root, []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"})
 	assertSuggestions(t, registry.ContextualHelp(session, "a"), []string{"analysis"})
 	assertSuggestions(t, registry.ContextualHelp(session, "analysis "), []string{"impact"})
 	assertSuggestions(t, registry.ContextualHelp(session, "analysis i"), []string{"impact"})

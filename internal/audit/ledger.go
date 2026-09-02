@@ -36,6 +36,9 @@ const (
 	EventPatchSurfaceValidated      = "PATCH_SURFACE_VALIDATED"
 	EventPatchRejected              = "PATCH_REJECTED"
 	EventProposalWorkspaceDiscarded = "PROPOSAL_WORKSPACE_DISCARDED"
+	EventProviderExecutionStarted   = "PROVIDER_EXECUTION_STARTED"
+	EventProviderExecutionCompleted = "PROVIDER_EXECUTION_COMPLETED"
+	EventProviderExecutionFailed    = "PROVIDER_EXECUTION_FAILED"
 )
 
 // Event is one append-oriented local runtime audit record.
@@ -301,7 +304,10 @@ func eventRequiresChangeId(eventType string) bool {
 		EventPatchExtracted,
 		EventPatchSurfaceValidated,
 		EventPatchRejected,
-		EventProposalWorkspaceDiscarded:
+		EventProposalWorkspaceDiscarded,
+		EventProviderExecutionStarted,
+		EventProviderExecutionCompleted,
+		EventProviderExecutionFailed:
 		return true
 	default:
 		return false

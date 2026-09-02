@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ type Result struct {
 type Invocation struct {
 	CommandPath string
 	Arguments   []string
+	Context     context.Context
 }
 
 // Handler delegates one parsed command to the retained application session.
@@ -35,14 +37,15 @@ type Option struct {
 // either executable through Handler or enters Mode and optionally owns child
 // commands.
 type Definition struct {
-	Name        string
-	Description string
-	Usage       string
-	Handler     Handler
-	Children    []Definition
-	Options     []Option
-	Mode        ModeIdentity
-	Global      bool
+	Name                string
+	Description         string
+	Usage               string
+	Handler             Handler
+	Children            []Definition
+	Options             []Option
+	ArgumentSuggestions func(*Session, string) []Suggestion
+	Mode                ModeIdentity
+	Global              bool
 }
 
 // Metadata is immutable-by-copy command information used by help and terminal
@@ -108,7 +111,7 @@ func newRegistry(definitions []Definition, end Definition) (Registry, error) {
 	return registry, nil
 }
 
-// DefaultRegistry constructs the current M0.1-M0.4 hierarchical shell
+// DefaultRegistry constructs the current M0.1-M0.5 hierarchical shell
 // command surface.
 func DefaultRegistry() (Registry, error) {
 	var registry Registry
@@ -137,7 +140,7 @@ func DefaultRegistry() (Registry, error) {
 		{
 			Name:        "change",
 			Description: "Enter software Change governance mode",
-			Usage:       "change [new|isolate|patch|discard ...]",
+			Usage:       "change [new|isolate|implement|patch|discard ...]",
 			Mode:        ModeChange,
 			Children: []Definition{
 				{
@@ -154,6 +157,12 @@ func DefaultRegistry() (Registry, error) {
 					Options:     surfaceOptions(false),
 				},
 				{
+					Name:        "implement",
+					Description: "Execute the selected AI provider in the active ProposalWorkspace",
+					Usage:       "implement",
+					Handler:     handleChangeImplement,
+				},
+				{
 					Name:        "patch",
 					Description: "Extract and surface-check the current isolated proposal",
 					Usage:       "patch",
@@ -168,6 +177,39 @@ func DefaultRegistry() (Registry, error) {
 			},
 		},
 		{
+			Name:        "provider",
+			Description: "Enter explicit AI provider and model selection mode",
+			Usage:       "provider [list|show|select|model ...]",
+			Mode:        ModeProvider,
+			Children: []Definition{
+				{
+					Name:        "list",
+					Description: "List explicitly registered AI provider adapters",
+					Usage:       "list",
+					Handler:     handleProviderList,
+				},
+				{
+					Name:        "show",
+					Description: "Show the active session provider and model selection",
+					Usage:       "show",
+					Handler:     handleProviderShow,
+				},
+				{
+					Name:                "select",
+					Description:         "Select one registered AI provider adapter",
+					Usage:               "select <provider>",
+					Handler:             handleProviderSelect,
+					ArgumentSuggestions: providerIdentifierSuggestions,
+				},
+				{
+					Name:        "model",
+					Description: "Select the active provider-scoped model",
+					Usage:       "model <model>",
+					Handler:     handleProviderModel,
+				},
+			},
+		},
+		{
 			Name:        "configure",
 			Description: "Enter non-persistent runtime configuration contexts",
 			Usage:       "configure [project]",
@@ -175,7 +217,7 @@ func DefaultRegistry() (Registry, error) {
 			Children: []Definition{
 				{
 					Name:        "project",
-					Description: "Enter Project configuration context; no mutating settings exist in M0.4",
+					Description: "Enter Project configuration context; no mutating settings exist in M0.5",
 					Usage:       "project",
 					Mode:        ModeConfigureProject,
 				},
@@ -257,6 +299,20 @@ func (registry Registry) ContextCommands(session *Session) []Metadata {
 // leading-slash compatibility alias. Mode entry and direct child invocation
 // resolve through the same immutable command definitions.
 func (registry Registry) Dispatch(session *Session, line string, output io.Writer) (Result, error) {
+	return registry.DispatchContext(context.Background(), session, line, output)
+}
+
+// DispatchContext dispatches one command with execution-scoped cancellation.
+// Non-provider commands retain their existing deterministic behavior.
+func (registry Registry) DispatchContext(
+	ctx context.Context,
+	session *Session,
+	line string,
+	output io.Writer,
+) (Result, error) {
+	if ctx == nil {
+		return Result{}, fmt.Errorf("command execution context is required")
+	}
 	if session == nil {
 		return Result{}, fmt.Errorf("active command session is required")
 	}
@@ -325,6 +381,7 @@ func (registry Registry) Dispatch(session *Session, line string, output io.Write
 	result, err := definition.Handler(session, Invocation{
 		CommandPath: commandPath,
 		Arguments:   append([]string(nil), tokens[consumed:]...),
+		Context:     ctx,
 	}, output)
 	if errors.Is(err, errInvalidArguments) {
 		return Result{}, fmt.Errorf("usage: %s", definition.Usage)
@@ -381,13 +438,19 @@ func (registry Registry) ContextualHelp(session *Session, input string) []Sugges
 
 		if consumed == len(fields) {
 			if trailingSpace {
-				return suggestionsForOptions(definition.Options, "")
+				return append(
+					suggestionsForArguments(definition, session, ""),
+					suggestionsForOptions(definition.Options, "")...,
+				)
 			}
 			return []Suggestion{{Text: definition.Name, Description: definition.Description}}
 		}
 		optionPrefix := fields[len(fields)-1]
 		if !trailingSpace && strings.HasPrefix(optionPrefix, "--") {
 			return suggestionsForOptions(definition.Options, optionPrefix)
+		}
+		if !trailingSpace {
+			return suggestionsForArguments(definition, session, optionPrefix)
 		}
 		return nil
 	}
@@ -528,6 +591,27 @@ func suggestionsForOptions(options []Option, prefix string) []Suggestion {
 	for _, option := range options {
 		if strings.HasPrefix(option.Name, prefix) {
 			suggestions = append(suggestions, Suggestion{Text: option.Name, Description: option.Description})
+		}
+	}
+	return suggestions
+}
+
+func suggestionsForArguments(definition Definition, session *Session, prefix string) []Suggestion {
+	if definition.ArgumentSuggestions == nil {
+		return nil
+	}
+	return definition.ArgumentSuggestions(session, prefix)
+}
+
+func providerIdentifierSuggestions(session *Session, prefix string) []Suggestion {
+	var suggestions []Suggestion
+	for _, descriptor := range session.ProviderDescriptors() {
+		identifier := string(descriptor.Identifier())
+		if strings.HasPrefix(identifier, prefix) {
+			suggestions = append(suggestions, Suggestion{
+				Text:        identifier,
+				Description: descriptor.Vendor() + " — " + descriptor.DisplayName(),
+			})
 		}
 	}
 	return suggestions

@@ -2,11 +2,15 @@ package composition
 
 import (
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/aiprovider/codexcli"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
+	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
@@ -27,7 +31,7 @@ type AuditLoggerFunc func(dataDirectory string, eventType string, projectID stri
 // ChangeAuditLoggerFunc records a Change lifecycle event with top-level audit linkage.
 type ChangeAuditLoggerFunc func(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (audit.Event, error)
 
-// Container assembles only the dependencies required by the current M0.4 runtime scope.
+// Container assembles only the dependencies required by the current M0.5 runtime scope.
 type Container struct {
 	RepositoryDiscovery  RepositoryDiscoveryFunc
 	RepositoryInspection intelligence.RepositoryInspector
@@ -39,11 +43,20 @@ type Container struct {
 	ProposalWorkspaces   proposal.WorkspacePort
 	PatchExtraction      proposal.PatchPort
 	ProposalClock        proposal.Clock
+	AIProviders          []aiprovider.Provider
+	ConfiguredProvider   string
+	ConfiguredModel      string
+	ExecutionAttemptIds  execution.AttemptIdGenerator
+	ExecutionClock       execution.Clock
 }
 
 // New creates the explicit composition root for the current runtime boundary.
 func New() Container {
 	gitProposalAdapter := gitproposal.NewDefault()
+	configuredProvider := os.Getenv("PRAETOR_AI_PROVIDER")
+	if configuredProvider == "" {
+		configuredProvider = codexcli.Identifier
+	}
 	return Container{
 		RepositoryDiscovery:  repository.Discover,
 		RepositoryInspection: repository.Inspect,
@@ -63,11 +76,18 @@ func New() Container {
 		ProposalClock: func() time.Time {
 			return time.Now().UTC()
 		},
+		AIProviders:         []aiprovider.Provider{codexcli.NewDefault()},
+		ConfiguredProvider:  configuredProvider,
+		ConfiguredModel:     os.Getenv("PRAETOR_AI_MODEL"),
+		ExecutionAttemptIds: aiprovider.GenerateExecutionAttemptId,
+		ExecutionClock: func() time.Time {
+			return time.Now().UTC()
+		},
 	}
 }
 
 // NewInteractiveSession composes one retained shell session around the active
-// Project and the current M0.1-M0.4 application capabilities.
+// Project and the current M0.1-M0.5 application capabilities.
 func (container Container) NewInteractiveSession(path string) (*command.Session, error) {
 	registration, err := container.EnsureProjectRegistration(path)
 	if err != nil {
@@ -85,7 +105,34 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
-	session, err := command.NewSession(registration, changeWorkflow, repositoryIntelligence, proposalLifecycle)
+	providerRegistry, err := container.NewProviderRegistry()
+	if err != nil {
+		return nil, err
+	}
+	providerSelection, err := providerRegistry.Select(
+		container.ConfiguredProvider,
+		container.ConfiguredModel,
+	)
+	if err != nil {
+		return nil, err
+	}
+	providerExecution, err := container.NewProviderExecutionService(
+		registration,
+		proposalLifecycle,
+		providerRegistry,
+	)
+	if err != nil {
+		return nil, err
+	}
+	session, err := command.NewSession(
+		registration,
+		changeWorkflow,
+		repositoryIntelligence,
+		proposalLifecycle,
+		providerExecution,
+		providerRegistry,
+		providerSelection,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -103,13 +150,75 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		return nil, err
 	}
 	if _, err := container.RecordConfiguration(registration, map[string]any{
-		"command":   "interactive shell",
-		"runtime":   "local",
-		"directory": "data",
+		"command":     "interactive shell",
+		"runtime":     "local",
+		"directory":   "data",
+		"ai_provider": string(providerSelection.ProviderIdentifier()),
+		"ai_model":    selectedModelMetadata(providerSelection),
 	}); err != nil {
 		return nil, err
 	}
 	return session, nil
+}
+
+// NewProviderRegistry performs explicit compile-time adapter registration.
+func (container Container) NewProviderRegistry() (*aiprovider.Registry, error) {
+	if len(container.AIProviders) == 0 {
+		return nil, fmt.Errorf("AI provider adapters are not configured")
+	}
+	return aiprovider.NewRegistry(container.AIProviders...)
+}
+
+// NewProviderExecutionService composes the provider-independent M0.5
+// execution service around the existing ProposalWorkspace lifecycle.
+func (container Container) NewProviderExecutionService(
+	registration project.Registration,
+	proposalLifecycle *proposal.Service,
+	providerRegistry *aiprovider.Registry,
+) (*execution.Service, error) {
+	if container.ChangeAuditLogger == nil {
+		return nil, fmt.Errorf("Change audit logger dependency is not configured")
+	}
+	if container.ExecutionAttemptIds == nil {
+		return nil, fmt.Errorf("execution attempt identity dependency is not configured")
+	}
+	if container.ExecutionClock == nil {
+		return nil, fmt.Errorf("provider execution clock dependency is not configured")
+	}
+	dataDirectory, err := audit.ResolveDataDir()
+	if err != nil {
+		return nil, err
+	}
+	recorder := func(event execution.LifecycleEvent) error {
+		request := event.Request
+		if request.ProjectId() != registration.ProjectId {
+			return fmt.Errorf(
+				"M0.5 event ProjectId %q does not match registered ProjectId %q",
+				request.ProjectId(),
+				registration.ProjectId,
+			)
+		}
+		metadata, metadataError := providerExecutionMetadata(event)
+		if metadataError != nil {
+			return metadataError
+		}
+		_, recordError := container.ChangeAuditLogger(
+			dataDirectory,
+			event.EventType,
+			string(request.ProjectId()),
+			string(request.ChangeId()),
+			registration.RepositoryRoot,
+			metadata,
+		)
+		return recordError
+	}
+	return execution.New(
+		providerRegistry,
+		proposalLifecycle,
+		recorder,
+		container.ExecutionAttemptIds,
+		container.ExecutionClock,
+	)
 }
 
 // NewProposalService assembles M0.4 Git worktree isolation, deterministic
@@ -178,6 +287,9 @@ func proposalLifecycleMetadata(event proposal.LifecycleEvent) (map[string]any, e
 	if event.Reason != "" {
 		metadata["reason"] = event.Reason
 	}
+	if event.ExecutionAttemptId != "" {
+		metadata["execution_attempt_id"] = event.ExecutionAttemptId
+	}
 	if event.HasArtifact {
 		artifact := event.Artifact
 		if artifact.WorkspaceId() != workspace.WorkspaceId() ||
@@ -204,6 +316,95 @@ func proposalLifecycleMetadata(event proposal.LifecycleEvent) (map[string]any, e
 	default:
 		return nil, fmt.Errorf("unknown M0.4 lifecycle event type %q", event.EventType)
 	}
+}
+
+func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, error) {
+	request := event.Request
+	descriptor := event.Descriptor
+	selection := request.Selection()
+	workspace := request.Workspace()
+	if descriptor.Identifier() == "" || descriptor.Identifier() != selection.ProviderIdentifier() {
+		return nil, fmt.Errorf("M0.5 provider descriptor and selection linkage is inconsistent")
+	}
+	if event.OccurredAt.IsZero() {
+		return nil, fmt.Errorf("M0.5 provider execution event timestamp is required")
+	}
+	metadata := map[string]any{
+		"execution_attempt_id":  string(request.AttemptId()),
+		"workspace_id":          string(workspace.WorkspaceId()),
+		"provider":              string(descriptor.Identifier()),
+		"provider_vendor":       descriptor.Vendor(),
+		"provider_display_name": descriptor.DisplayName(),
+		"provider_capabilities": providerCapabilityStrings(descriptor.Capabilities()),
+		"role":                  string(request.RoleContract().Role()),
+		"base_revision":         request.BaseRevision(),
+		"source_state_digest":   string(request.SourceStateDigest()),
+		"event_timestamp":       event.OccurredAt.UTC().Format(time.RFC3339Nano),
+	}
+	if modelIdentifier, selected := selection.ModelIdentifier(); selected {
+		metadata["model"] = string(modelIdentifier)
+	}
+
+	switch event.EventType {
+	case execution.EventProviderExecutionStarted:
+		metadata["disposition"] = "started"
+	case execution.EventProviderExecutionCompleted:
+		if !event.HasResponse ||
+			event.Response.AttemptId() != request.AttemptId() ||
+			event.Response.Selection().ProviderIdentifier() != selection.ProviderIdentifier() {
+			return nil, fmt.Errorf("M0.5 completed response linkage is inconsistent")
+		}
+		response := event.Response
+		metadata["disposition"] = string(response.Outcome())
+		if response.ProviderVersion() != "" {
+			metadata["provider_version"] = response.ProviderVersion()
+		}
+		if response.ExternalExecutionId() != "" {
+			metadata["external_execution_id"] = response.ExternalExecutionId()
+		}
+		metadata["provider_started_at"] = response.StartedAt().Format(time.RFC3339Nano)
+		metadata["provider_completed_at"] = response.CompletedAt().Format(time.RFC3339Nano)
+		metadata["duration_milliseconds"] = response.CompletedAt().Sub(response.StartedAt()).Milliseconds()
+		metadata["summary_present"] = response.Summary() != ""
+		metadata["summary_truncated"] = response.SummaryTruncated()
+		if response.Usage().Available() {
+			metadata["usage"] = map[string]int64{
+				"input_tokens":            response.Usage().InputTokens(),
+				"cached_input_tokens":     response.Usage().CachedInputTokens(),
+				"output_tokens":           response.Usage().OutputTokens(),
+				"reasoning_output_tokens": response.Usage().ReasoningOutputTokens(),
+			}
+		}
+	case execution.EventProviderExecutionFailed:
+		if event.FailureKind == "" {
+			return nil, fmt.Errorf("M0.5 failed execution requires a failure classification")
+		}
+		metadata["disposition"] = "failed"
+		metadata["failure_kind"] = string(event.FailureKind)
+		metadata["workspace_may_be_changed"] = event.WorkspaceMayBeChanged
+		metadata["changed_paths"] = append([]string(nil), event.ChangedPaths...)
+		if event.ExternalExecutionId != "" {
+			metadata["external_execution_id"] = event.ExternalExecutionId
+		}
+	default:
+		return nil, fmt.Errorf("unknown M0.5 lifecycle event type %q", event.EventType)
+	}
+	return metadata, nil
+}
+
+func providerCapabilityStrings(capabilities []aiprovider.ProviderCapability) []string {
+	values := make([]string, len(capabilities))
+	for index, capability := range capabilities {
+		values[index] = string(capability)
+	}
+	return values
+}
+
+func selectedModelMetadata(selection aiprovider.Selection) string {
+	if modelIdentifier, selected := selection.ModelIdentifier(); selected {
+		return string(modelIdentifier)
+	}
+	return "provider-default"
 }
 
 // NewRepositoryIntelligence assembles M0.3 repository inspection and bounded

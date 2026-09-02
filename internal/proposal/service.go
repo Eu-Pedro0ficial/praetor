@@ -60,13 +60,14 @@ type Clock func() time.Time
 
 // LifecycleEvent carries typed proposal metadata to the audit adapter.
 type LifecycleEvent struct {
-	EventType   string
-	Workspace   ProposalWorkspace
-	Artifact    PatchArtifact
-	HasArtifact bool
-	Validation  source.SurfaceValidationResult
-	Disposition string
-	Reason      string
+	EventType          string
+	Workspace          ProposalWorkspace
+	Artifact           PatchArtifact
+	HasArtifact        bool
+	Validation         source.SurfaceValidationResult
+	Disposition        string
+	Reason             string
+	ExecutionAttemptId string
 }
 
 // WorkspaceMutation is the deliberately narrow, test-controlled M0.4 seam
@@ -252,10 +253,56 @@ func (service *Service) Mutate(currentProposal Proposal, mutation WorkspaceMutat
 	return guardError
 }
 
+// InspectChangedPaths obtains Git-authoritative workspace paths without
+// creating a PatchArtifact or changing proposal state. M0.5 uses this only to
+// record bounded partial-mutation provenance after provider failure.
+func (service *Service) InspectChangedPaths(currentProposal Proposal) ([]string, error) {
+	if currentProposal.workspace.State() != WorkspaceActive {
+		return nil, fmt.Errorf(
+			"proposal workspace %q is not active",
+			currentProposal.workspace.WorkspaceId(),
+		)
+	}
+	guard, err := NewCanonicalSourceGuard(currentProposal.canonicalSource, service.inspector)
+	if err != nil {
+		return nil, err
+	}
+	if err := guard.Verify(); err != nil {
+		return nil, err
+	}
+	extracted, err := service.patches.Extract(currentProposal.workspace)
+	if err != nil {
+		return nil, fmt.Errorf("inspect proposal changes: %w", err)
+	}
+	if err := guard.Verify(); err != nil {
+		return nil, err
+	}
+	return append([]string(nil), extracted.ChangedPaths...), nil
+}
+
 // ExtractPatch extracts the actual isolated diff, validates its complete path
 // set against M0.3 ApprovedScope, and classifies it as retained or rejected.
 func (service *Service) ExtractPatch(
 	currentProposal Proposal,
+) (Proposal, source.SurfaceValidationResult, error) {
+	return service.extractPatch(currentProposal, "")
+}
+
+// ExtractPatchForExecution reuses the M0.4 extraction and classification
+// lifecycle while linking its audit events to one provider execution attempt.
+func (service *Service) ExtractPatchForExecution(
+	currentProposal Proposal,
+	executionAttemptId string,
+) (Proposal, source.SurfaceValidationResult, error) {
+	if strings.TrimSpace(executionAttemptId) == "" {
+		return currentProposal, source.SurfaceValidationResult{}, fmt.Errorf("ExecutionAttemptId is required")
+	}
+	return service.extractPatch(currentProposal, executionAttemptId)
+}
+
+func (service *Service) extractPatch(
+	currentProposal Proposal,
+	executionAttemptId string,
 ) (Proposal, source.SurfaceValidationResult, error) {
 	if currentProposal.workspace.State() != WorkspaceActive {
 		return currentProposal, source.SurfaceValidationResult{}, fmt.Errorf(
@@ -296,10 +343,11 @@ func (service *Service) ExtractPatch(
 		}
 		rejectedProposal := currentProposal.withWorkspace(rejectedWorkspace)
 		if recordError := service.recorder(LifecycleEvent{
-			EventType:   EventPatchRejected,
-			Workspace:   rejectedWorkspace,
-			Disposition: string(WorkspaceRejected),
-			Reason:      emptyPatchError.Error(),
+			EventType:          EventPatchRejected,
+			Workspace:          rejectedWorkspace,
+			Disposition:        string(WorkspaceRejected),
+			Reason:             emptyPatchError.Error(),
+			ExecutionAttemptId: executionAttemptId,
 		}); recordError != nil {
 			return rejectedProposal, source.SurfaceValidationResult{}, fmt.Errorf("record empty patch rejection: %w", recordError)
 		}
@@ -311,11 +359,12 @@ func (service *Service) ExtractPatch(
 
 	withArtifact := currentProposal.withArtifact(artifact)
 	if err := service.recorder(LifecycleEvent{
-		EventType:   EventPatchExtracted,
-		Workspace:   currentProposal.workspace,
-		Artifact:    artifact,
-		HasArtifact: true,
-		Disposition: string(WorkspaceActive),
+		EventType:          EventPatchExtracted,
+		Workspace:          currentProposal.workspace,
+		Artifact:           artifact,
+		HasArtifact:        true,
+		Disposition:        string(WorkspaceActive),
+		ExecutionAttemptId: executionAttemptId,
 	}); err != nil {
 		return currentProposal, source.SurfaceValidationResult{}, fmt.Errorf("record patch extraction: %w", err)
 	}
@@ -332,13 +381,14 @@ func (service *Service) ExtractPatch(
 		}
 		rejectedProposal := withArtifact.withWorkspace(rejectedWorkspace)
 		if err := service.recorder(LifecycleEvent{
-			EventType:   EventPatchRejected,
-			Workspace:   rejectedWorkspace,
-			Artifact:    artifact,
-			HasArtifact: true,
-			Validation:  validation,
-			Disposition: string(WorkspaceRejected),
-			Reason:      surfaceError.Error(),
+			EventType:          EventPatchRejected,
+			Workspace:          rejectedWorkspace,
+			Artifact:           artifact,
+			HasArtifact:        true,
+			Validation:         validation,
+			Disposition:        string(WorkspaceRejected),
+			Reason:             surfaceError.Error(),
+			ExecutionAttemptId: executionAttemptId,
 		}); err != nil {
 			return rejectedProposal, validation, fmt.Errorf("record patch rejection: %w", err)
 		}
@@ -354,12 +404,13 @@ func (service *Service) ExtractPatch(
 	}
 	retainedProposal := withArtifact.withWorkspace(retainedWorkspace)
 	if err := service.recorder(LifecycleEvent{
-		EventType:   EventPatchSurfaceValidated,
-		Workspace:   retainedWorkspace,
-		Artifact:    artifact,
-		HasArtifact: true,
-		Validation:  validation,
-		Disposition: "surface-valid",
+		EventType:          EventPatchSurfaceValidated,
+		Workspace:          retainedWorkspace,
+		Artifact:           artifact,
+		HasArtifact:        true,
+		Validation:         validation,
+		Disposition:        "surface-valid",
+		ExecutionAttemptId: executionAttemptId,
 	}); err != nil {
 		return retainedProposal, validation, fmt.Errorf("record patch surface validation: %w", err)
 	}

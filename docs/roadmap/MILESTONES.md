@@ -442,7 +442,7 @@ The core domain must remain provider-independent, but V0 still needs one concret
 - AI Provider Port
 
 #### Required adapters
-- one concrete AI provider adapter
+- exactly one concrete M0.5 adapter: `codex-cli` through non-interactive `codex exec`
 
 #### Inputs
 - implementation task metadata
@@ -461,14 +461,17 @@ The core domain must remain provider-independent, but V0 still needs one concret
 - sandbox path is available
 - isolated patch workflow exists
 - ARCHITECTURE DECISION GATE: Go adapter loading is DECIDED as compile-time registration and composition-root selection; Go plugin loading is not the initial model and requires a separate spike and ADR before adoption
+- FIRST PROVIDER DECISION: ADR-030 records the human-approved `codex-cli` integration mechanism
 
 #### Implementation boundaries
 - exactly one concrete provider adapter for the V0 path
+- explicit session/configuration selection of provider and optional provider-scoped model; manual selection is not routing
 - no capability-routing requirement yet
 - no broad trust-boundary model yet
 
 #### Explicit non-goals
 - multi-provider routing
+- automatic selection, fallback, ranking, load balancing, or multi-provider execution
 - data-classification-driven provider choice
 - general provider marketplace abstraction
 

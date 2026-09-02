@@ -81,6 +81,29 @@ it does not isolate processes, environment variables, credentials, network,
 the host filesystem, containers or virtual machines. No untrusted proposal
 program is executed by M0.4.
 
+==== M0.5 Codex CLI Execution Boundary
+
+M0.5 executes the approved `codex-cli` adapter as a local child process. The
+adapter passes structured process arguments, selects ephemeral non-interactive
+JSONL execution, applies a finite timeout, bounds captured output, and sets the
+ProposalWorkspace as both process working directory and Codex working root.
+The provider-facing request does not contain canonical `RepositoryRoot`.
+Prompt constraints reinforce the ApprovedScope, but only the canonical guard
+and Git patch/surface validation enforce Praetor's source boundary.
+
+Codex CLI owns authentication through its normal local mechanism. Praetor does
+not inspect or persist tokens, API keys, authorization data, or credential
+files. Audit deliberately excludes raw prompts, provider stdout/stderr,
+textual summaries, full source, patch bodies, and workspace paths. Normalized
+failures do not expose raw provider output.
+
+This does not isolate the provider process from the host filesystem,
+environment, credentials, or network and does not make untrusted code safe to
+execute. M0.5 neither runs generated project programs nor claims enterprise
+trust/data-classification enforcement. M1.3 owns provider trust and data
+routing; stronger process/container/network isolation remains a separate
+security decision.
+
 ==== Multi-Tenant Future
 
 If a hosted enterprise control plane is introduced, tenant separation becomes a first-class security requirement. The current local-first design deliberately avoids inventing that deployment before needed.

@@ -3,6 +3,7 @@
 package shell
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -63,10 +64,23 @@ func newWithEditor(
 // Run prints retained Project context and dispatches until root exit or EOF.
 // Command failures are reported without terminating the session.
 func (adapter *Adapter) Run() error {
+	return adapter.RunContext(context.Background())
+}
+
+// RunContext propagates execution-scoped cancellation to commands such as
+// M0.5 provider implementation. Readline remains responsible for terminal
+// interrupt behavior while waiting for input.
+func (adapter *Adapter) RunContext(ctx context.Context) error {
+	if ctx == nil {
+		return fmt.Errorf("shell execution context is required")
+	}
 	if err := adapter.writeBanner(); err != nil {
 		return err
 	}
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		line, err := adapter.editor.Readline()
 		switch {
 		case errors.Is(err, io.EOF):
@@ -79,7 +93,7 @@ func (adapter *Adapter) Run() error {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		result, dispatchError := adapter.registry.Dispatch(adapter.session, line, adapter.output)
+		result, dispatchError := adapter.registry.DispatchContext(ctx, adapter.session, line, adapter.output)
 		if dispatchError != nil {
 			if _, writeError := fmt.Fprintf(adapter.output, "praetor: %v\n", dispatchError); writeError != nil {
 				return writeError

@@ -1,0 +1,90 @@
+== ADR-030: Runtime-Selectable AI Provider Architecture and Codex CLI Initial Adapter
+
+*Status:* DECIDED
+
+=== Context
+
+M0.5 requires one working AI provider adapter behind a provider-independent
+port. The repository previously decided adapter loading in ADR-021 but did not
+name the first provider or integration mechanism. That choice cannot be
+inferred from installed tools or implementation convenience.
+
+The human architecture authority approved `codex-cli`, using OpenAI Codex CLI
+through non-interactive `codex exec`, as the single concrete Core V0 adapter.
+This decision establishes an initial executable path, not a permanent or
+privileged provider.
+
+=== Decision
+
+Praetor defines an AI Provider Port in the owning application/core side. Its
+contract uses Praetor semantics including `ProviderCapability`,
+`ProviderRoleContract`, `ExecutionRequest`, and `ProviderResponse`; no Codex
+CLI flags, event envelopes, or OpenAI request types cross the port.
+
+M0.5 registers exactly one concrete adapter at compile time: `codex-cli`. The
+composition root selects an explicitly configured provider and optional
+provider-scoped model. The interactive session may change that exact selection
+manually without recompiling Praetor. No selection operation searches for an
+alternative adapter.
+
+The adapter invokes `codex exec` non-interactively with JSONL output,
+ephemeral session storage, bounded process output, context cancellation, and
+an execution timeout. It sets the existing `ProposalWorkspace` as both the
+process working directory and Codex working root. It does not receive the
+canonical repository as a writable target. Codex CLI owns its authentication
+mechanism; Praetor does not read, copy, persist, or audit provider credentials.
+
+Before execution, the adapter performs bounded local probes for Codex version
+metadata and the required `exec` flags. The CLI exposes no structured
+capability endpoint, so the adapter inspects bounded `codex exec --help` output
+for the exact options it will use rather than pinning one brittle version. The
+probe makes no model request, performs no installation/update/login, and
+normalizes missing, uninvokable, or unsupported CLI behavior.
+
+An explicitly selected model is passed as provider-scoped execution metadata.
+When absent, the adapter uses the provider default. No model identifier is
+embedded in the Change domain, provider port, or adapter default.
+
+Provider output is untrusted provenance. Git inspection in the existing M0.4
+patch lifecycle remains authoritative for changed paths and patch bytes.
+Provider completion is followed by the existing patch extraction,
+ApprovedScope comparison, rejection, and canonical-source guard. Provider
+failures are normalized and audited without storing raw provider output,
+prompts, repository contents, or credentials.
+
+=== Consequences
+
+Positive:
+
+* Core V0 proves a real provider path without a new Go dependency or SDK;
+* a future OpenAI HTTP/SDK adapter can implement the same port as a separate
+  adapter and coexist with `codex-cli`;
+* provider/model selection remains runtime configuration rather than domain
+  identity;
+* provider-specific process, prompt, and JSONL mechanics stay in the adapter.
+
+Negative:
+
+* execution requires a compatible installed and authenticated Codex CLI;
+* behavior depends on the external CLI contract and local environment;
+* Git worktree isolation does not isolate the process, host filesystem,
+  credentials, or network.
+
+=== Explicit boundary
+
+M0.5 does not implement automatic selection, capability routing, trust or
+data-classification routing, fallback, ranking, load balancing, retry across
+providers, or multi-provider execution. `ProviderCapability` is descriptive
+contract metadata only. Manual selection is not routing.
+
+Codex CLI is not a universal or privileged provider. Additional providers are
+separate compile-time registered adapters behind the same port. M1.3 owns
+policy-governed routing and M1.4 owns multi-provider maturity.
+
+=== Reopen / review trigger
+
+Changing the first-adapter mechanism, leaking provider types into core,
+introducing a new meaningful dependency, adding persistent provider
+configuration, changing credential handling, or implementing automatic or
+multi-provider routing requires the corresponding architecture review and
+milestone authority.

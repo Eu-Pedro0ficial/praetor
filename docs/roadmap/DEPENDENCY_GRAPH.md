@@ -66,6 +66,7 @@ Approved decisions now authoritative:
 - Workflow representation: declarative YAML with schema validation.
 - Policy representation: declarative YAML with schema validation.
 - Adapter loading: compile-time registration + composition root; no Go plugin loading in the initial architecture.
+- First AI provider adapter: `codex-cli` through non-interactive `codex exec`, behind the provider-independent port; explicit provider/model selection is not routing.
 - Sandbox isolation: Git worktree for source/workspace isolation; not a security sandbox.
 - First remote SCM: local Git first; GitHub is the first remote SCM adapter after Core V0, behind a provider-independent SCM Port. GitHub concepts stay in the adapter layer, not in the domain/core.
 - Provider trust taxonomy: LOCAL, ENTERPRISE, EXTERNAL_APPROVED, EXTERNAL_RESTRICTED, FORBIDDEN.

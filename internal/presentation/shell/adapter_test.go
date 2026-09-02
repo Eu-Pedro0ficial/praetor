@@ -137,9 +137,11 @@ func TestReadlineEditorEnablesLiveRegistryCompletion(t *testing.T) {
 		input      string
 		wantValues []string
 	}{
-		{input: "", wantValues: []string{"status", "analysis", "change", "configure", "help", "?", "exit"}},
+		{input: "", wantValues: []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"}},
 		{input: "ana", wantValues: []string{"analysis"}},
 		{input: "analysis ", wantValues: []string{"impact"}},
+		{input: "provider ", wantValues: []string{"list", "show", "select", "model"}},
+		{input: "provider select ", wantValues: []string{"codex-cli"}},
 	}
 	for _, test := range tests {
 		completions := editor.shell.Completer([]rune(test.input), len([]rune(test.input)))
@@ -215,6 +217,27 @@ func TestReadlineContextualHelpPreservesBufferCursorAndMode(t *testing.T) {
 	}
 	if editor.shell.History == nil || editor.shell.History.Current() == nil {
 		t.Fatal("contextual-help binding displaced readline history")
+	}
+
+	if _, err := registry.Dispatch(session, "end", io.Discard); err != nil {
+		t.Fatalf("leave analysis: %v", err)
+	}
+	if _, err := registry.Dispatch(session, "provider", io.Discard); err != nil {
+		t.Fatalf("enter provider: %v", err)
+	}
+	providerLine := []rune("select ")
+	editor.shell.Line().Set(providerLine...)
+	editor.shell.Cursor().Set(len(providerLine))
+	rendered = ""
+	commandFunction()
+	if !strings.Contains(rendered, "codex-cli") || string(*editor.shell.Line()) != "select " ||
+		editor.shell.Cursor().Pos() != len(providerLine) || session.CurrentMode().Identity != command.ModeProvider {
+		t.Fatalf("provider contextual help rendered=%q line=%q cursor=%d mode=%q",
+			rendered,
+			string(*editor.shell.Line()),
+			editor.shell.Cursor().Pos(),
+			session.CurrentMode().Identity,
+		)
 	}
 }
 
