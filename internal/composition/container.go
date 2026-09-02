@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
+	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
@@ -25,7 +27,7 @@ type AuditLoggerFunc func(dataDirectory string, eventType string, projectID stri
 // ChangeAuditLoggerFunc records a Change lifecycle event with top-level audit linkage.
 type ChangeAuditLoggerFunc func(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (audit.Event, error)
 
-// Container assembles only the dependencies required by the current M0.3 runtime scope.
+// Container assembles only the dependencies required by the current M0.4 runtime scope.
 type Container struct {
 	RepositoryDiscovery  RepositoryDiscoveryFunc
 	RepositoryInspection intelligence.RepositoryInspector
@@ -34,10 +36,14 @@ type Container struct {
 	ChangeAuditLogger    ChangeAuditLoggerFunc
 	ChangeStore          *workflow.MemoryStore
 	WorkflowClock        workflow.Clock
+	ProposalWorkspaces   proposal.WorkspacePort
+	PatchExtraction      proposal.PatchPort
+	ProposalClock        proposal.Clock
 }
 
 // New creates the explicit composition root for the current runtime boundary.
 func New() Container {
+	gitProposalAdapter := gitproposal.NewDefault()
 	return Container{
 		RepositoryDiscovery:  repository.Discover,
 		RepositoryInspection: repository.Inspect,
@@ -52,11 +58,16 @@ func New() Container {
 		WorkflowClock: func() time.Time {
 			return time.Now().UTC()
 		},
+		ProposalWorkspaces: gitProposalAdapter,
+		PatchExtraction:    gitProposalAdapter,
+		ProposalClock: func() time.Time {
+			return time.Now().UTC()
+		},
 	}
 }
 
 // NewInteractiveSession composes one retained shell session around the active
-// Project and the current M0.1-M0.3 application capabilities.
+// Project and the current M0.1-M0.4 application capabilities.
 func (container Container) NewInteractiveSession(path string) (*command.Session, error) {
 	registration, err := container.EnsureProjectRegistration(path)
 	if err != nil {
@@ -70,7 +81,11 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
-	session, err := command.NewSession(registration, changeWorkflow, repositoryIntelligence)
+	proposalLifecycle, err := container.NewProposalService(registration)
+	if err != nil {
+		return nil, err
+	}
+	session, err := command.NewSession(registration, changeWorkflow, repositoryIntelligence, proposalLifecycle)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +110,100 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		return nil, err
 	}
 	return session, nil
+}
+
+// NewProposalService assembles M0.4 Git worktree isolation, deterministic
+// patch extraction, canonical-source guarding, and audit provenance.
+func (container Container) NewProposalService(registration project.Registration) (*proposal.Service, error) {
+	if container.ProposalWorkspaces == nil {
+		return nil, fmt.Errorf("proposal workspace dependency is not configured")
+	}
+	if container.PatchExtraction == nil {
+		return nil, fmt.Errorf("patch extraction dependency is not configured")
+	}
+	if container.RepositoryInspection == nil {
+		return nil, fmt.Errorf("repository inspection dependency is not configured")
+	}
+	if container.ChangeAuditLogger == nil {
+		return nil, fmt.Errorf("Change audit logger dependency is not configured")
+	}
+	if container.ProposalClock == nil {
+		return nil, fmt.Errorf("proposal clock dependency is not configured")
+	}
+
+	dataDirectory, err := audit.ResolveDataDir()
+	if err != nil {
+		return nil, err
+	}
+	recorder := func(event proposal.LifecycleEvent) error {
+		if event.Workspace.ProjectId() != registration.ProjectId {
+			return fmt.Errorf(
+				"M0.4 event ProjectId %q does not match registered ProjectId %q",
+				event.Workspace.ProjectId(),
+				registration.ProjectId,
+			)
+		}
+		metadata, metadataError := proposalLifecycleMetadata(event)
+		if metadataError != nil {
+			return metadataError
+		}
+		_, recordError := container.ChangeAuditLogger(
+			dataDirectory,
+			event.EventType,
+			string(event.Workspace.ProjectId()),
+			string(event.Workspace.ChangeId()),
+			registration.RepositoryRoot,
+			metadata,
+		)
+		return recordError
+	}
+	return proposal.New(
+		container.ProposalWorkspaces,
+		container.PatchExtraction,
+		proposal.RepositoryInspector(container.RepositoryInspection),
+		recorder,
+		container.ProposalClock,
+	)
+}
+
+func proposalLifecycleMetadata(event proposal.LifecycleEvent) (map[string]any, error) {
+	workspace := event.Workspace
+	metadata := map[string]any{
+		"workspace_id":        string(workspace.WorkspaceId()),
+		"workspace_state":     string(workspace.State()),
+		"base_revision":       workspace.BaseRevision(),
+		"source_state_digest": string(workspace.SourceStateDigest()),
+		"disposition":         event.Disposition,
+	}
+	if event.Reason != "" {
+		metadata["reason"] = event.Reason
+	}
+	if event.HasArtifact {
+		artifact := event.Artifact
+		if artifact.WorkspaceId() != workspace.WorkspaceId() ||
+			artifact.ProjectId() != workspace.ProjectId() ||
+			artifact.ChangeId() != workspace.ChangeId() {
+			return nil, fmt.Errorf("M0.4 patch artifact linkage is inconsistent")
+		}
+		metadata["patch_digest"] = artifact.PatchDigest()
+		metadata["diff_summary"] = artifact.DiffSummary()
+		metadata["changed_paths"] = artifact.ChangedPaths()
+	}
+	switch event.EventType {
+	case proposal.EventProposalWorkspaceCreated,
+		proposal.EventPatchExtracted,
+		proposal.EventProposalWorkspaceDiscarded:
+		return metadata, nil
+	case proposal.EventPatchSurfaceValidated,
+		proposal.EventPatchRejected:
+		metadata["allowed"] = event.Validation.Allowed()
+		metadata["expected_changes"] = repositoryPathStrings(event.Validation.ExpectedChanges())
+		metadata["possible_changes"] = repositoryPathStrings(event.Validation.PossibleChanges())
+		metadata["violations"] = violationMetadata(event.Validation.Violations())
+		return metadata, nil
+	default:
+		return nil, fmt.Errorf("unknown M0.4 lifecycle event type %q", event.EventType)
+	}
 }
 
 // NewRepositoryIntelligence assembles M0.3 repository inspection and bounded

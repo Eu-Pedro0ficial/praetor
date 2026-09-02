@@ -10,15 +10,18 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/shell"
 )
 
-func run(arguments []string) error {
+func run(arguments []string) (runError error) {
 	if len(arguments) != 0 {
-		return errors.New("praetor starts an interactive shell; use slash commands inside the session")
+		return errors.New("praetor starts an interactive shell; use plain hierarchical commands inside the session")
 	}
 	container := composition.New()
 	session, err := container.NewInteractiveSession(".")
 	if err != nil {
 		return err
 	}
+	defer func() {
+		runError = errors.Join(runError, session.Close())
+	}()
 	registry, err := command.DefaultRegistry()
 	if err != nil {
 		return err

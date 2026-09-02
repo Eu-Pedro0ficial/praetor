@@ -52,6 +52,21 @@ successful-transition audit history unchanged.
 `approved` and `rejected` are M0.2 lifecycle dispositions. The mature human
 approval, policy and evidence gates remain M0.7 scope.
 
+==== M0.4 Integration with Existing States
+
+M0.4 uses the existing `planned -> isolated` edge only after a clean M0.3
+source boundary and detached proposal worktree have been established. A
+surface-valid patch remains `isolated`; it does not claim the M0.6
+`validated` state or the M0.7 human meaning of `approved`. A forbidden, empty
+or explicitly discarded proposal uses the existing `isolated -> rejected`
+edge. Failure before a workspace is established uses `planned -> rejected`;
+operational extraction failures leave the active isolated proposal available
+for an explicit retry or discard.
+
+The proposal workspace's `active`, `retained`, `rejected` and `cleaned`
+operational labels describe temporary resource handling only. They neither add
+Change states nor bypass aggregate transitions.
+
 ==== Longer-Term Candidate Lifecycle
 
 The following diagram remains a candidate vocabulary for later milestones. It

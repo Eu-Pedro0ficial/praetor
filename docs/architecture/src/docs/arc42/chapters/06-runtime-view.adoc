@@ -7,7 +7,8 @@
 include::../diagrams/dynamic-project-attach.puml[]
 ----
 
-. Engineer starts `praetor` in an existing repository; the interactive shell resolves and retains the active Project context.
+. Engineer starts `praetor` in an existing repository; the interactive shell
+  resolves and retains the active Project context and begins in root mode.
 . Project Registry resolves the operational repository association and an existing memory repository or provisions one through the configured SCM adapter if authorized.
 . Repository Intelligence scans source, manifests, history, tests and configuration.
 . Memory Engine clones/updates the project memory repository and builds a local query projection.
@@ -52,6 +53,33 @@ A request in the `order` domain produces a modification in `authentication` outs
 . does not let the implementer self-authorize the expansion;
 . requires plan/surface revision and/or explicit human exception;
 . preserves the violation as audit evidence.
+
+==== M0.4 Executable Isolation and Patch Subset
+
+The current executable subset implements only the source/workspace and patch
+portion of the broader implementation scenario:
+
+. `change isolate` creates a process-local Change, advances it through
+  `planned`, captures the M0.3 source boundary and creates a detached worktree
+  at that exact clean revision;
+. controlled proposal mutation targets only the worktree; there is no AI
+  executor or generic command runner in M0.4;
+. `change patch` extracts the complete Git patch and changed-path inventory;
+. expected and possible paths produce a `surface-valid` retained proposal,
+  while any protected or unexpected path rejects the whole proposal;
+. surface-valid does not advance the Change beyond `isolated`; M0.6 owns
+  deterministic evidence validation and M0.7 owns human approval;
+. `change discard`, a rejected patch, or session shutdown removes only the
+  adapter-owned worktree and records append-oriented provenance.
+
+Dirty canonical source and externally detected source drift fail closed.
+Praetor does not stash, reset, clean, repair or overwrite developer source.
+
+The same M0.4 handlers are reachable by entering `change` and invoking
+`isolate`, `patch`, or `discard` relative to that mode. `end` returns to root
+without changing the retained Change. Contextual `?` resolves and displays
+mode-valid command metadata without executing input or mutating session/domain
+state.
 
 === Scenario 5 — Memory Candidate Promotion
 

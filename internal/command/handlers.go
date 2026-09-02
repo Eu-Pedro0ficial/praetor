@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 )
 
@@ -24,10 +25,20 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 	} else {
 		fmt.Fprintln(output, "Current change: none")
 	}
+	if currentProposal, ok := session.CurrentProposal(); ok {
+		workspace := currentProposal.Workspace()
+		fmt.Fprintf(output, "Current proposal: %s (%s)\n", workspace.WorkspaceId(), workspace.State())
+		fmt.Fprintf(output, "Proposal base revision: %s\n", workspace.BaseRevision())
+	} else {
+		fmt.Fprintln(output, "Current proposal: none")
+	}
 	return Result{}, nil
 }
 
 func handleChangeNew(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if err := requireNoCurrentProposal(session); err != nil {
+		return Result{}, err
+	}
 	arguments := invocation.Arguments
 	if len(arguments) < 2 {
 		return Result{}, errInvalidArguments
@@ -49,7 +60,7 @@ func handleChangeNew(session *Session, invocation Invocation, output io.Writer) 
 		states = append(states, state)
 	}
 
-	currentChange, err := session.changeWorkflow.Create(changeId, intent, invocation.SlashPath)
+	currentChange, err := session.changeWorkflow.Create(changeId, intent, invocation.CommandPath)
 	if err != nil {
 		return Result{}, err
 	}
@@ -58,7 +69,7 @@ func handleChangeNew(session *Session, invocation Invocation, output io.Writer) 
 		currentChange, err = session.changeWorkflow.Transition(
 			changeId,
 			state,
-			fmt.Sprintf("%s transition to %s", invocation.SlashPath, state),
+			fmt.Sprintf("%s transition to %s", invocation.CommandPath, state),
 		)
 		if err != nil {
 			return Result{}, err
@@ -74,6 +85,9 @@ func handleChangeNew(session *Session, invocation Invocation, output io.Writer) 
 }
 
 func handleAnalysisImpact(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if err := requireNoCurrentProposal(session); err != nil {
+		return Result{}, err
+	}
 	arguments := invocation.Arguments
 	if len(arguments) < 2 {
 		return Result{}, errInvalidArguments
@@ -94,7 +108,7 @@ func handleAnalysisImpact(session *Session, invocation Invocation, output io.Wri
 		return Result{}, err
 	}
 
-	currentChange, err := session.changeWorkflow.Create(changeId, intent, invocation.SlashPath)
+	currentChange, err := session.changeWorkflow.Create(changeId, intent, invocation.CommandPath)
 	if err != nil {
 		return Result{}, err
 	}
@@ -122,14 +136,167 @@ func handleAnalysisImpact(session *Session, invocation Invocation, output io.Wri
 	return Result{}, validationError
 }
 
+func handleChangeIsolate(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if err := requireNoCurrentProposal(session); err != nil {
+		return Result{}, err
+	}
+	arguments := invocation.Arguments
+	if len(arguments) < 3 {
+		return Result{}, errInvalidArguments
+	}
+	changeId, err := change.NewChangeId(arguments[0])
+	if err != nil {
+		return Result{}, err
+	}
+	intent, err := change.NewChangeIntent(arguments[1])
+	if err != nil {
+		return Result{}, err
+	}
+	scopeRequest, _, err := parseCategorizedSurfaceArguments(arguments[2:], false)
+	if err != nil {
+		return Result{}, err
+	}
+	if _, err := source.NewChangeSurface(scopeRequest); err != nil {
+		return Result{}, err
+	}
+
+	currentChange, err := session.changeWorkflow.Create(changeId, intent, invocation.CommandPath)
+	if err != nil {
+		return Result{}, err
+	}
+	session.setCurrentChange(currentChange)
+	currentChange, err = session.changeWorkflow.Transition(
+		changeId,
+		change.StatePlanned,
+		invocation.CommandPath+" proposal planning",
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	session.setCurrentChange(currentChange)
+
+	preparedSurface, err := session.repositoryIntelligence.EstablishSurface(
+		currentChange,
+		session.registration.RepositoryRoot,
+		scopeRequest,
+	)
+	if err != nil {
+		return Result{}, errors.Join(
+			err,
+			session.rejectCurrentChange("proposal surface establishment failed"),
+		)
+	}
+	currentProposal, err := session.proposalLifecycle.CreateWorkspace(
+		currentChange,
+		preparedSurface.Snapshot(),
+		preparedSurface.ApprovedScope(),
+	)
+	if err != nil {
+		return Result{}, errors.Join(
+			err,
+			session.rejectCurrentChange("proposal workspace creation failed"),
+		)
+	}
+	currentChange, transitionError := session.changeWorkflow.Transition(
+		changeId,
+		change.StateIsolated,
+		invocation.CommandPath+" proposal workspace created",
+	)
+	if transitionError != nil {
+		cleanedProposal, cleanupError := session.proposalLifecycle.Discard(
+			currentProposal,
+			"Change isolation transition failed",
+		)
+		if cleanedProposal.Workspace().State() != proposal.WorkspaceCleaned {
+			session.setCurrentProposal(cleanedProposal)
+		}
+		return Result{}, errors.Join(
+			transitionError,
+			session.rejectCurrentChange("proposal isolation transition failed"),
+			cleanupError,
+		)
+	}
+	session.setCurrentChange(currentChange)
+	session.setCurrentProposal(currentProposal)
+
+	workspace := currentProposal.Workspace()
+	fmt.Fprintf(output, "Change ID: %s\n", workspace.ChangeId())
+	fmt.Fprintf(output, "Project ID: %s\n", workspace.ProjectId())
+	fmt.Fprintf(output, "Change state: %s\n", currentChange.State())
+	fmt.Fprintf(output, "Workspace ID: %s\n", workspace.WorkspaceId())
+	fmt.Fprintf(output, "Workspace root: %s\n", workspace.Root())
+	fmt.Fprintf(output, "Workspace state: %s\n", workspace.State())
+	fmt.Fprintf(output, "Base revision: %s\n", workspace.BaseRevision())
+	fmt.Fprintf(output, "Source state digest: %s\n", workspace.SourceStateDigest())
+	fmt.Fprintln(output, "Isolation boundary: Git source/workspace only; not process, network, container, VM, or hostile-code isolation")
+	return Result{}, nil
+}
+
+func handleChangePatch(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	currentProposal, ok := session.CurrentProposal()
+	if !ok {
+		return Result{}, fmt.Errorf("no current isolated proposal; use change isolate first")
+	}
+
+	classifiedProposal, validation, extractionError := session.proposalLifecycle.ExtractPatch(currentProposal)
+	session.setCurrentProposal(classifiedProposal)
+	if extractionError != nil && classifiedProposal.Workspace().State() != proposal.WorkspaceRejected {
+		fmt.Fprintln(output, "Patch extraction: failed")
+		return Result{}, extractionError
+	}
+	writePatchReport(output, classifiedProposal, validation)
+	if extractionError == nil {
+		return Result{}, nil
+	}
+
+	cleanupError := session.rejectAndDiscardProposal("patch rejected by M0.4 surface comparison")
+	return Result{}, errors.Join(extractionError, cleanupError)
+}
+
+func handleChangeDiscard(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	currentProposal, ok := session.CurrentProposal()
+	if !ok {
+		return Result{}, fmt.Errorf("no current proposal workspace to discard")
+	}
+	workspaceId := currentProposal.Workspace().WorkspaceId()
+	err := session.rejectAndDiscardProposal("developer discarded proposal workspace")
+	if _, stillPresent := session.CurrentProposal(); !stillPresent {
+		fmt.Fprintf(output, "Proposal workspace discarded: %s\n", workspaceId)
+	}
+	return Result{}, err
+}
+
+func requireNoCurrentProposal(session *Session) error {
+	if currentProposal, ok := session.CurrentProposal(); ok {
+		return fmt.Errorf(
+			"proposal workspace %q is still %s; use change patch or change discard",
+			currentProposal.Workspace().WorkspaceId(),
+			currentProposal.Workspace().State(),
+		)
+	}
+	return nil
+}
+
 func parseSurfaceArguments(arguments []string) (source.ScopeRequest, []string, error) {
+	return parseCategorizedSurfaceArguments(arguments, true)
+}
+
+func parseCategorizedSurfaceArguments(arguments []string, includeActual bool) (source.ScopeRequest, []string, error) {
 	var request source.ScopeRequest
 	var actual []string
 	destinations := map[string]*[]string{
 		"--expected":  &request.Expected,
 		"--possible":  &request.Possible,
 		"--protected": &request.Protected,
-		"--actual":    &actual,
+	}
+	if includeActual {
+		destinations["--actual"] = &actual
 	}
 	seen := make(map[string]bool, len(destinations))
 	var current *[]string
@@ -161,10 +328,47 @@ func parseSurfaceArguments(arguments []string) (source.ScopeRequest, []string, e
 	if len(request.Expected) == 0 {
 		return source.ScopeRequest{}, nil, fmt.Errorf("--expected requires at least one path")
 	}
-	if len(actual) == 0 {
+	if includeActual && len(actual) == 0 {
 		return source.ScopeRequest{}, nil, fmt.Errorf("--actual requires at least one path")
 	}
 	return request, actual, nil
+}
+
+func writePatchReport(
+	output io.Writer,
+	currentProposal proposal.Proposal,
+	validation source.SurfaceValidationResult,
+) {
+	workspace := currentProposal.Workspace()
+	fmt.Fprintf(output, "Workspace ID: %s\n", workspace.WorkspaceId())
+	fmt.Fprintf(output, "Workspace state: %s\n", workspace.State())
+	fmt.Fprintf(output, "Base revision: %s\n", workspace.BaseRevision())
+	fmt.Fprintf(output, "Source state digest: %s\n", workspace.SourceStateDigest())
+	artifact, hasArtifact := currentProposal.PatchArtifact()
+	if !hasArtifact {
+		fmt.Fprintln(output, "Patch: empty")
+		return
+	}
+	fmt.Fprintf(output, "Patch digest: %s\n", artifact.PatchDigest())
+	fmt.Fprintf(output, "Diff summary: %s\n", artifact.DiffSummary())
+	fmt.Fprintf(output, "Changed paths: %s\n", formatSuppliedPaths(artifact.ChangedPaths()))
+	fmt.Fprintf(output, "Surface valid: %t\n", validation.Allowed())
+	if len(validation.Violations()) == 0 {
+		fmt.Fprintln(output, "Violations: none")
+		fmt.Fprintln(output, "Disposition: surface-valid; retained for later deterministic validation and human approval")
+		return
+	}
+	fmt.Fprintln(output, "Violations:")
+	for _, violation := range validation.Violations() {
+		fmt.Fprintf(
+			output,
+			"- %s: %s (%s)\n",
+			violation.Kind(),
+			formatPathForOutput(violation.Path()),
+			violation.Reason(),
+		)
+	}
+	fmt.Fprintln(output, "Disposition: rejected; no partial acceptance")
 }
 
 func writeSurfaceReport(

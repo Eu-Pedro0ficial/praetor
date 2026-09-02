@@ -2,13 +2,17 @@ package composition
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
+	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 )
 
@@ -246,6 +250,156 @@ func TestNewRepositoryIntelligenceRequiresM03Dependencies(t *testing.T) {
 			test.mutate(&container)
 			if _, err := container.NewRepositoryIntelligence(registration); err == nil {
 				t.Fatalf("NewRepositoryIntelligence() accepted missing %s", test.name)
+			}
+		})
+	}
+}
+
+type compositionProposalAdapter struct {
+	workspaceRoot string
+}
+
+func (adapter *compositionProposalAdapter) Create(request proposal.WorkspaceRequest) (proposal.ProposalWorkspace, error) {
+	return proposal.NewProposalWorkspace(
+		"proposal-00112233445566778899aabbccddeeff",
+		request.ProjectId,
+		request.ChangeId,
+		request.CanonicalRoot,
+		adapter.workspaceRoot,
+		request.BaseRevision,
+		request.SourceStateDigest,
+	)
+}
+
+func (*compositionProposalAdapter) Extract(proposal.ProposalWorkspace) (proposal.ExtractedPatch, error) {
+	return proposal.ExtractedPatch{
+		Content:      []byte("secret patch body"),
+		ChangedPaths: []string{"service.go"},
+	}, nil
+}
+
+func (*compositionProposalAdapter) Remove(proposal.ProposalWorkspace) error { return nil }
+
+func TestNewProposalServicePersistsBoundedM04AuditMetadata(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "xdg"))
+	canonicalRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(canonicalRoot, "service.go"), []byte("package service\n"), 0o600); err != nil {
+		t.Fatalf("write fixture source: %v", err)
+	}
+	registration := project.Registration{ProjectId: compositionProjectId, RepositoryRoot: canonicalRoot}
+	currentChange, err := change.New(
+		"change-proposal-composed",
+		compositionProjectId,
+		"compose proposal",
+		time.Date(2026, time.August, 31, 12, 0, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("change.New() error = %v", err)
+	}
+	if _, err := currentChange.Transition(change.StatePlanned, time.Date(2026, time.August, 31, 12, 0, 1, 0, time.UTC), "planned"); err != nil {
+		t.Fatalf("Change.Transition() error = %v", err)
+	}
+	snapshot, err := source.NewSourceSnapshot(
+		compositionProjectId,
+		canonicalRoot,
+		strings.Repeat("a", 40),
+		source.WorkingTreeClean,
+		[]string{"service.go"},
+		source.SourceStateDigest("sha256:"+strings.Repeat("0", 64)),
+	)
+	if err != nil {
+		t.Fatalf("source.NewSourceSnapshot() error = %v", err)
+	}
+	analysis, err := source.AnalyzeImpact(currentChange, snapshot, source.ScopeRequest{Expected: []string{"service.go"}})
+	if err != nil {
+		t.Fatalf("source.AnalyzeImpact() error = %v", err)
+	}
+	approvedScope, err := source.EstablishApprovedScope(analysis)
+	if err != nil {
+		t.Fatalf("source.EstablishApprovedScope() error = %v", err)
+	}
+
+	adapter := &compositionProposalAdapter{workspaceRoot: workspaceRoot}
+	container := New()
+	container.ProposalWorkspaces = adapter
+	container.PatchExtraction = adapter
+	container.RepositoryInspection = func(project.ProjectId, string) (source.SourceSnapshot, error) {
+		return snapshot, nil
+	}
+	container.ProposalClock = func() time.Time {
+		return time.Date(2026, time.August, 31, 12, 0, 2, 0, time.UTC)
+	}
+	proposalService, err := container.NewProposalService(registration)
+	if err != nil {
+		t.Fatalf("NewProposalService() error = %v", err)
+	}
+	currentProposal, err := proposalService.CreateWorkspace(currentChange, snapshot, approvedScope)
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	currentProposal, validation, err := proposalService.ExtractPatch(currentProposal)
+	if err != nil || !validation.Allowed() {
+		t.Fatalf("ExtractPatch() validation/error = %#v/%v", validation, err)
+	}
+	if _, err := proposalService.Discard(currentProposal, "composition test complete"); err != nil {
+		t.Fatalf("Discard() error = %v", err)
+	}
+
+	dataDirectory, err := audit.ResolveDataDir()
+	if err != nil {
+		t.Fatalf("audit.ResolveDataDir() error = %v", err)
+	}
+	events, err := audit.Read(dataDirectory)
+	if err != nil {
+		t.Fatalf("audit.Read() error = %v", err)
+	}
+	wantTypes := []string{
+		audit.EventProposalWorkspaceCreated,
+		audit.EventPatchExtracted,
+		audit.EventPatchSurfaceValidated,
+		audit.EventProposalWorkspaceDiscarded,
+	}
+	if len(events) != len(wantTypes) {
+		t.Fatalf("M0.4 audit events = %#v", events)
+	}
+	for index, event := range events {
+		if event.EventType != wantTypes[index] || event.ChangeID != string(currentChange.ChangeId()) || event.ProjectID != string(compositionProjectId) {
+			t.Fatalf("M0.4 event %d linkage = %#v", index, event)
+		}
+		metadataText := fmt.Sprintf("%v", event.Metadata)
+		if strings.Contains(metadataText, "secret patch body") || strings.Contains(metadataText, workspaceRoot) {
+			t.Fatalf("M0.4 event stores patch body or workspace root: %#v", event.Metadata)
+		}
+		if event.Metadata["workspace_id"] == "" || event.Metadata["base_revision"] != snapshot.HeadRevision() ||
+			event.Metadata["source_state_digest"] != string(snapshot.SourceStateDigest()) {
+			t.Fatalf("M0.4 event %d provenance = %#v", index, event.Metadata)
+		}
+	}
+	if events[2].Metadata["allowed"] != true || events[2].Metadata["disposition"] != "surface-valid" {
+		t.Fatalf("surface-valid metadata = %#v", events[2].Metadata)
+	}
+}
+
+func TestNewProposalServiceRequiresM04Dependencies(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "xdg"))
+	registration := project.Registration{ProjectId: compositionProjectId, RepositoryRoot: "/tmp/repository"}
+	tests := []struct {
+		name   string
+		mutate func(*Container)
+	}{
+		{name: "proposal workspace", mutate: func(container *Container) { container.ProposalWorkspaces = nil }},
+		{name: "patch extraction", mutate: func(container *Container) { container.PatchExtraction = nil }},
+		{name: "repository inspection", mutate: func(container *Container) { container.RepositoryInspection = nil }},
+		{name: "Change audit logger", mutate: func(container *Container) { container.ChangeAuditLogger = nil }},
+		{name: "proposal clock", mutate: func(container *Container) { container.ProposalClock = nil }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			container := New()
+			test.mutate(&container)
+			if _, err := container.NewProposalService(registration); err == nil {
+				t.Fatalf("NewProposalService() accepted missing %s", test.name)
 			}
 		})
 	}

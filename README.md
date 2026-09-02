@@ -45,10 +45,21 @@ See:
 
 Implementation in progress.
 
-M0.0 — Baseline Verification, M0.1 — Runtime Shell + Project Identity, and
-M0.2 — Change Domain + State Machine are complete. M0.3 — Repository
-Intelligence + Change Surface is the active implementation milestone.
+M0.0 — Baseline Verification through M0.3 — Repository Intelligence + Change
+Surface are complete. M0.4 — Sandbox + Patch Lifecycle is the active
+implementation milestone.
 
 The primary developer interface is the retained-context interactive shell.
-Run `praetor` inside a Git repository, then use `/help` to discover the current
-slash-command surface, including `/status`, `/change`, and `/analysis`.
+Run `praetor` inside a Git repository, then use plain commands such as `status`,
+`analysis`, `change`, `help`, and `?`. Commands are organized in contextual
+modes: `analysis` followed by `impact ...` is equivalent to direct
+`analysis impact ...`; `end` returns one mode and `exit` terminates only at
+root. Interactive `?` shows context-sensitive commands or options without
+executing or clearing the current input.
+
+The M0.4 commands `change isolate`, `change patch`, and `change discard` create
+a detached Git worktree, extract and surface-check its patch, and explicitly
+clean it. They are also available as `isolate`, `patch`, and `discard` inside
+`change` mode. This is source/workspace isolation only, not a process, network,
+container, VM, or hostile-code security sandbox. Prompt repository names are
+presentation-only and do not define `ProjectId`.

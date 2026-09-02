@@ -17,104 +17,195 @@ type Result struct {
 
 // Invocation is registry-derived command identity plus parsed arguments.
 type Invocation struct {
-	SlashPath string
-	Arguments []string
+	CommandPath string
+	Arguments   []string
 }
 
 // Handler delegates one parsed command to the retained application session.
 type Handler func(*Session, Invocation, io.Writer) (Result, error)
 
-// Definition is explicit compile-time command registration input.
+// Option is command-owned discovery metadata. It does not perform argument
+// parsing or introduce a generic command framework.
+type Option struct {
+	Name        string
+	Description string
+}
+
+// Definition is explicit compile-time command registration input. A node is
+// either executable through Handler or enters Mode and optionally owns child
+// commands.
 type Definition struct {
 	Name        string
 	Description string
 	Usage       string
 	Handler     Handler
-	Subcommands []Definition
+	Children    []Definition
+	Options     []Option
+	Mode        ModeIdentity
+	Global      bool
 }
 
 // Metadata is immutable-by-copy command information used by help and terminal
 // adapters.
 type Metadata struct {
 	Name        string
-	SlashPath   string
+	Path        string
 	Description string
 	Usage       string
-	Subcommands []Metadata
+	Children    []Metadata
+	Options     []Option
+	Mode        ModeIdentity
 }
 
-// Suggestion is one registry-owned completion/discovery candidate.
+// Suggestion is one registry-owned completion or contextual-help candidate.
 type Suggestion struct {
 	Text        string
 	Description string
 }
 
-// Registry owns the deterministic command tree. It is constructed explicitly
-// and is never global or mutated after construction.
+type registeredMode struct {
+	context    ModeContext
+	definition Definition
+}
+
+// Registry owns the deterministic hierarchical command tree. It is
+// constructed explicitly and is never global or mutated after construction.
 type Registry struct {
 	definitions []Definition
+	end         Definition
+	modes       map[ModeIdentity]registeredMode
 }
 
-// NewRegistry validates and defensively copies explicit command definitions.
+// NewRegistry validates and defensively copies explicit root definitions.
+// It is primarily useful for command-tree validation tests and small adapters.
 func NewRegistry(definitions []Definition) (Registry, error) {
+	return newRegistry(definitions, Definition{})
+}
+
+func newRegistry(definitions []Definition, end Definition) (Registry, error) {
 	if len(definitions) == 0 {
-		return Registry{}, fmt.Errorf("at least one slash command is required")
+		return Registry{}, fmt.Errorf("at least one root command is required")
 	}
 	cloned := cloneDefinitions(definitions)
-	if err := validateDefinitions(cloned, ""); err != nil {
+	if err := validateDefinitions(cloned, "", true); err != nil {
 		return Registry{}, err
 	}
-	return Registry{definitions: cloned}, nil
+	clonedEnd := cloneDefinition(end)
+	if clonedEnd.Name != "" {
+		if err := validateDefinitions([]Definition{clonedEnd}, "navigation", false); err != nil {
+			return Registry{}, err
+		}
+	}
+
+	registry := Registry{
+		definitions: cloned,
+		end:         clonedEnd,
+		modes:       make(map[ModeIdentity]registeredMode),
+	}
+	if err := registry.indexModes(cloned, ModeRoot, ""); err != nil {
+		return Registry{}, err
+	}
+	return registry, nil
 }
 
-// DefaultRegistry constructs the current M0.1-M0.3 shell command surface.
+// DefaultRegistry constructs the current M0.1-M0.4 hierarchical shell
+// command surface.
 func DefaultRegistry() (Registry, error) {
 	var registry Registry
 	definitions := []Definition{
 		{
 			Name:        "status",
 			Description: "Show current project and runtime status",
-			Usage:       "/status",
+			Usage:       "status",
 			Handler:     handleStatus,
 		},
 		{
-			Name:        "change",
-			Description: "Govern software Changes",
-			Usage:       "/change <subcommand>",
-			Subcommands: []Definition{
+			Name:        "analysis",
+			Description: "Enter source and Change analysis mode",
+			Usage:       "analysis [impact ...]",
+			Mode:        ModeAnalysis,
+			Children: []Definition{
 				{
-					Name:        "new",
-					Description: "Create a Change and optionally apply lifecycle transitions",
-					Usage:       "/change new <change-id> <intent> [<state> ...]",
-					Handler:     handleChangeNew,
+					Name:        "impact",
+					Description: "Analyze the bounded impact and Change Surface",
+					Usage:       "impact <change-id> <intent> --expected <path>... [--possible <path>...] [--protected <path>...] --actual <path>...",
+					Handler:     handleAnalysisImpact,
+					Options:     surfaceOptions(true),
 				},
 			},
 		},
 		{
-			Name:        "analysis",
-			Description: "Analyze source and Change impact",
-			Usage:       "/analysis <subcommand>",
-			Subcommands: []Definition{
+			Name:        "change",
+			Description: "Enter software Change governance mode",
+			Usage:       "change [new|isolate|patch|discard ...]",
+			Mode:        ModeChange,
+			Children: []Definition{
 				{
-					Name:        "impact",
-					Description: "Establish and validate a bounded file-level Change Surface",
-					Usage:       "/analysis impact <change-id> <intent> --expected <path>... [--possible <path>...] [--protected <path>...] --actual <path>...",
-					Handler:     handleAnalysisImpact,
+					Name:        "new",
+					Description: "Create a Change and optionally apply lifecycle transitions",
+					Usage:       "new <change-id> <intent> [<state> ...]",
+					Handler:     handleChangeNew,
+				},
+				{
+					Name:        "isolate",
+					Description: "Create a Change proposal in an isolated Git worktree",
+					Usage:       "isolate <change-id> <intent> --expected <path>... [--possible <path>...] [--protected <path>...]",
+					Handler:     handleChangeIsolate,
+					Options:     surfaceOptions(false),
+				},
+				{
+					Name:        "patch",
+					Description: "Extract and surface-check the current isolated proposal",
+					Usage:       "patch",
+					Handler:     handleChangePatch,
+				},
+				{
+					Name:        "discard",
+					Description: "Reject and clean the current proposal workspace",
+					Usage:       "discard",
+					Handler:     handleChangeDiscard,
+				},
+			},
+		},
+		{
+			Name:        "configure",
+			Description: "Enter non-persistent runtime configuration contexts",
+			Usage:       "configure [project]",
+			Mode:        ModeConfigure,
+			Children: []Definition{
+				{
+					Name:        "project",
+					Description: "Enter Project configuration context; no mutating settings exist in M0.4",
+					Usage:       "project",
+					Mode:        ModeConfigureProject,
 				},
 			},
 		},
 		{
 			Name:        "help",
-			Description: "Show slash-command help",
-			Usage:       "/help [<command> [<subcommand>]]",
-			Handler: func(_ *Session, invocation Invocation, output io.Writer) (Result, error) {
-				return Result{}, registry.writeHelp(invocation.Arguments, output)
+			Description: "Show help for the current mode or a command",
+			Usage:       "help [<command> [<child> ...]]",
+			Global:      true,
+			Handler: func(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+				return Result{}, registry.writeHelp(session, invocation.Arguments, output)
+			},
+		},
+		{
+			Name:        "?",
+			Description: "Show contextual commands without executing input",
+			Usage:       "?",
+			Global:      true,
+			Handler: func(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+				if len(invocation.Arguments) != 0 {
+					return Result{}, errInvalidArguments
+				}
+				return Result{}, registry.writeContextualHelp(session, "", output)
 			},
 		},
 		{
 			Name:        "exit",
-			Description: "Exit Praetor",
-			Usage:       "/exit",
+			Description: "Exit Praetor from root mode",
+			Usage:       "exit",
 			Handler: func(_ *Session, invocation Invocation, _ io.Writer) (Result, error) {
 				if len(invocation.Arguments) != 0 {
 					return Result{}, errInvalidArguments
@@ -123,10 +214,33 @@ func DefaultRegistry() (Registry, error) {
 			},
 		},
 	}
+	end := Definition{
+		Name:        "end",
+		Description: "Return exactly one contextual mode toward root",
+		Usage:       "end",
+		Handler: func(session *Session, invocation Invocation, _ io.Writer) (Result, error) {
+			if len(invocation.Arguments) != 0 {
+				return Result{}, errInvalidArguments
+			}
+			return Result{}, session.leaveMode()
+		},
+	}
 
 	var err error
-	registry, err = NewRegistry(definitions)
+	registry, err = newRegistry(definitions, end)
 	return registry, err
+}
+
+func surfaceOptions(includeActual bool) []Option {
+	options := []Option{
+		{Name: "--expected", Description: "One or more strongly expected tracked paths"},
+		{Name: "--possible", Description: "One or more additionally allowed tracked paths"},
+		{Name: "--protected", Description: "One or more forbidden tracked paths"},
+	}
+	if includeActual {
+		options = append(options, Option{Name: "--actual", Description: "Complete actual path set to classify"})
+	}
+	return options
 }
 
 // Commands returns a defensive metadata tree in registration order.
@@ -134,13 +248,25 @@ func (registry Registry) Commands() []Metadata {
 	return metadataForDefinitions(registry.definitions, "")
 }
 
-// Dispatch parses and executes one slash-command line.
+// ContextCommands returns the commands valid in the session's active mode.
+func (registry Registry) ContextCommands(session *Session) []Metadata {
+	return metadataForDefinitions(registry.contextDefinitions(session), "")
+}
+
+// Dispatch parses and resolves either canonical plain syntax or the small
+// leading-slash compatibility alias. Mode entry and direct child invocation
+// resolve through the same immutable command definitions.
 func (registry Registry) Dispatch(session *Session, line string, output io.Writer) (Result, error) {
 	if session == nil {
 		return Result{}, fmt.Errorf("active command session is required")
 	}
 	if output == nil {
 		return Result{}, fmt.Errorf("command output is required")
+	}
+	trimmed := strings.TrimSpace(line)
+	if strings.HasSuffix(trimmed, "?") && trimmed != "?" {
+		query := strings.TrimSuffix(trimmed, "?")
+		return Result{}, registry.writeContextualHelp(session, query, output)
 	}
 	tokens, err := parseCommandLine(line)
 	if err != nil {
@@ -149,35 +275,56 @@ func (registry Registry) Dispatch(session *Session, line string, output io.Write
 	if len(tokens) == 0 {
 		return Result{}, nil
 	}
-	if !strings.HasPrefix(tokens[0], "/") || strings.Count(tokens[0], "/") != 1 {
-		return Result{}, fmt.Errorf("commands must use slash syntax; try /help")
+	if strings.HasPrefix(tokens[0], "/") {
+		if strings.Count(tokens[0], "/") != 1 {
+			return Result{}, fmt.Errorf("invalid compatibility command %q", tokens[0])
+		}
+		tokens[0] = strings.TrimPrefix(tokens[0], "/")
 	}
 
-	name := strings.TrimPrefix(tokens[0], "/")
-	definition, found := findDefinition(registry.definitions, name)
+	definitions := registry.contextDefinitions(session)
+	definition, found := findDefinition(definitions, tokens[0])
 	if !found {
-		return Result{}, fmt.Errorf("unknown command %q; try /help", tokens[0])
+		return Result{}, registry.unknownCommandError(tokens[0], session.CurrentMode())
 	}
 	consumed := 1
-	path := "/" + definition.Name
-	for len(definition.Subcommands) > 0 {
-		if len(tokens) <= consumed {
-			return Result{}, fmt.Errorf("%s requires a subcommand; usage: %s", path, definition.Usage)
+	commandPath := registry.commandPath(session, definition.Name)
+	pendingModes := make([]ModeContext, 0, 2)
+	parentMode := session.CurrentMode().Identity
+
+	for definition.Mode != "" {
+		registered := registry.modes[definition.Mode]
+		if registered.context.Parent != parentMode {
+			return Result{}, fmt.Errorf("command mode %q is not available from %q", definition.Mode, parentMode)
 		}
-		next, exists := findDefinition(definition.Subcommands, tokens[consumed])
+		pendingModes = append(pendingModes, registered.context)
+		parentMode = definition.Mode
+		if consumed >= len(tokens) {
+			for _, mode := range pendingModes {
+				if err := session.enterMode(mode); err != nil {
+					return Result{}, err
+				}
+			}
+			return Result{}, nil
+		}
+		next, exists := findDefinition(definition.Children, tokens[consumed])
 		if !exists {
-			return Result{}, fmt.Errorf("unknown subcommand %q for %s; usage: %s", tokens[consumed], path, definition.Usage)
+			return Result{}, fmt.Errorf(
+				"unknown command %q in %s mode; use ? for contextual help",
+				tokens[consumed],
+				definition.Mode,
+			)
 		}
 		definition = next
-		path += " " + definition.Name
+		commandPath += " " + definition.Name
 		consumed++
 	}
 	if definition.Handler == nil {
-		return Result{}, fmt.Errorf("command %s has no handler", path)
+		return Result{}, fmt.Errorf("command %q has no handler", commandPath)
 	}
 	result, err := definition.Handler(session, Invocation{
-		SlashPath: path,
-		Arguments: append([]string(nil), tokens[consumed:]...),
+		CommandPath: commandPath,
+		Arguments:   append([]string(nil), tokens[consumed:]...),
 	}, output)
 	if errors.Is(err, errInvalidArguments) {
 		return Result{}, fmt.Errorf("usage: %s", definition.Usage)
@@ -185,89 +332,205 @@ func (registry Registry) Dispatch(session *Session, line string, output io.Write
 	return result, err
 }
 
-// Complete returns descriptions for top-level or subcommand candidates at the
-// current input prefix. Argument completion is intentionally outside M0.3.
-func (registry Registry) Complete(input string) []Suggestion {
-	trimmed := strings.TrimLeftFunc(input, unicode.IsSpace)
-	if !strings.HasPrefix(trimmed, "/") {
-		return nil
-	}
-	trimmedRunes := []rune(trimmed)
-	trailingSpace := len(trimmedRunes) > 0 && unicode.IsSpace(trimmedRunes[len(trimmedRunes)-1])
-	fields := strings.Fields(trimmed)
-	if len(fields) == 0 {
-		return nil
-	}
-
-	if len(fields) == 1 && !trailingSpace {
-		prefix := fields[0]
-		var suggestions []Suggestion
-		for _, definition := range registry.definitions {
-			candidate := "/" + definition.Name
-			if strings.HasPrefix(candidate, prefix) {
-				suggestions = append(suggestions, Suggestion{Text: candidate, Description: definition.Description})
-			}
-		}
-		return suggestions
-	}
-
-	topLevelName := strings.TrimPrefix(fields[0], "/")
-	topLevel, found := findDefinition(registry.definitions, topLevelName)
-	if !found || len(topLevel.Subcommands) == 0 || len(fields) > 2 || (len(fields) == 2 && trailingSpace) {
-		return nil
-	}
-	prefix := ""
-	if len(fields) == 2 {
-		prefix = fields[1]
-	}
-	var suggestions []Suggestion
-	for _, subcommand := range topLevel.Subcommands {
-		if strings.HasPrefix(subcommand.Name, prefix) {
-			suggestions = append(suggestions, Suggestion{Text: subcommand.Name, Description: subcommand.Description})
-		}
-	}
-	return suggestions
+// Complete returns deterministic candidates for the current mode and input.
+func (registry Registry) Complete(session *Session, input string) []Suggestion {
+	return registry.ContextualHelp(session, input)
 }
 
-func (registry Registry) writeHelp(arguments []string, output io.Writer) error {
-	if len(arguments) == 0 {
-		if _, err := fmt.Fprintln(output, "Praetor slash commands:"); err != nil {
-			return err
-		}
-		for _, metadata := range registry.Commands() {
-			if _, err := fmt.Fprintf(output, "  %-12s %s\n", metadata.SlashPath, metadata.Description); err != nil {
-				return err
+// ContextualHelp resolves semantic `?` help without executing a command or
+// mutating session mode/domain state.
+func (registry Registry) ContextualHelp(session *Session, input string) []Suggestion {
+	if session == nil {
+		return nil
+	}
+	trimmedLeft := strings.TrimLeftFunc(input, unicode.IsSpace)
+	if strings.HasPrefix(trimmedLeft, "/") {
+		trimmedLeft = strings.TrimPrefix(trimmedLeft, "/")
+	}
+	runes := []rune(trimmedLeft)
+	trailingSpace := len(runes) > 0 && unicode.IsSpace(runes[len(runes)-1])
+	fields := strings.Fields(trimmedLeft)
+	definitions := registry.contextDefinitions(session)
+	if len(fields) == 0 {
+		return suggestionsForDefinitions(definitions, "")
+	}
+
+	consumed := 0
+	for consumed < len(fields) {
+		token := fields[consumed]
+		last := consumed == len(fields)-1
+		if last && !trailingSpace {
+			if definition, exact := findDefinition(definitions, token); exact && definition.Mode == "" {
+				return []Suggestion{{Text: definition.Name, Description: definition.Description}}
 			}
+			return suggestionsForDefinitions(definitions, token)
+		}
+
+		definition, exact := findDefinition(definitions, token)
+		if !exact {
+			return nil
+		}
+		consumed++
+		if definition.Mode != "" {
+			definitions = definition.Children
+			if consumed == len(fields) {
+				return suggestionsForDefinitions(definitions, "")
+			}
+			continue
+		}
+
+		if consumed == len(fields) {
+			if trailingSpace {
+				return suggestionsForOptions(definition.Options, "")
+			}
+			return []Suggestion{{Text: definition.Name, Description: definition.Description}}
+		}
+		optionPrefix := fields[len(fields)-1]
+		if !trailingSpace && strings.HasPrefix(optionPrefix, "--") {
+			return suggestionsForOptions(definition.Options, optionPrefix)
 		}
 		return nil
 	}
+	return nil
+}
 
-	definitions := registry.definitions
+func (registry Registry) writeContextualHelp(session *Session, input string, output io.Writer) error {
+	suggestions := registry.ContextualHelp(session, input)
+	if len(suggestions) == 0 {
+		_, err := fmt.Fprintln(output, "No contextual commands or options match the current input.")
+		return err
+	}
+	return writeSuggestions(output, suggestions)
+}
+
+func (registry Registry) writeHelp(session *Session, arguments []string, output io.Writer) error {
+	if len(arguments) == 0 {
+		if _, err := fmt.Fprintf(output, "Commands in %s mode:\n", session.CurrentMode().Identity); err != nil {
+			return err
+		}
+		return writeSuggestions(output, suggestionsForDefinitions(registry.contextDefinitions(session), ""))
+	}
+
+	definitions := registry.contextDefinitions(session)
 	path := ""
 	var selected Definition
 	for index, argument := range arguments {
 		name := strings.TrimPrefix(argument, "/")
 		definition, found := findDefinition(definitions, name)
 		if !found {
-			return fmt.Errorf("unknown help topic %q", strings.Join(arguments[:index+1], " "))
+			return fmt.Errorf("unknown help topic %q in %s mode", strings.Join(arguments[:index+1], " "), session.CurrentMode().Identity)
 		}
 		selected = definition
-		if path == "" {
-			path = "/" + definition.Name
-		} else {
-			path += " " + definition.Name
-		}
-		definitions = definition.Subcommands
+		path = strings.TrimSpace(path + " " + definition.Name)
+		definitions = definition.Children
 	}
 	if _, err := fmt.Fprintf(output, "%s — %s\nUsage: %s\n", path, selected.Description, selected.Usage); err != nil {
 		return err
 	}
-	for _, subcommand := range selected.Subcommands {
-		if _, err := fmt.Fprintf(output, "  %-12s %s\n", subcommand.Name, subcommand.Description); err != nil {
+	if len(selected.Children) > 0 {
+		if err := writeSuggestions(output, suggestionsForDefinitions(selected.Children, "")); err != nil {
+			return err
+		}
+	}
+	return writeSuggestions(output, suggestionsForOptions(selected.Options, ""))
+}
+
+func writeSuggestions(output io.Writer, suggestions []Suggestion) error {
+	width := 0
+	for _, suggestion := range suggestions {
+		if len(suggestion.Text) > width {
+			width = len(suggestion.Text)
+		}
+	}
+	for _, suggestion := range suggestions {
+		if _, err := fmt.Fprintf(output, "  %-*s  %s\n", width, suggestion.Text, suggestion.Description); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (registry Registry) contextDefinitions(session *Session) []Definition {
+	if session == nil || session.CurrentMode().Identity == ModeRoot {
+		return append([]Definition(nil), registry.definitions...)
+	}
+	registered, exists := registry.modes[session.CurrentMode().Identity]
+	if !exists {
+		return nil
+	}
+	definitions := append([]Definition(nil), registered.definition.Children...)
+	for _, definition := range registry.definitions {
+		if definition.Global {
+			definitions = append(definitions, definition)
+		}
+	}
+	if registry.end.Name != "" {
+		definitions = append(definitions, registry.end)
+	}
+	return definitions
+}
+
+func (registry Registry) commandPath(session *Session, localName string) string {
+	if session == nil || session.CurrentMode().Identity == ModeRoot {
+		return localName
+	}
+	for _, definition := range registry.definitions {
+		if definition.Global && definition.Name == localName {
+			return localName
+		}
+	}
+	if localName == registry.end.Name {
+		return localName
+	}
+	return session.CurrentMode().CommandPath + " " + localName
+}
+
+func (registry Registry) unknownCommandError(name string, mode ModeContext) error {
+	return fmt.Errorf("unknown command %q in %s mode; use ? for contextual help", name, mode.Identity)
+}
+
+func (registry *Registry) indexModes(definitions []Definition, parent ModeIdentity, parentPath string) error {
+	for _, definition := range definitions {
+		path := strings.TrimSpace(parentPath + " " + definition.Name)
+		nextParent := parent
+		if definition.Mode != "" {
+			if _, duplicate := registry.modes[definition.Mode]; duplicate {
+				return fmt.Errorf("duplicate command mode %q", definition.Mode)
+			}
+			context := ModeContext{
+				Identity:           definition.Mode,
+				Parent:             parent,
+				CommandPath:        path,
+				PromptContribution: definition.Name,
+			}
+			registry.modes[definition.Mode] = registeredMode{context: context, definition: definition}
+			nextParent = definition.Mode
+		}
+		if err := registry.indexModes(definition.Children, nextParent, path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func suggestionsForDefinitions(definitions []Definition, prefix string) []Suggestion {
+	var suggestions []Suggestion
+	for _, definition := range definitions {
+		if strings.HasPrefix(definition.Name, prefix) {
+			suggestions = append(suggestions, Suggestion{Text: definition.Name, Description: definition.Description})
+		}
+	}
+	return suggestions
+}
+
+func suggestionsForOptions(options []Option, prefix string) []Suggestion {
+	var suggestions []Suggestion
+	for _, option := range options {
+		if strings.HasPrefix(option.Name, prefix) {
+			suggestions = append(suggestions, Suggestion{Text: option.Name, Description: option.Description})
+		}
+	}
+	return suggestions
 }
 
 func parseCommandLine(line string) ([]string, error) {
@@ -328,7 +591,7 @@ func parseCommandLine(line string) ([]string, error) {
 	return tokens, nil
 }
 
-func validateDefinitions(definitions []Definition, parentPath string) error {
+func validateDefinitions(definitions []Definition, parentPath string, root bool) error {
 	seen := make(map[string]struct{}, len(definitions))
 	for _, definition := range definitions {
 		name := strings.TrimSpace(definition.Name)
@@ -346,24 +609,46 @@ func validateDefinitions(definitions []Definition, parentPath string) error {
 		if strings.TrimSpace(definition.Usage) == "" {
 			return fmt.Errorf("command %q requires usage metadata", path)
 		}
-		if len(definition.Subcommands) == 0 && definition.Handler == nil {
-			return fmt.Errorf("command %q requires a handler", path)
+		if definition.Global && !root {
+			return fmt.Errorf("global command %q must be registered at root", path)
 		}
-		if len(definition.Subcommands) > 0 && definition.Handler != nil {
-			return fmt.Errorf("command %q cannot have both a handler and subcommands", path)
+		if definition.Handler == nil && definition.Mode == "" {
+			return fmt.Errorf("command %q requires a handler or contextual mode", path)
 		}
-		if err := validateDefinitions(definition.Subcommands, path); err != nil {
+		if definition.Handler != nil && definition.Mode != "" {
+			return fmt.Errorf("command %q cannot execute and enter a mode", path)
+		}
+		if definition.Handler != nil && len(definition.Children) > 0 {
+			return fmt.Errorf("executable command %q cannot own child commands", path)
+		}
+		optionNames := make(map[string]struct{}, len(definition.Options))
+		for _, option := range definition.Options {
+			if !strings.HasPrefix(option.Name, "--") || strings.TrimSpace(option.Description) == "" {
+				return fmt.Errorf("command %q has invalid option metadata %q", path, option.Name)
+			}
+			if _, duplicate := optionNames[option.Name]; duplicate {
+				return fmt.Errorf("command %q has duplicate option %q", path, option.Name)
+			}
+			optionNames[option.Name] = struct{}{}
+		}
+		if err := validateDefinitions(definition.Children, path, false); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func cloneDefinition(definition Definition) Definition {
+	cloned := definition
+	cloned.Children = cloneDefinitions(definition.Children)
+	cloned.Options = append([]Option(nil), definition.Options...)
+	return cloned
+}
+
 func cloneDefinitions(definitions []Definition) []Definition {
 	cloned := make([]Definition, len(definitions))
 	for index, definition := range definitions {
-		cloned[index] = definition
-		cloned[index].Subcommands = cloneDefinitions(definition.Subcommands)
+		cloned[index] = cloneDefinition(definition)
 	}
 	return cloned
 }
@@ -371,16 +656,18 @@ func cloneDefinitions(definitions []Definition) []Definition {
 func metadataForDefinitions(definitions []Definition, parentPath string) []Metadata {
 	metadata := make([]Metadata, len(definitions))
 	for index, definition := range definitions {
-		path := "/" + definition.Name
+		path := definition.Name
 		if parentPath != "" {
 			path = parentPath + " " + definition.Name
 		}
 		metadata[index] = Metadata{
 			Name:        definition.Name,
-			SlashPath:   path,
+			Path:        path,
 			Description: definition.Description,
 			Usage:       definition.Usage,
-			Subcommands: metadataForDefinitions(definition.Subcommands, path),
+			Children:    metadataForDefinitions(definition.Children, path),
+			Options:     append([]Option(nil), definition.Options...),
+			Mode:        definition.Mode,
 		}
 	}
 	return metadata

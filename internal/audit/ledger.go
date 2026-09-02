@@ -21,16 +21,21 @@ const (
 	lockTimeout       = 5 * time.Second
 	lockRetryInterval = 10 * time.Millisecond
 
-	EventInitialization           = "INITIALIZATION"
-	EventProjectAttach            = "PROJECT_ATTACH"
-	EventConfiguration            = "CONFIGURATION"
-	EventChangeCreated            = "CHANGE_CREATED"
-	EventChangeTransition         = "CHANGE_TRANSITION"
-	EventSourceSnapshotCaptured   = "SOURCE_SNAPSHOT_CAPTURED"
-	EventImpactAnalysisProduced   = "IMPACT_ANALYSIS_PRODUCED"
-	EventChangeSurfaceEstablished = "CHANGE_SURFACE_ESTABLISHED"
-	EventChangeSurfaceValidated   = "CHANGE_SURFACE_VALIDATED"
-	EventChangeSurfaceViolation   = "CHANGE_SURFACE_VIOLATION"
+	EventInitialization             = "INITIALIZATION"
+	EventProjectAttach              = "PROJECT_ATTACH"
+	EventConfiguration              = "CONFIGURATION"
+	EventChangeCreated              = "CHANGE_CREATED"
+	EventChangeTransition           = "CHANGE_TRANSITION"
+	EventSourceSnapshotCaptured     = "SOURCE_SNAPSHOT_CAPTURED"
+	EventImpactAnalysisProduced     = "IMPACT_ANALYSIS_PRODUCED"
+	EventChangeSurfaceEstablished   = "CHANGE_SURFACE_ESTABLISHED"
+	EventChangeSurfaceValidated     = "CHANGE_SURFACE_VALIDATED"
+	EventChangeSurfaceViolation     = "CHANGE_SURFACE_VIOLATION"
+	EventProposalWorkspaceCreated   = "PROPOSAL_WORKSPACE_CREATED"
+	EventPatchExtracted             = "PATCH_EXTRACTED"
+	EventPatchSurfaceValidated      = "PATCH_SURFACE_VALIDATED"
+	EventPatchRejected              = "PATCH_REJECTED"
+	EventProposalWorkspaceDiscarded = "PROPOSAL_WORKSPACE_DISCARDED"
 )
 
 // Event is one append-oriented local runtime audit record.
@@ -291,7 +296,12 @@ func eventRequiresChangeId(eventType string) bool {
 		EventImpactAnalysisProduced,
 		EventChangeSurfaceEstablished,
 		EventChangeSurfaceValidated,
-		EventChangeSurfaceViolation:
+		EventChangeSurfaceViolation,
+		EventProposalWorkspaceCreated,
+		EventPatchExtracted,
+		EventPatchSurfaceValidated,
+		EventPatchRejected,
+		EventProposalWorkspaceDiscarded:
 		return true
 	default:
 		return false

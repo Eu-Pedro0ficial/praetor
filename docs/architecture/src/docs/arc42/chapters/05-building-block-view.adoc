@@ -26,7 +26,17 @@ Responsibilities:
 * provider/project configuration;
 * status and audit navigation.
 
-The CLI is an inbound adapter. It must not contain domain logic that cannot also be invoked by another future adapter such as an API, IDE extension, or desktop UI.
+The developer interface is a persistent, retained-context shell. A
+Praetor-owned hierarchical command tree scopes commands by mode and is the
+single source for dispatch, help, descriptions, usage, completion, and
+contextual `?`. The session owns a separate presentation-navigation mode
+stack; entering or leaving a mode does not change Project identity, Change
+state, or workflow state.
+
+The readline adapter owns terminal key handling, history, buffer/cursor
+redisplay, and completion rendering only. The CLI is an inbound adapter. It
+must not contain domain logic that cannot also be invoked by another future
+adapter such as an API, IDE extension, or desktop UI.
 
 ==== Workflow Engine
 
@@ -99,6 +109,19 @@ Selects an AI provider/model adapter based on the role's required capabilities a
 
 Provides isolated execution for agent-proposed source changes. Preferred strategies include isolated worktrees and/or containers. The main working tree is not the default direct write target.
 
+The executable M0.4 subset creates a detached Git worktree outside the
+canonical repository at the exact clean `SourceSnapshot` revision. A
+canonical-source guard compares `HEAD`, working-tree state, tracked inventory
+and source-state digest before and after workspace creation, controlled test
+mutation, patch extraction, surface classification and cleanup. The local Git
+adapter extracts a deterministic binary-capable patch plus a NUL-delimited
+changed-path inventory, and the application service compares the complete path
+set with the existing `ApprovedScope`.
+
+This subset is source/workspace isolation, not process, network, container,
+VM, credential, or hostile-code containment. M0.4 has no provider or AI
+executor and does not run arbitrary proposal commands.
+
 ==== Verification Engine
 
 Coordinates deterministic validators and emits normalized evidence. Individual analyzers/test runners are adapters.
@@ -146,7 +169,8 @@ The initial architectural port catalog includes:
 |Memory Index Port |Query local projections and full-text index
 |Embedding Port |Optional semantic indexing/retrieval
 |Policy Port |Evaluate engineering/governance policy
-|Sandbox Port |Create isolated execution environment and extract patch
+|Sandbox Port |Create and remove an isolated proposal workspace
+|Patch Port |Extract the patch and machine-safe changed-path inventory from an isolated workspace
 |Telemetry Port |Emit metrics/traces/logs under policy
 |Identity Port |Resolve actor and authority
 |Approval Port |Record/retrieve human approvals and exceptions

@@ -27,7 +27,11 @@ type Adapter struct {
 
 // New constructs the approved readline-backed presentation adapter.
 func New(registry command.Registry, session *command.Session, output io.Writer) (*Adapter, error) {
-	return newWithEditor(registry, session, output, newReadlineEditor(registry))
+	editor, err := newReadlineEditor(registry, session)
+	if err != nil {
+		return nil, err
+	}
+	return newWithEditor(registry, session, output, editor)
 }
 
 func newWithEditor(
@@ -56,7 +60,7 @@ func newWithEditor(
 	}, nil
 }
 
-// Run prints retained Project context and dispatches until /exit or EOF.
+// Run prints retained Project context and dispatches until root exit or EOF.
 // Command failures are reported without terminating the session.
 func (adapter *Adapter) Run() error {
 	if err := adapter.writeBanner(); err != nil {

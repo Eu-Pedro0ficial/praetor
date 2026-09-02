@@ -37,11 +37,11 @@ func (editor *scriptedEditor) Readline() (string, error) {
 func TestAdapterRetainsProjectContextAndContinuesAfterCommandErrors(t *testing.T) {
 	repositoryRoot, dataDirectory, session, registry := prepareShellTest(t)
 	editor := &scriptedEditor{reads: []scriptedRead{
-		{line: "/unknown"},
-		{line: `/change new change-shell "shell lifecycle" planned`},
-		{line: "/status extra"},
-		{line: "/status"},
-		{line: "/exit"},
+		{line: "unknown"},
+		{line: `change new change-shell "shell lifecycle" planned`},
+		{line: "status extra"},
+		{line: "status"},
+		{line: "exit"},
 	}}
 	var output bytes.Buffer
 	adapter, err := newWithEditor(registry, session, &output, editor)
@@ -60,7 +60,7 @@ func TestAdapterRetainsProjectContextAndContinuesAfterCommandErrors(t *testing.T
 		"Change: none\n",
 		"praetor: unknown command",
 		"Change ID: change-shell\n",
-		"praetor: usage: /status",
+		"praetor: usage: status",
 		"Current change: change-shell (planned)\n",
 	} {
 		if !strings.Contains(output.String(), expected) {
@@ -88,7 +88,7 @@ func TestAdapterHandlesInterruptAndEOFWithoutDispatchFailure(t *testing.T) {
 		name  string
 		reads []scriptedRead
 	}{
-		{name: "interrupt", reads: []scriptedRead{{err: errInterrupted}, {line: "/exit"}}},
+		{name: "interrupt", reads: []scriptedRead{{err: errInterrupted}, {line: "exit"}}},
 		{name: "EOF", reads: []scriptedRead{{err: io.EOF}}},
 	}
 	for _, test := range tests {
@@ -122,11 +122,11 @@ func TestAdapterPropagatesUnexpectedEditorFailure(t *testing.T) {
 }
 
 func TestReadlineEditorEnablesLiveRegistryCompletion(t *testing.T) {
-	registry, err := command.DefaultRegistry()
+	_, _, session, registry := prepareShellTest(t)
+	editor, err := newReadlineEditor(registry, session)
 	if err != nil {
-		t.Fatalf("DefaultRegistry() error = %v", err)
+		t.Fatalf("newReadlineEditor() error = %v", err)
 	}
-	editor := newReadlineEditor(registry)
 	if editor.shell == nil || editor.shell.Completer == nil || editor.shell.History == nil {
 		t.Fatal("readline editor lacks registry completion or in-memory history")
 	}
@@ -137,9 +137,9 @@ func TestReadlineEditorEnablesLiveRegistryCompletion(t *testing.T) {
 		input      string
 		wantValues []string
 	}{
-		{input: "/", wantValues: []string{"/status", "/change", "/analysis", "/help", "/exit"}},
-		{input: "/ana", wantValues: []string{"/analysis"}},
-		{input: "/analysis ", wantValues: []string{"impact"}},
+		{input: "", wantValues: []string{"status", "analysis", "change", "configure", "help", "?", "exit"}},
+		{input: "ana", wantValues: []string{"analysis"}},
+		{input: "analysis ", wantValues: []string{"impact"}},
 	}
 	for _, test := range tests {
 		completions := editor.shell.Completer([]rune(test.input), len([]rune(test.input)))
@@ -159,6 +159,92 @@ func TestReadlineEditorEnablesLiveRegistryCompletion(t *testing.T) {
 	}
 }
 
+func TestReadlineContextualHelpPreservesBufferCursorAndMode(t *testing.T) {
+	_, _, session, registry := prepareShellTest(t)
+	editor, err := newReadlineEditor(registry, session)
+	if err != nil {
+		t.Fatalf("newReadlineEditor() error = %v", err)
+	}
+	commandFunction, exists := editor.shell.Keymap.Commands()["praetor-contextual-help"]
+	if !exists || commandFunction == nil {
+		t.Fatal("readline lacks registered contextual-help command")
+	}
+	for _, keymap := range []string{"emacs", "vi-insert"} {
+		binding, exists := editor.shell.Config.Binds[keymap]["?"]
+		if !exists || binding.Action != "praetor-contextual-help" || binding.Macro {
+			t.Fatalf("%s question-mark binding = %#v", keymap, binding)
+		}
+	}
+
+	line := []rune("analysis impact trailing-content")
+	cursor := len([]rune("analysis i"))
+	editor.shell.Line().Set(line...)
+	editor.shell.Cursor().Set(cursor)
+	var rendered string
+	editor.renderHelp = func(helpText string) { rendered = helpText }
+	registration := session.Registration()
+	commandFunction()
+	if !strings.Contains(rendered, "impact") || !strings.Contains(rendered, "Analyze") {
+		t.Fatalf("rendered root contextual help = %q", rendered)
+	}
+	if got := string(*editor.shell.Line()); got != string(line) {
+		t.Fatalf("line after help = %q, want %q", got, line)
+	}
+	if got := editor.shell.Cursor().Pos(); got != cursor {
+		t.Fatalf("cursor after help = %d, want %d", got, cursor)
+	}
+	if session.CurrentMode().Identity != command.ModeRoot || session.Registration() != registration {
+		t.Fatal("readline help mutated mode or Project context")
+	}
+
+	if _, err := registry.Dispatch(session, "analysis", io.Discard); err != nil {
+		t.Fatalf("enter analysis: %v", err)
+	}
+	editor.shell.Line().Set([]rune("i")...)
+	editor.shell.Cursor().Set(1)
+	rendered = ""
+	commandFunction()
+	if !strings.Contains(rendered, "impact") || string(*editor.shell.Line()) != "i" ||
+		editor.shell.Cursor().Pos() != 1 || session.CurrentMode().Identity != command.ModeAnalysis {
+		t.Fatalf("analysis contextual help rendered=%q line=%q cursor=%d mode=%q",
+			rendered,
+			string(*editor.shell.Line()),
+			editor.shell.Cursor().Pos(),
+			session.CurrentMode().Identity,
+		)
+	}
+	if editor.shell.History == nil || editor.shell.History.Current() == nil {
+		t.Fatal("contextual-help binding displaced readline history")
+	}
+}
+
+func TestAdapterNavigatesContextualModeAndQuestionMarkHelp(t *testing.T) {
+	_, _, session, registry := prepareShellTest(t)
+	editor := &scriptedEditor{reads: []scriptedRead{
+		{line: "?"},
+		{line: "analysis"},
+		{line: "?"},
+		{line: "end"},
+		{line: "exit"},
+	}}
+	var output bytes.Buffer
+	adapter, err := newWithEditor(registry, session, &output, editor)
+	if err != nil {
+		t.Fatalf("newWithEditor() error = %v", err)
+	}
+	if err := adapter.Run(); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	for _, expected := range []string{"status", "analysis", "configure", "impact", "end"} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("contextual shell output %q lacks %q", output.String(), expected)
+		}
+	}
+	if session.CurrentMode().Identity != command.ModeRoot {
+		t.Fatalf("adapter final mode = %#v", session.CurrentMode())
+	}
+}
+
 func prepareShellTest(t *testing.T) (string, string, *command.Session, command.Registry) {
 	t.Helper()
 	repositoryRoot := t.TempDir()
@@ -174,6 +260,11 @@ func prepareShellTest(t *testing.T) (string, string, *command.Session, command.R
 	if err != nil {
 		t.Fatalf("NewInteractiveSession() error = %v", err)
 	}
+	t.Cleanup(func() {
+		if err := session.Close(); err != nil {
+			t.Errorf("Session.Close() error = %v", err)
+		}
+	})
 	registry, err := command.DefaultRegistry()
 	if err != nil {
 		t.Fatalf("DefaultRegistry() error = %v", err)

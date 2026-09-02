@@ -1,28 +1,40 @@
 === Workflow and Command Model
 
 The executable is named `praetor`. Running it starts the interactive developer
-shell, which retains the active Project context for the session. Slash commands
-are the primary human interface. Their Praetor-owned metadata drives dispatch,
-help, usage, descriptions and completion.
+shell, which retains the active Project context for the session. Plain commands
+are organized in hierarchical contextual modes. One Praetor-owned command tree
+drives dispatch, help, usage, descriptions, completion, contextual `?`, and
+mode-valid discovery. Readline remains a presentation adapter only.
 
-==== Command Families
+==== Current Command Hierarchy
 
 [source,text]
 ----
-/status
-/project init|attach|inspect|status
-/change new|show|status
-/change specify|plan|implement|verify|review|approve|reject|except|diff|pr|postmortem
-/analysis impact
-/memory status|search|show|propose|validate|approve|reject|revalidate
-/policy list|check|explain|exceptions
-/audit show|timeline|run
-/provider list|capabilities|doctor
-/help
-/exit
+status
+analysis [impact ...]
+change [new|isolate|patch|discard ...]
+configure [project]
+help
+?
+exit
 ----
 
-A good CLI should explain **why** a command is unavailable. For example, `implement` should say that plan approval is missing or a policy is blocking it rather than returning a generic state error.
+`analysis`, `change`, and `configure` enter child modes when invoked without a
+child. The same implemented child may be invoked directly from its parent;
+`analysis impact ...` and `analysis` followed by `impact ...` resolve the same
+handler. `end` returns exactly one contextual level. `exit` is available only
+at root. The `configure project` mode currently has navigation/help only and
+does not invent Project configuration persistence.
+
+At any point during interactive editing, `?` resolves contextual commands or
+options without executing or clearing the partially typed input. The readline
+adapter redisplays the preserved buffer and cursor; semantic help remains
+terminal-independent in the command registry.
+
+Future Project, Memory, Policy, Audit, Provider, and SCM families remain
+roadmap capabilities and are not registered as empty placeholder commands.
+When added, unavailable operations should explain their governing state or
+policy rather than return a generic error.
 
 ==== M0.2 Executable Shell Proof
 
@@ -31,8 +43,8 @@ prove project attachment and the Change lifecycle:
 
 [source,text]
 ----
-/status
-/change new <change-id> <intent> [<state> ...]
+status
+change new <change-id> <intent> [<state> ...]
 ----
 
 `change new` creates the Change in `created`. Optional state arguments request
@@ -53,7 +65,7 @@ high-level analysis family:
 
 [source,text]
 ----
-/analysis impact <change-id> <intent> \
+analysis impact <change-id> <intent> \
   --expected <path>... \
   [--possible <path>...] \
   [--protected <path>...] \
@@ -72,6 +84,40 @@ The command does not modify source, infer semantic impact, enforce symbols,
 create a worktree or produce a patch. `reeflective/readline` v1.3.0 supplies
 terminal editing and discovery only; command definitions and behavior remain
 Praetor-owned and terminal-independent.
+
+==== M0.4 Executable Proposal Proof
+
+M0.4 extends the existing `change` family:
+
+[source,text]
+----
+change isolate <change-id> <intent> \
+  --expected <path>... \
+  [--possible <path>...] \
+  [--protected <path>...]
+change patch
+change discard
+----
+
+`change isolate` creates and plans the Change, establishes the M0.3
+`ApprovedScope`, rejects dirty canonical source, then creates a detached Git
+worktree at the captured revision and advances the Change to `isolated`. Its
+random temporary path is outside canonical source and is not derived from
+`ChangeId`.
+
+`change patch` extracts the actual Git patch and complete changed-path set. A
+surface-valid result is retained for later milestones while the Change remains
+`isolated`; it is not deterministic evidence validation or human approval. An
+empty, protected, unexpected, invalid or mixed forbidden patch is rejected as
+a whole, advances the Change to `rejected`, and cleans the worktree.
+`change discard` explicitly performs the same rejection and owned-worktree
+cleanup.
+Session shutdown also rejects and cleans an outstanding proposal.
+
+M0.4 provides only a narrow application callback for isolated-mutation tests.
+It does not expose a provider, generic shell runner or AI execution command.
+The central command registry remains the single source for help, usage,
+completion and dispatch metadata.
 
 ==== Predefined Workloads
 

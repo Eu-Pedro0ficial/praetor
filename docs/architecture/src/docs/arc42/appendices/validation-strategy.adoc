@@ -79,3 +79,25 @@ protected, unexpected or invalid, the complete validation result is rejected
 while retaining every accepted classification and violation for inspection.
 This small result is Change Surface enforcement for M0.3, not the mature
 `EvidenceSet` or deterministic build/test verification introduced by M0.6.
+
+==== M0.4 Patch-Surface Validation
+
+M0.4 obtains the actual surface from Git rather than caller-supplied
+`--actual` values. The patch adapter uses NUL-delimited Git path output, sorts
+the complete changed-path inventory and extracts a binary-capable full-index
+patch relative to the approved base revision. Modified, added and deleted
+files participate in the same comparison. Rename detection is disabled so the
+underlying delete/add paths remain explicit.
+
+The existing M0.3 precedence and typed violations remain authoritative. Every
+changed path must be expected or possible. A single protected, unexpected or
+invalid path rejects the complete patch without dropping allowed files or
+hunks. An empty proposal is also rejected. A successful result is named
+`surface-valid` and stays at the Change's `isolated` stage; it does not claim
+M0.6 deterministic verification or M0.7 human approval.
+
+Canonical inspection surrounds workspace creation, the narrow controlled
+mutation seam, extraction, classification and cleanup. Tests use temporary
+Git repositories and prove `HEAD`, index/working-tree status and canonical
+file contents remain unchanged, while external drift is reported without
+destructive repair.

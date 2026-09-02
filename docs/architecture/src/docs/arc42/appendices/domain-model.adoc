@@ -74,6 +74,41 @@ M0.3 validates exact file paths only. Symbol scope remains represented in the
 longer-term conceptual model below but is not claimed or enforced by the
 current runtime.
 
+===== M0.4 Executable Proposal Boundary
+
+M0.4 adds a process-local `ProposalWorkspace`, `PatchArtifact`, `Proposal` and
+`CanonicalSourceGuard` without changing the authoritative M0.2 Change state
+machine. A proposal workspace links a random `WorkspaceId`, `ProjectId`,
+`ChangeId`, canonical repository association, external worktree path, exact
+base revision and M0.3 `SourceStateDigest`. `ChangeId` is linkage only and does
+not control filesystem placement.
+
+The small workspace lifecycle is operational rather than a competing Change
+lifecycle: `active` may become `retained`, `rejected` or `cleaned`; a retained
+or rejected workspace may later become `cleaned`. A surface-valid patch is
+retained with the Change still `isolated`. It is neither M0.6 `validated` nor
+M0.7 `approved`. A protected, unexpected, invalid or empty patch is rejected
+as a whole and its owned worktree is discarded.
+
+`PatchArtifact` retains the proposal linkage, base revision, source-state
+relationship, binary-capable Git patch bytes, sorted changed paths, a compact
+diff summary, SHA-256 patch digest and creation time. Full patch bodies are not
+written to the M0.4 audit metadata. No new canonical persistent artifact
+format is selected.
+
+`CanonicalSourceGuard` reuses deterministic M0.3 inspection before and after
+proposal stages. Dirty canonical source fails closed. External drift is
+reported and preserved; Praetor does not stash, reset, clean or repair the
+developer's repository.
+
+The executable append-oriented event set is
+`PROPOSAL_WORKSPACE_CREATED`, `PATCH_EXTRACTED`,
+`PATCH_SURFACE_VALIDATED`, `PATCH_REJECTED` and
+`PROPOSAL_WORKSPACE_DISCARDED`. Events link `ProjectId`, `ChangeId`, random
+workspace identity, base revision, source-state digest, disposition and, when
+present, patch digest, diff summary, changed paths and surface violations.
+They deliberately omit full patch bodies and temporary workspace paths.
+
 Potential value objects/entities:
 
 [cols="1,3",options="header"]

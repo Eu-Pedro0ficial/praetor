@@ -44,7 +44,7 @@ Primary assets include:
 |Provider policy violation |Restricted source sent to public provider |Trust-level routing blocks request before transmission
 |Audit tampering |User edits history to hide event |Append-oriented model; signed events/commits later; remote branch protections possible
 |Approval spoofing |Agent claims human approved |Approval tied to Identity Port and recorded actor, never natural-language assertion
-|Sandbox escape |Generated code exploits local runner |Use OS/container/worktree isolation appropriate to risk; minimize credentials/network
+|Sandbox escape |Generated code exploits local runner |M0.4 worktrees provide source/workspace isolation only and do not run hostile code; future execution requires an approved OS/container/process isolation boundary with minimized credentials and network
 |Tool-result spoofing |Agent fabricates tests passing |Deterministic tools produce evidence directly; model cannot mint equivalent evidence type
 |Cross-project context leakage |Project A memory used in Project B |Project/organization scope enforcement in retrieval
 |Organization memory poisoning |Bad project rule promoted globally |Higher promotion authority, evidence, scope/versioning and rollback/supersession
@@ -66,6 +66,20 @@ Provider credentials should enter through secure environment/OS credential mecha
 ==== Network Policy
 
 A future Sandbox Port should support network modes such as disabled, allowlisted, unrestricted-with-approval or provider-specific gateway. Exact V0 enforcement is TBD.
+
+==== M0.4 Worktree Boundary
+
+The local M0.4 adapter creates random temporary detached worktrees outside the
+governed canonical repository and removes only workspaces recorded as owned by
+that adapter instance. It passes structured arguments directly to Git, uses
+`--` path termination and machine-safe NUL-delimited path parsing, and never
+uses raw `ChangeId` text for filesystem placement. A temporary root inside the
+canonical repository is rejected before creation.
+
+This protects the developer's canonical source from Praetor's proposal writes;
+it does not isolate processes, environment variables, credentials, network,
+the host filesystem, containers or virtual machines. No untrusted proposal
+program is executed by M0.4.
 
 ==== Multi-Tenant Future
 
