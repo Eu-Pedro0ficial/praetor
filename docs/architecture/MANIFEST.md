@@ -1,6 +1,6 @@
 # Documentation Manifest
 
-Generated: 2026-08-31
+Generated: 2026-09-02
 
 ## Files
 - `./README.md`
@@ -25,6 +25,12 @@ Generated: 2026-08-31
 - `./src/docs/arc42/adrs/ADR-016-naming-clarity.adoc`
 - `./src/docs/arc42/adrs/ADR-017-project-organization-memory.adoc`
 - `./src/docs/arc42/adrs/ADR-018-source-memory-workflow-separation.adoc`
+- `./src/docs/arc42/adrs/ADR-026-explicit-composition-root.adoc`
+- `./src/docs/arc42/adrs/ADR-027-stable-logical-project-identity-and-local-project-registry.adoc`
+- `./src/docs/arc42/adrs/ADR-028-interactive-praetor-shell.adoc`
+- `./src/docs/arc42/adrs/ADR-029-hierarchical-contextual-command-shell.adoc`
+- `./src/docs/arc42/adrs/ADR-030-codex-cli-first-ai-provider-adapter.adoc`
+- `./src/docs/arc42/adrs/ADR-031-ai-assisted-verification-planning.adoc`
 - `./src/docs/arc42/appendices/change-state-machine.adoc`
 - `./src/docs/arc42/appendices/competitive-landscape.adoc`
 - `./src/docs/arc42/appendices/configuration-model.adoc`

@@ -9,6 +9,7 @@
 ** Safety / Correctness
 *** bounded changes
 *** deterministic evidence
+*** validated verification plans
 *** no silent policy bypass
 ** Maintainability
 *** Go clarity
@@ -29,6 +30,7 @@
 *** provider trust boundary
 *** secret/PII controls
 *** sandbox
+*** bounded verification tool execution
 ** Usability
 *** CLI-first
 *** explicit states
@@ -53,6 +55,11 @@
 |QS-010 |All current developers leave project |Organizational turnover |Project memory remains independently accessible |Knowledge continuity not tied to user account/model session
 |QS-011 |Audit record is corrected |Audit |New corrective event appended |Historical event remains visible
 |QS-012 |A trivial bug fix proposes broad refactor |Planning/implementation |Minimum Necessary Change policy flags scope expansion |Broader change requires explicit plan/approval
+|QS-013 |A heterogeneous repository needs verification |M0.6 discovery |Repository evidence and optional AI inference produce a structured plan without a language-specific core branch |Applicable deterministic steps are discovered with explicit origin
+|QS-014 |Verification planner attempts source mutation |M0.6 planning |Read-only execution boundary blocks mutation and records failure |Zero planner-authored source changes
+|QS-015 |AI proposes shell interpolation or an unsafe command |M0.6 plan validation |Structured plan gate rejects it before process execution |Zero unvalidated AI command strings executed
+|QS-016 |Preferred quality/security integration is unavailable |M1.8 quality gate |Approved fallback evidence records lower/different assurance |No fallback is represented as equivalent evidence
+|QS-017 |DAST is not applicable or lacks an authorized target |M1.8 quality gate |Applicability/availability is explicit and policy decides the consequence |No fabricated pass and no forced unsafe target execution
 |===
 
 === Performance Direction

@@ -6,6 +6,9 @@ The roadmap must not treat memory, routing sophistication, or organizational lea
 
 The project must prove a governed change loop first, then expand capability after V0.
 
+Current implementation status: M0.0 through M0.5 are complete. M0.6 is next
+and remains unimplemented; this document defines its approved scope and gate.
+
 ## Mandatory decision closure rule
 
 A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
@@ -502,40 +505,63 @@ A provider-independent AI execution contract exists and is backed by a working f
 ### Milestone M0.6 — Deterministic Verification + Evidence
 
 #### Objective
-Make deterministic verification and evidence collection a required gate for every patch proposal.
+Discover, validate, and execute the deterministic checks appropriate to an
+isolated patch without coupling Praetor to one language or toolchain, then
+normalize the real execution results as required evidence.
 
 #### Motivation
-A patch is not acceptable merely because the AI produced it; it must be validated with reproducible evidence.
+A patch is not acceptable merely because AI produced it. Repositories express
+verification through heterogeneous manifests, scripts, CI configuration, test
+layouts, and toolchain conventions, so Praetor needs general discovery rather
+than one hard-coded implementation path per stack. AI may assist when those
+signals are ambiguous, but only actual tool execution can prove a
+deterministic outcome.
 
 #### Architectural components involved
+- repository verification discovery
+- constrained Verification Planning Agent
+- VerificationCandidate and VerificationPlan normalization
 - verification engine
 - evidence model
 - validation adapters
 - minimal rule gate
 
 #### Domain concepts introduced
+- VerificationCandidate
+- VerificationPlan
+- VerificationStep
 - EvidenceSet
 - ValidationOutcome
 - RuleDecision
 - VerificationResult
+- `verification-planning` role
 
 #### Required ports
 - Verification Port
+- Repository Port
+- AI Provider Port
 - Policy Port
 - Audit Port
 
 #### Required adapters
-- build/test adapter
-- static analysis adapter
-- diff or patch integrity adapter
+- repository-evidence discovery adapter
+- structured deterministic process/tool adapter
+- patch-integrity adapter
+- the existing `codex-cli` adapter may serve the optional
+  `verification-planning` role behind the same provider-independent port
 
 #### Inputs
-- isolated patch artifact
-- repository state
-- minimal project validation commands
+- SourceSnapshot and bounded Repository Context
+- surface-valid PatchArtifact and ApprovedScope
+- ChangeIntent
+- open-ended repository evidence such as manifests, lockfiles, build/task
+  files, repository scripts, test/lint/typecheck configuration, CI
+  configuration, and toolchain files
 
 #### Outputs
-- pass/fail evidence
+- provenance-bearing verification candidates
+- validated structured VerificationPlan
+- normalized EvidenceSet from actual deterministic executions
 - policy decision records
 - verification summary for approval
 
@@ -545,37 +571,83 @@ A patch is not acceptable merely because the AI produced it; it must be validate
 #### Preconditions
 - the AI execution path exists
 - a patch artifact can be generated in isolation
+- ADR-031 is accepted as the verification-planning and evidence-authority
+  boundary
 
 #### Implementation boundaries
-- only the minimal deterministic checks needed for V0
+- discovery is language/framework/toolchain agnostic and its evidence taxonomy
+  remains open-ended
+- explicit repository declarations generally outrank AI inference; their
+  origins remain distinguishable
+- `implementation` and `verification-planning` use separate
+  `ExecutionAttemptId` values and fresh execution contexts
+- verification planning is source/workspace read-only and cannot advance
+  Change state, approve, reject, or create deterministic success evidence
+- AI output becomes structured candidates/steps and is never passed to an
+  uncontrolled shell
+- plan validation bounds executable resolution, argument vectors,
+  working-directory scope, environment exposure, time, cancellation, and
+  output before deterministic execution
+- only the minimal applicable deterministic checks needed for V0
 - no mature policy DSL or broad exception framework
 
 #### Explicit non-goals
-- semantic AI review
+- mature semantic correctness review or final Reviewer/Approver behavior
+- automatic provider selection, capability/trust/data routing, provider
+  fallback, ranking, voting, ensembles, or load balancing
+- requiring a second concrete provider
+- a closed universal taxonomy of languages, frameworks, or verification tools
+- a canonical persistent VerificationPlan format
 - large enterprise policy catalog
 - heavy remote validation infrastructure
 
 #### Tests
-- pass/fail validation tests
+- deterministic repository-discovery and ambiguity tests across heterogeneous
+  fixture projects
+- distinct-attempt/context and read-only planner boundary tests
+- structured plan/schema and unsafe-command rejection tests
+- timeout, cancellation, bounded-output, working-directory and environment
+  safety tests
+- pass/fail deterministic execution tests
 - patch integrity tests
 - evidence normalization tests
 
 #### Validation
-- no patch moves to approval without deterministic evidence
+- AI/provider completion and AI opinion never count as deterministic evidence
+- no plan step executes before the minimum safety/executability gate
+- no patch becomes eligible for human approval without the required real
+  deterministic evidence
 
 #### Documentation changes
-- validation strategy and evidence model notes
+- verification discovery, planning, execution, evidence, and trust-boundary
+  documentation
 
 #### Risks
+- repository evidence or AI inference proposes unsafe or irrelevant checks
+- malicious project configuration attempts command injection or discovery
+  spoofing
+- repository-defined checks execute untrusted behavior
 - noisy validation outputs
-- false negatives from over-broad checks
+- false negatives from incomplete or over-broad discovery
+- planner mutation, tool hangs, output flooding, or credential/environment
+  leakage
 
 #### Acceptance criteria
-- validation produces a clear pass/fail result and attached evidence
+- Praetor discovers verification for heterogeneous target projects without a
+  language-specific architecture branch
+- a separate read-only `verification-planning` attempt may assist ambiguous
+  discovery without inheriting implementation conversation state
+- validated structured steps, never arbitrary AI shell text, drive execution
+- actual checks produce normalized source/patch-linked evidence
 - a patch with insufficient evidence does not pass the gate
+- successful evidence may advance the Change only through the existing
+  `isolated -> validated` transition; M0.7 still owns human approval
 
 #### Definition of Done
-The runtime can validate an isolated patch and produce evidence sufficient for a human approval decision.
+The runtime can discover, safely plan, and deterministically verify an isolated
+patch for heterogeneous repositories, produce a normalized EvidenceSet from
+real tool results, and enforce the existing validation gate without treating
+AI planning or provider completion as evidence of success.
 
 ---
 
@@ -1314,6 +1386,141 @@ Organizational learning becomes an extension of the proven local system rather t
 
 ---
 
+### Milestone M1.8 — Quality Intelligence + Security Verification
+
+#### Objective
+Mature provider- and tool-independent quality/security evidence and compose it
+into policy-governed quality gates without making any external product a core
+dependency.
+
+#### Motivation
+Core deterministic verification proves the V0 path, while mature engineering
+governance also benefits from advanced quality, security, external, and
+semantic signals. Those capabilities should reuse approved existing
+infrastructure when available and degrade transparently when it is not.
+
+#### Architectural components involved
+- quality/security capability adapters
+- evidence normalization and assurance metadata
+- mature Policy and Review Engines
+- CI/external evidence integration
+- quality-gate composition
+
+#### Domain concepts introduced
+- QualityCapability
+- CapabilityAvailability
+- EvidenceStrength or assurance metadata (exact taxonomy remains gated)
+- QualityGateDecision
+
+#### Required ports
+- Verification Port
+- Policy Port
+- Audit Port
+- provider-independent analyzer/scanner/evidence ports as justified by
+  concrete capabilities
+
+#### Required adapters
+- adapters may integrate approved user infrastructure, local executables,
+  self-hosted services, containerized scanners, managed services, or
+  CI-provided evidence
+- no specific vendor or deployment form is mandatory
+
+#### Inputs
+- local deterministic EvidenceSet
+- external/CI quality and security evidence
+- AI-assisted semantic quality/security findings
+- project policy, applicability, and approved capability configuration
+- optional project/organization learning that influences verification depth
+
+#### Outputs
+- normalized quality/security evidence with source, capability, availability,
+  applicability, and distinguishable assurance
+- risk aggregation and advanced quality-gate decisions
+- explicit unavailable/not-applicable outcomes where a capability cannot run
+
+#### Dependencies
+- M1.0 Policy Engine
+- M1.1 Review Engine
+- M1.6 CI + External Evidence Integration
+- delivery order follows M1.7, whose learning may improve verification depth
+  but is not a hard technical prerequisite
+
+#### Preconditions
+- local deterministic evidence and mature policy/review semantics exist
+- external evidence can be normalized and linked to a Change
+- any final assurance taxonomy or consequential external integration decision
+  has completed its required review
+
+#### Implementation boundaries
+- candidate capabilities include SAST, SCA/dependency vulnerability analysis,
+  secret scanning, conditional DAST, IaC and container/image scanning, code
+  quality metrics, coverage enrichment, practical mutation testing,
+  architecture conformance, API/security validation, AI-assisted code-quality
+  review, AI-assisted security review, risk aggregation, and advanced gates
+- these categories are a roadmap scope, not a requirement to deliver every
+  adapter at once
+- prefer open-source, locally executable, or self-hostable tooling when
+  capability, reliability, and maintenance quality are adequate
+- proprietary and hosted products remain optional replaceable adapters
+- approved existing infrastructure is preferred over duplicated deployment
+- an approved fallback records explicitly lower or different assurance; it
+  never masquerades as equivalent evidence
+- DAST is conditional on a runnable authorized target, safe environment,
+  network/dependencies/test data, and applicability
+- deterministic, external, and non-deterministic AI findings remain distinct
+  inputs to the mature Policy Engine
+
+#### Explicit non-goals
+- bundling heavyweight scanners, servers, databases, or images in governed
+  source repositories
+- making SonarQube or any other vendor mandatory
+- requiring enterprise infrastructure for basic Praetor operation
+- claiming identical assurance across fallback tools
+- forcing DAST on non-runnable, unauthorized, or non-network projects
+- replacing deterministic tools with AI judgment
+- implementing a hosted control plane merely for quality scanning
+- silently installing large external services
+
+#### Tests
+- adapter contract and evidence provenance tests
+- capability available/unavailable/not-applicable behavior tests
+- fallback assurance differentiation tests
+- deterministic/external/AI evidence separation tests
+- composed quality-gate and policy interaction tests
+
+#### Validation
+- evidence authority and provenance remain explicit across tools/providers
+- unavailable or inapplicable capabilities are not reported as passing
+- AI findings cannot override deterministic tool failures by authority
+- quality-gate outcomes are policy-governed and auditable
+
+#### Documentation changes
+- advanced quality/security capability, evidence, fallback, applicability,
+  adapter, and operational-boundary documentation
+
+#### Risks
+- vendor coupling or mandatory SaaS dependence
+- false equivalence among tools with different assurance
+- scanner operational weight, supply-chain risk, and credential exposure
+- AI semantic findings being mistaken for deterministic facts
+
+#### Acceptance criteria
+- approved advanced capabilities integrate behind replaceable contracts
+- evidence records preserve source, applicability, availability, and assurance
+  differences
+- the Policy Engine composes deterministic, external, and AI semantic evidence
+  into explicit `PASS`, `REVIEW`, or `FAIL` governance behavior
+- basic Praetor operation remains possible without one vendor or enterprise
+  service
+
+#### Definition of Done
+Praetor can govern an extensible set of advanced quality/security evidence
+sources and compose their materially different assurance into auditable policy
+decisions without bundling a platform, mandating a vendor, or replacing
+deterministic evidence with AI judgment.
+
+---
+
 ## Summary of the revised order
 
 1. M0.0 — Baseline Verification
@@ -1333,5 +1540,8 @@ Organizational learning becomes an extension of the proven local system rather t
 15. M1.5 — SCM Integration
 16. M1.6 — CI + External Evidence Integration
 17. M1.7 — Organization Memory + Learning Loop
+18. M1.8 — Quality Intelligence + Security Verification
 
-This ordering keeps the architecture honest: the runtime proves a governed change loop before it adds memory, review maturity, routing sophistication, or organization-scale learning.
+This ordering keeps the architecture honest: the runtime proves a governed
+change loop before it adds memory, review maturity, routing sophistication,
+organization-scale learning, or advanced quality/security intelligence.

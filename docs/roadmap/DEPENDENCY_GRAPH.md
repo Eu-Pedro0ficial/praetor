@@ -16,13 +16,17 @@ flowchart TD
     H --> I[M0.8 Governed Change End-to-End]
 
     I --> J[M1.0 Mature Policy Engine + Policy Packs]
-    I --> K[M1.1 Review Engine + Maker-Checker Enforcement]
-    I --> L[M1.2 Local Project Memory]
+    J --> K[M1.1 Review Engine + Maker-Checker Enforcement]
+    K --> L[M1.2 Local Project Memory]
     J --> M[M1.3 Capability Model + Routing + Trust Boundaries]
     M --> N[M1.4 Multi-provider Maturity]
     N --> O[M1.5 SCM Integration]
     N --> P[M1.6 CI + External Evidence Integration]
     L --> Q[M1.7 Organization Memory + Learning Loop]
+    J --> AM[M1.8 Quality Intelligence + Security Verification]
+    K --> AM
+    P --> AM
+    Q -. optional learning input .-> AM
 
     B --> R[Project Registry]
     B --> S[Local config + audit shell]
@@ -46,6 +50,8 @@ flowchart TD
     P --> AJ[CI + evidence adapters]
     Q --> AK[Organization memory]
     Q --> AL[Postmortem learning]
+    AM --> AN[Quality and security evidence adapters]
+    AM --> AO[Composed policy quality gate]
 ```
 
 ## Dependency logic
@@ -54,10 +60,12 @@ flowchart TD
 2. Project identity and local shell are required before any execution can be governed.
 3. The Change domain, workflow, and bounded scope must be proven before policy, memory, or routing become meaningful.
 4. The AI Provider Port and first adapter must exist before V0 so the runtime can use a provider-independent execution contract.
-5. M1.0 policy maturity is the dependency for formalized routing and trust-based policy decisions; project memory is not required for capability routing.
-6. Memory becomes valuable only after the core change loop works.
-7. Organization-scale memory and learning derive primarily from project memory, governance, audit, and promotion authority, not SCM/CI integration.
-8. A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED must stop dependent implementation until the required spike/benchmark, ADR and human approval are complete.
+5. M0.6 verification discovery combines deterministic repository signals with an optional separate read-only `verification-planning` attempt; the Verification Engine, not AI, produces deterministic evidence.
+6. M1.0 policy maturity is the dependency for formalized routing and trust-based policy decisions; project memory is not required for capability routing.
+7. Memory becomes valuable only after the core change loop works.
+8. Organization-scale memory and learning derive primarily from project memory, governance, audit, and promotion authority, not SCM/CI integration.
+9. M1.8 consumes mature policy, review, and external-evidence capabilities. It is delivered after M1.7, but organization memory is an optional learning input rather than a hard technical dependency.
+10. A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED must stop dependent implementation until the required spike/benchmark, ADR and human approval are complete.
 
 ## Decision closure gates
 
@@ -67,6 +75,7 @@ Approved decisions now authoritative:
 - Policy representation: declarative YAML with schema validation.
 - Adapter loading: compile-time registration + composition root; no Go plugin loading in the initial architecture.
 - First AI provider adapter: `codex-cli` through non-interactive `codex exec`, behind the provider-independent port; explicit provider/model selection is not routing.
+- Verification planning: language/toolchain-independent discovery may use a separate read-only `verification-planning` attempt, while only validated deterministic execution creates deterministic evidence (ADR-031).
 - Sandbox isolation: Git worktree for source/workspace isolation; not a security sandbox.
 - First remote SCM: local Git first; GitHub is the first remote SCM adapter after Core V0, behind a provider-independent SCM Port. GitHub concepts stay in the adapter layer, not in the domain/core.
 - Provider trust taxonomy: LOCAL, ENTERPRISE, EXTERNAL_APPROVED, EXTERNAL_RESTRICTED, FORBIDDEN.
@@ -79,6 +88,7 @@ Deferred or benchmarked decisions are explicit gates, not silent assumptions:
 - GUI / server control plane: DEFERRED, requires explicit capability justification + ADR + human approval.
 - Semantic memory conflict detection: DEFERRED / SPIKE REQUIRED before semantic conflict authority can be adopted.
 - Canonical project memory serialization: BENCHMARK REQUIRED before persistence implementation begins.
+- M1.8 concrete tool portfolio, final assurance taxonomy, and consequential deployment choices: deferred to capability evidence and the required architecture/security review; no vendor is preselected.
 
 ## Critical path
 

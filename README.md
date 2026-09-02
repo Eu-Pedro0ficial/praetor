@@ -45,9 +45,9 @@ See:
 
 Implementation in progress.
 
-M0.0 — Baseline Verification through M0.4 — Sandbox + Patch Lifecycle are
-complete. M0.5 — AI Provider Port + First Adapter is the active implementation
-milestone.
+M0.0 through M0.5 are complete; M0.5 delivered the AI Provider Port + First
+Adapter. M0.6 — Deterministic Verification + Evidence is the next
+implementation milestone and is not implemented yet.
 
 The primary developer interface is the retained-context interactive shell.
 Run `praetor` inside a Git repository, then use plain commands such as `status`,

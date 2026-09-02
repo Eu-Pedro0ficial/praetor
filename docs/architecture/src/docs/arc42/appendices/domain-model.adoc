@@ -149,6 +149,46 @@ events produced by an execution also link the Praetor attempt identity. Raw
 prompts, source bodies, provider output, workspace paths, and credentials are
 not audit metadata.
 
+===== M0.6 Planned Verification Boundary
+
+M0.6 extends the provider-independent role contract with the exact
+`verification-planning` role while preserving `implementation` as a separate
+responsibility. A planning invocation has its own Praetor
+`ExecutionAttemptId`, role identity, provider-scoped model selection, and
+fresh execution context. It does not inherit an implementation scratchpad or
+hidden provider conversation. The same `codex-cli` adapter may serve both
+roles in Core V0, but each invocation remains a distinct attempt; this does
+not constitute automatic routing or mature multi-provider operation.
+
+Verification planning receives only bounded read context derived from the
+SourceSnapshot, Repository Context, ChangeIntent, ApprovedScope, and
+PatchArtifact. It has no source/workspace mutation capability and cannot
+advance, approve, or reject the Change. Its output is planning provenance, not
+deterministic or semantic-correctness evidence.
+
+`VerificationCandidate` identifies a proposed deterministic check and retains
+its origin, supporting repository evidence, and AI inference metadata when
+present. Origins such as repository-declared, deterministically inferred,
+AI-assisted inferred, and user/configured remain distinguishable; explicit
+repository declarations generally outrank AI inference.
+
+`VerificationPlan` is a validated collection of structured
+`VerificationStep` values. A step conceptually carries a kind, executable/tool
+identity, argument vector, bounded working-directory scope, origin, and
+supporting evidence. These concepts do not select a canonical persistent
+serialization. Arbitrary AI-produced shell text is not a VerificationStep and
+must not become executable authority.
+
+Only the Verification Engine's actual structured tool execution produces
+deterministic `EvidenceSet` items. Evidence links the source and patch,
+verification step, tool/version where available, arguments and bounded
+working-directory scope, timestamps/duration, exit code, bounded/redacted
+output or artifact references, outcome, and only necessary reproducibility
+metadata. AI planning and later semantic review remain separate
+non-deterministic provenance. Required successful evidence permits only the
+existing `isolated -> validated` Change transition; M0.7 still owns the human
+approval decision.
+
 Potential value objects/entities:
 
 [cols="1,3",options="header"]
@@ -165,8 +205,11 @@ Potential value objects/entities:
 |ChangeSurface |Expected/possible/protected/actual source scope
 |Specification |Explicit requirements/invariants for the change
 |ChangePlan |Ordered implementation plan and expected modifications
-|ExecutionAttempt |One implementation/provider attempt with Praetor-owned identity, selected provider/model, ProposalWorkspace, source-state and bounded audit provenance
+|ExecutionAttempt |One role-scoped provider attempt with Praetor-owned identity, selected provider/model, execution boundary, source-state and bounded audit provenance
 |Patch |Proposed source modification artifact
+|VerificationCandidate |One provenance-bearing proposal for a deterministic repository check
+|VerificationPlan |Validated structured verification steps selected for a source/patch context
+|VerificationStep |One bounded executable/tool invocation with arguments, working-directory scope, origin and supporting evidence
 |EvidenceSet |Normalized evidence produced by validators/reviewers
 |Review |Reviewer role, findings, confidence/evidence and disposition
 |Approval |Authorized actor decision permitting a transition
@@ -211,7 +254,11 @@ Evidence should be typed. Candidate evidence types include:
 * HumanReviewEvidence
 * ApprovalEvidence
 
-Each item should identify producer/tool, version where possible, input snapshot, execution timestamp, normalized result and artifact/hash references.
+Each item should identify producer/tool, version where possible, input
+snapshot and patch, verification origin, execution timestamp, normalized
+result and artifact/hash references. Deterministic tool results, external
+evidence, AI planning/semantic findings, and human decisions retain distinct
+evidence authority.
 
 ==== Memory Aggregate
 

@@ -10,6 +10,10 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
+Current implementation status: M0.0 through M0.5 are complete. M0.6 is the
+next implementation milestone; the architecture below is approved, but its
+runtime behavior is not implemented yet.
+
 ## Mandatory architecture decision closure rule
 
 A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
@@ -87,15 +91,22 @@ An implementation convenience is NOT an architecture decision.
 - First-provider decision: `codex-cli` is the sole Core V0 adapter, selected explicitly with an optional provider-scoped model; ADR-030 forbids treating manual selection as routing or Codex CLI as a privileged universal provider.
 
 #### M0.6 — Deterministic Verification + Evidence
-- Capability: minimal verification gate
-  - Sub-capability: deterministic checks necessary for V0
-  - Implementation tasks: target-project build/typecheck or equivalent, relevant deterministic tests, patch integrity validation
+- Capability: language/toolchain-independent verification discovery
+  - Sub-capability: combine repository-declared and deterministically inferred signals with optional AI-assisted interpretation
+  - Implementation tasks: inspect manifests, build/test/lint configuration, CI declarations, toolchain files and repository scripts as open-ended evidence; run a separate read-only `verification-planning` role when deterministic evidence is ambiguous
+- Capability: structured VerificationPlan
+  - Sub-capability: turn provenance-bearing candidates into validated executable steps
+  - Implementation tasks: retain origin/evidence, validate executable/arguments/working-directory scope, and reject arbitrary AI-produced shell text
+- Capability: minimal deterministic verification gate
+  - Sub-capability: execute repository-supported checks necessary for V0
+  - Implementation tasks: run applicable build, test, lint, typecheck, patch-integrity or equivalent deterministic steps without encoding one architectural branch per language
 - Capability: evidence normalization
   - Sub-capability: structured evidence for the governing workflow
-  - Implementation tasks: normalize tool output into auditable evidence records with pass/fail disposition
+  - Implementation tasks: normalize actual tool execution into source/patch-linked auditable evidence; AI/provider completion is not deterministic success evidence
 - Capability: minimal rule gate
   - Sub-capability: minimal deterministic governance rules for bounded execution and acceptance
-  - Implementation tasks: enforce only the rules needed to prove V0, without a mature generic policy engine
+  - Implementation tasks: enforce structured invocation, read/write boundary, executable resolution, timeouts, cancellation, bounded output and safe environment handling without a mature generic policy engine
+- Architecture decision: ADR-031 establishes AI-assisted verification planning with deterministic evidence authority. `verification-planning` is a distinct read-only attempt/context from `implementation`; it is neither the M1.1 Reviewer nor M1.3/M1.4 routing.
 
 #### M0.7 — Human Approval + Change Audit
 - Capability: explicit human decision gate
@@ -159,6 +170,21 @@ An implementation convenience is NOT an architecture decision.
   - Implementation tasks: govern project-to-organization memory promotion and derived learning from failures and postmortems, using project memory, governance, audit, and promotion authority as the primary inputs
 - Architecture decision gate: hosted organization memory and persistence remain DEFERRED. This milestone may not proceed beyond concept design until the workload, tenancy, consistency, security, persistence spike, ADR and human approval have been completed.
 
+#### M1.8 — Quality Intelligence + Security Verification
+- Capability: provider/tool-independent advanced quality and security evidence
+  - Sub-capability: integrate applicable SAST, SCA/dependency, secret, DAST, IaC, container/image, code-quality, coverage, mutation, architecture-conformance and API/security checks through adapters
+  - Implementation tasks: normalize local executable, self-hosted, containerized, managed-service, existing-enterprise and CI-provided evidence without making a vendor a domain dependency
+- Capability: AI-assisted quality and security findings
+  - Sub-capability: retain semantic findings as non-deterministic evidence
+  - Implementation tasks: combine them with deterministic/external evidence through the mature Policy Engine without allowing AI to override deterministic results
+- Capability: graceful quality-capability degradation
+  - Sub-capability: represent capability source, availability, applicability and explicitly different assurance when an approved fallback is used
+  - Implementation tasks: prefer suitable open-source/local/self-hostable tools, reuse approved existing infrastructure, and keep commercial/hosted products optional adapters
+- Capability: composed quality gate
+  - Sub-capability: normalize evidence for policy-governed `PASS`, `REVIEW`, or `FAIL` outcomes
+  - Dependencies: M1.0 Policy Engine, M1.1 Review Engine, and M1.6 external evidence; M1.7 learning may influence verification depth but is not deterministic evidence or a hard technical prerequisite
+- Explicit boundaries: do not bundle heavyweight platforms in source repositories, mandate one vendor or enterprise infrastructure, equate fallback assurance, force DAST where unavailable/not applicable, replace tools with AI judgment, add a hosted control plane, or silently install external services
+
 ## Core V0 release gate
 
 Core V0 is complete only after M0.8 passes its Definition of Done.
@@ -178,6 +204,7 @@ This is the minimal path proving the Praetor thesis without depending on mature 
 - inaccurate change-surface detection
 - sandbox portability and execution isolation issues
 - validation noise or incomplete evidence
+- unsafe or misleading verification discovery and command execution
 - over-building the policy model before the runtime is proven
 - provider abstraction drift if the first adapter is not kept behind a stable port
 - premature memory or organization-scale complexity
@@ -187,7 +214,7 @@ This is the minimal path proving the Praetor thesis without depending on mature 
 - repository impact and bounded-surface spike
 - sandbox/worktree isolation spike
 - provider port and first-adapter integration spike
-- deterministic validation and evidence normalization spike
+- language/toolchain-independent verification discovery, structured plan safety and evidence normalization spike
 - post-V0 memory lifecycle and conflict spike
 - post-V0 capability-routing and trust-boundary spike
 
@@ -195,7 +222,7 @@ This is the minimal path proving the Praetor thesis without depending on mature 
 
 - project memory infrastructure
 - mature generic Policy Engine
-- mature Review Engine or independent semantic reviewer
+- mature Review Engine or independent semantic reviewer (the constrained read-only M0.6 verification-planning role is not that reviewer)
 - provider capability routing and trust classification as V0 prerequisites
 - organization memory or learning promotion
 - broad SCM and CI support
@@ -220,7 +247,8 @@ The minimum architecture required before the V0 gate is:
 - repository inspection and Change Surface enforcement
 - AI Provider Port with one concrete adapter
 - isolated patch workspace
-- deterministic verification and evidence output
+- language/toolchain-independent verification discovery and structured plan validation
+- deterministic verification execution and evidence output
 - explicit human approval gate
 - append-only audit event log
 
@@ -238,5 +266,6 @@ This roadmap keeps the accepted architecture intact:
 - the workflow/state machine remains authoritative
 - human authority remains final
 - deterministic evidence is required before acceptance
+- AI may propose verification steps but cannot mint deterministic evidence
 - project memory remains distinct from source and provider state
 - audit remains append-oriented

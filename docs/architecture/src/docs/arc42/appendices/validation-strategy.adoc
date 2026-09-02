@@ -20,7 +20,10 @@ Tools themselves should not decide whether a warning blocks a Change. Adapters n
 
 ==== Test Selection
 
-The system should prefer targeted tests derived from impacted symbols/modules plus mandatory project suites. It must avoid using AI-selected tests as the sole guarantee when organization/project policy requires a known suite.
+The system should prefer targeted tests derived from impacted symbols/modules
+plus mandatory repository/project suites. AI may assist discovery when
+conventions are ambiguous, but AI-selected checks are never themselves proof
+and cannot silently replace explicit repository declarations.
 
 ==== Regression Analysis
 
@@ -126,3 +129,65 @@ proves canonical `HEAD`, index/working tree, files, tracked inventory and
 source digest remain unchanged, no `.praetor` metadata appears, and external
 drift fails closed. These checks establish M0.5 provider/patch behavior only;
 they are not M0.6 deterministic target-project evidence.
+
+==== M0.6 Planned Verification Discovery and Evidence
+
+M0.6 separates repository discovery, optional AI-assisted planning, structured
+plan validation, deterministic execution, and evidence normalization.
+Discovery is language/framework/toolchain agnostic: package/dependency
+manifests, lockfiles, build/task files, repository scripts, test/lint/typecheck
+configuration, CI definitions, toolchain files, and similar project evidence
+are examples rather than a closed taxonomy.
+
+Verification knowledge retains its origin: repository-declared,
+deterministically inferred, AI-assisted inferred, or user/configured. Explicit
+repository declarations generally outrank AI inference. Ambiguity and
+conflicts remain visible rather than being converted into invented facts.
+
+The exact AI role `verification-planning` is a new, read-only execution with a
+fresh context and `ExecutionAttemptId` distinct from the M0.5
+`implementation` attempt. It may inspect bounded source/repository/patch
+context and propose structured `VerificationCandidate` values, but it cannot
+mutate canonical or proposal source, decide semantic correctness, advance the
+Change, approve/reject it, or mint deterministic evidence. Core V0 may reuse
+the same explicitly selected provider adapter without introducing routing or
+a second provider.
+
+Candidates become a structured `VerificationPlan`. Before execution, every
+`VerificationStep` is checked for valid structure and provenance, bounded
+executable/argument data, explicit executable resolution, known
+working-directory scope, safe environment handling, timeout, cancellation,
+and output limits. AI-generated arbitrary shell text is rejected; execution
+uses argument vectors without blind shell interpolation. Repository-declared
+scripts remain potentially untrusted execution and receive the same boundary
+checks.
+
+Only actual Verification Engine tool execution produces deterministic
+evidence. A normalized result identifies the step, tool/version where
+available, argument vector and bounded working-directory scope, source/patch
+linkage, timestamps/duration, exit code, bounded/redacted stdout/stderr or
+artifact references, outcome, and only necessary reproducibility environment
+metadata. Provider completion, planning confidence, and semantic findings
+remain non-deterministic provenance.
+
+The M0.6 gate uses only the minimum deterministic rules required for V0. It
+does not implement the mature M1.0 Policy Engine, M1.1 Reviewer, or M1.3/M1.4
+routing/multi-provider capabilities. Required passing evidence may authorize
+only the existing `isolated -> validated` transition. Human approval remains
+M0.7.
+
+==== M1.8 Advanced Quality and Security Evidence Direction
+
+M1.8 broadens replaceable evidence adapters for applicable SAST, SCA, secret,
+DAST, IaC, container/image, code-quality, coverage, mutation, architecture and
+API/security capabilities. It may normalize approved local, self-hosted,
+containerized, managed, existing-enterprise, and CI-provided sources alongside
+AI semantic findings.
+
+Evidence must retain source, capability, availability, applicability and
+material assurance differences. An approved fallback with lower or different
+assurance is not equivalent to the preferred capability; `unavailable` and
+`not applicable` are not `pass`. DAST is conditional on an authorized
+runnable target/environment. The mature Policy Engine composes deterministic,
+external and non-deterministic findings into a Quality Gate without allowing
+AI authority to override deterministic tool results.

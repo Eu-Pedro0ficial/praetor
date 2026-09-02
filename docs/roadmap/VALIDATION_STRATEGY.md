@@ -12,6 +12,36 @@ This keeps the architecture aligned with the core thesis:
 - evidence is auditable and reviewable
 - AI proposals remain isolated until accepted
 
+## Verification discovery and planning
+
+M0.6 separates five responsibilities:
+
+1. deterministic repository evidence discovery;
+2. optional AI-assisted verification discovery;
+3. structured VerificationPlan construction and validation;
+4. deterministic tool execution;
+5. normalized EvidenceSet production.
+
+Discovery is language, framework, and toolchain agnostic. Evidence can come
+from manifests, lockfiles, build/task files, repository scripts, test/lint/
+typecheck configuration, CI declarations, toolchain files, and other project
+conventions; this is deliberately not a closed taxonomy. Repository-declared,
+deterministically inferred, AI-assisted inferred, and user/configured origins
+remain distinguishable. Explicit repository declarations generally outrank AI
+inference, which assists with ambiguity rather than silently overriding facts.
+
+The exact AI role `verification-planning` is read-only and uses a distinct
+attempt and fresh context from `implementation`. It may propose structured
+VerificationCandidate and VerificationStep values, but cannot mutate source,
+approve/reject a Change, or claim a check passed. A VerificationPlan is not an
+arbitrary shell script: executable, argument vector, working-directory scope,
+origin, and supporting evidence are validated before any process runs.
+
+The governing invariant is:
+
+> AI may help determine what to verify. Only real deterministic execution can
+> prove deterministic outcomes.
+
 ## Validation stack
 
 ### 1. Artifact validation
@@ -33,7 +63,8 @@ Examples:
 - blast-radius threshold checks
 
 ### 3. Static validation
-Run deterministic build and static checks.
+Run applicable deterministic build and static checks discovered from the
+target repository and approved plan.
 
 Examples:
 - compile or typecheck
@@ -42,7 +73,8 @@ Examples:
 - architecture boundary validation
 
 ### 4. Test validation
-Run the smallest meaningful test evidence set for the affected behavior.
+Run the smallest meaningful repository-supported test evidence set for the
+affected behavior.
 
 Examples:
 - unit tests for modified modules
@@ -51,7 +83,9 @@ Examples:
 - contract validation where relevant
 
 ### 5. Security validation
-These checks are part of the governance path and should not be optional after the fact.
+Applicable configured checks are part of the governance path and should not be
+treated as optional after the fact. M1.8 matures broad quality/security
+capability integration; M0.6 implements only the minimum V0 verification gate.
 
 Examples:
 - secret scanning
@@ -71,13 +105,20 @@ Examples:
 
 Every validation stage emits normalized evidence with:
 
-- provider or tool identity
+- verification step identity
+- tool identity and structured arguments
 - version or commit reference when relevant
-- input snapshot reference
+- bounded working-directory scope
+- input source snapshot and patch reference
 - output artifact reference
-- pass/fail decision
+- start/end time, duration, exit code, and execution outcome
+- bounded/redacted stdout and stderr or safe artifact references
+- only environment metadata necessary for reproducibility
+- pass/fail decision where the evidence type supports it
 - severity or blocking level
-- timestamp and environment metadata
+
+AI planning provenance and semantic findings remain separate
+non-deterministic evidence. Provider completion is not a test result.
 
 The governance layer decides the effect of evidence on workflow state. The validation tool does not silently decide acceptance. The mature first-class Policy Engine introduced post-V0 progressively owns generalized policy evaluation, while V0 uses minimal deterministic governance rules to control workflow consequences.
 
@@ -99,18 +140,22 @@ The runtime must not collapse a policy violation into a generic â€œagent failedâ
 The V0 validation set is intentionally minimal but sufficient:
 
 1. source-surface validation
-2. compile or language-specific validation for the target project
-3. relevant test evidence for impacted behavior
-4. approval gate enforcement
-5. audit completeness
-6. proof that canonical source remains untouched until human decision
+2. language/toolchain-independent discovery of applicable repository checks
+3. structured plan validation and safe deterministic execution
+4. applicable build, compile/typecheck, lint, test, patch-integrity, or
+   equivalent repository-defined evidence
+5. approval gate enforcement
+6. audit completeness
+7. proof that canonical source remains untouched until human decision
 
 This is enough to prove the core thesis without building a large validation platform prematurely. V0 relies on minimal deterministic governance rules; the mature first-class Policy Engine remains a post-V0 capability that progressively owns generalized policy evaluation.
 
 ## Validation anti-patterns to avoid
 
 - using AI confidence instead of deterministic validation
-- allowing AI suggestions to decide which tests should run
+- executing AI-proposed arbitrary shell text or an unvalidated plan
+- representing AI inference as repository-declared fact
+- treating provider completion as proof that a check passed
 - accepting changes without comparing actual and approved surfaces
 - hiding validation evidence inside provider output
 - treating warnings as pass conditions without policy mapping
@@ -126,6 +171,17 @@ Validation evidence must be stored in a way that allows later inspection of:
 - what Change it was validating
 
 This supports replay, historical review, and operational learning.
+
+## M1.8 quality/security evidence direction
+
+M1.8 extends the same evidence authority across replaceable quality/security
+adapters. It may combine deterministic local checks, existing infrastructure
+or CI/service evidence, and AI semantic findings through the mature Policy
+Engine. Evidence must preserve capability source, availability, applicability,
+and materially different assurance when a fallback is used. `UNAVAILABLE` or
+`NOT_APPLICABLE` is not `PASS`; DAST is conditional on an authorized runnable
+target and environment. No vendor or final assurance taxonomy is selected by
+this strategy.
 
 ## Milestone gate criteria
 

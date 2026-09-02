@@ -16,6 +16,9 @@ When a milestone reaches a deferred or benchmark trigger, the milestone must sto
 
 This rule is part of the delivery gate, not an optional policy note.
 
+Current implementation status: M0.0 through M0.5 are complete. M0.6 is the
+next implementation milestone and remains unimplemented.
+
 ## Revised delivery order
 
 ### Step 1 — M0.0 baseline verification
@@ -55,7 +58,18 @@ multi-provider maturity.
 
 ### Step 7 — M0.6 deterministic verification and evidence
 
-The runtime validates the patch and collects evidence before any human approval decision.
+The runtime discovers project-appropriate verification from open-ended
+repository evidence rather than a language-specific decision tree. When
+deterministic declarations are ambiguous, a separate read-only
+`verification-planning` AI attempt may propose structured candidates. Praetor
+validates a structured VerificationPlan, executes its admitted steps through
+bounded deterministic runners, and normalizes the real results as evidence
+before any human approval decision. AI/provider completion is never proof that
+a deterministic check passed.
+
+ADR-031 keeps this role distinct from both the M0.5 `implementation` attempt
+and the mature M1.1 Reviewer. Reusing `codex-cli` does not introduce automatic
+routing, fallback, or multi-provider maturity.
 
 ### Step 8 — M0.7 human approval and audit completeness
 
@@ -103,6 +117,18 @@ Institutional learning and organization memory remain downstream extensions, not
 
 Hosted organization memory remains DEFERRED; this milestone may not proceed beyond concept design until the persistence spike, ADR, and human approval are complete.
 
+### Step 18 — M1.8 quality intelligence and security verification
+
+Advanced quality/security capabilities build on the mature Policy Engine,
+Review Engine, and CI/external evidence pipeline. Delivery follows M1.7, but
+organization memory is not a hard technical dependency; learning may instead
+influence verification depth while actual checks still produce the evidence.
+
+M1.8 integrates replaceable local, self-hosted, existing-enterprise,
+containerized, managed, or CI-provided tools. It prefers adequate open-source
+and locally operable options, preserves different fallback assurance, treats
+DAST as conditional, and does not mandate or vendor a quality platform.
+
 ## Delivery discipline
 
 ### Every milestone must be vertically testable
@@ -142,6 +168,20 @@ Do not add broad infrastructure or speculative abstraction before the current pr
 15. M1.5 SCM integration
 16. M1.6 CI + external evidence integration
 17. M1.7 organization memory + learning loop
+18. M1.8 quality intelligence + security verification
+
+## Quality maturity framing
+
+- Level 1 — Core deterministic quality (M0.6): repository-supported build,
+  test, lint, typecheck, patch integrity, and equivalent checks.
+- Level 2 — Governed engineering quality (M1.0, M1.1, M1.6): policy,
+  independent semantic review, CI/external evidence, and architecture checks.
+- Level 3 — Advanced quality/security intelligence (M1.8): advanced scanner
+  evidence, conditional dynamic testing, AI quality/security findings, risk
+  aggregation, and composed quality gates.
+
+These levels explain capability maturity; they are not another product state
+machine.
 
 ## Readiness gates for the next milestone
 

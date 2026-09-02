@@ -46,6 +46,12 @@ Primary assets include:
 |Approval spoofing |Agent claims human approved |Approval tied to Identity Port and recorded actor, never natural-language assertion
 |Sandbox escape |Generated code exploits local runner |M0.4 worktrees provide source/workspace isolation only and do not run hostile code; future execution requires an approved OS/container/process isolation boundary with minimized credentials and network
 |Tool-result spoofing |Agent fabricates tests passing |Deterministic tools produce evidence directly; model cannot mint equivalent evidence type
+|Verification discovery spoofing |Malicious manifests, CI files or repository text advertise unsafe/misleading checks |Retain discovery origin/evidence, give explicit repository declarations higher discovery precedence without treating scripts as safe, validate structured candidates, and surface ambiguity
+|AI-proposed command injection |Planning output embeds shell operators or hidden interpolation |Accept only schema-validated executable + argument vectors; never pass arbitrary AI text to a shell
+|Verification planner mutation |Read-only planning role edits proposal tests/source to influence evidence |Separate attempt/context with enforced source/workspace read-only capability; detect source/patch drift before deterministic execution
+|Malicious repository check |A declared build/test script executes harmful behavior |Treat repository-defined commands as untrusted execution, constrain working directory/environment/time/network according to the approved execution boundary, and do not claim worktree isolation is process containment
+|Verification resource exhaustion |Tool hangs or floods output |Timeout, cancellation, bounded capture, process cleanup and explicit failed evidence
+|Verification credential leakage |Tool or planner captures inherited secrets/environment |Minimize and explicitly construct environment, avoid hidden credential capture, redact bounded evidence and audit only necessary reproducibility metadata
 |Cross-project context leakage |Project A memory used in Project B |Project/organization scope enforcement in retrieval
 |Organization memory poisoning |Bad project rule promoted globally |Higher promotion authority, evidence, scope/versioning and rollback/supersession
 |Sensitive memory retention |Secrets/incidents become durable |secret/PII scan, classification, redaction, retention policy
@@ -103,6 +109,45 @@ execute. M0.5 neither runs generated project programs nor claims enterprise
 trust/data-classification enforcement. M1.3 owns provider trust and data
 routing; stronger process/container/network isolation remains a separate
 security decision.
+
+==== M0.6 Planned Verification Execution Boundary
+
+M0.6 introduces a separate `verification-planning` role with a fresh
+`ExecutionAttemptId` and context. Unlike `implementation`, it has no
+source/workspace mutation capability. It receives only bounded relevant
+repository and patch context and returns structured planning metadata. The
+read-only boundary must be enforced by the provider/sandbox execution
+mechanism; prompt instructions alone are not a security control.
+
+Planning output is untrusted. Praetor parses it into provenance-bearing
+VerificationCandidate values and validates each structured VerificationStep
+before execution. Raw AI strings are never interpolated through a shell.
+Validation bounds executable and arguments, resolves the working-directory
+scope, applies timeout/cancellation and output limits, and explicitly manages
+environment exposure. Repository-declared scripts remain potentially
+malicious even when discovery is deterministic.
+
+Only real Verification Engine execution creates deterministic evidence.
+Source/patch linkage and drift checks prevent the planner or tool from
+silently changing the artifact being evaluated. Bounded stdout/stderr may
+still contain secrets, so evidence/audit storage requires minimization,
+redaction, or safe artifact references rather than indiscriminate capture.
+
+These are minimum V0 controls, not a claim of hostile-code isolation or the
+mature M1.0 Policy Engine. Any stronger filesystem, process, container,
+network, or credential boundary required by real verification tools must
+follow the existing security spike/ADR governance.
+
+==== M1.8 External Quality/Security Tool Boundary
+
+Advanced scanners may introduce heavyweight services/images, network and
+credential access, supply-chain exposure, licensing constraints, and
+different assurance. M1.8 therefore integrates them through replaceable
+adapters, prefers approved existing or adequate open-source/local
+infrastructure, and never vendors a platform into governed source. A fallback
+must expose different assurance; unavailable or inapplicable DAST/scanners do
+not become passing evidence. Consequential deployment and final assurance
+taxonomy decisions remain milestone-gated.
 
 ==== Multi-Tenant Future
 

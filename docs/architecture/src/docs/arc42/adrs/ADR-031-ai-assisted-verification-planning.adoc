@@ -1,0 +1,105 @@
+== ADR-031: AI-Assisted Verification Planning with Deterministic Evidence Authority
+
+*Status:* DECIDED
+
+=== Context
+
+M0.6 must determine which deterministic checks are relevant to a patch without
+encoding one implementation branch per language, framework, or toolchain.
+Repositories often declare useful commands in manifests, build files, CI
+configuration, and project scripts, but those signals can be incomplete or
+ambiguous. AI can assist with interpretation, yet an AI opinion cannot prove
+that a compiler, test, linter, or scanner passed.
+
+ADR-006 establishes deterministic verification as evidence authority, and
+ADR-013 separates implementation from final review and approval. Neither
+decision defines an AI-assisted verification-planning responsibility, its
+write boundary, or how its output becomes safe executable work. This decision
+adds that coherent refinement without introducing the mature M1.1 Review
+Engine or M1.3/M1.4 provider routing.
+
+=== Decision
+
+M0.6 introduces language- and toolchain-independent verification discovery.
+Discovery combines deterministic repository evidence with optional
+AI-assisted interpretation. Repository-declared and deterministically
+inferred signals retain their provenance and generally outrank AI inference;
+conflicts or uncertainty remain explicit.
+
+The AI role is exactly `verification-planning`. It answers what deterministic
+checks should validate the current Change and patch. It is distinct from the
+M0.5 `implementation` role and uses a separate `ExecutionAttemptId`, fresh
+execution context, and no inherited hidden provider conversation state. Core
+V0 may use the same explicitly selected `codex-cli` adapter, with an
+independent provider-scoped model or provider default. This is separation of
+responsibility, not automatic routing or mature multi-provider operation.
+
+Verification planning is read-only with respect to canonical source and the
+ProposalWorkspace. The role may inspect bounded relevant repository and patch
+context and return structured planning metadata, but it may not edit source or
+tests, advance Change state, approve/reject the Change, or mint deterministic
+success evidence. The sandbox/execution boundary must enforce the absence of
+source-write capability; a prompt instruction alone is insufficient.
+
+Discovery yields provenance-bearing `VerificationCandidate` values. Accepted
+candidates become a structured `VerificationPlan` containing bounded
+`VerificationStep` values such as executable identity, argument vector,
+working-directory scope, origin, and supporting repository evidence. These
+concepts do not select a canonical persistent serialization in M0.6.
+
+AI-produced arbitrary shell text is never executable authority. Before any
+step runs, Praetor validates its structure, origin, executable resolution,
+arguments, working-directory boundary, environment exposure, timeout,
+cancellation, and output bounds through the minimum deterministic V0 rule
+gate. Execution uses structured process invocation rather than blind shell
+interpolation.
+
+Only actual tool execution by the Verification Engine creates deterministic
+evidence. Normalized evidence links the step, tool/version when available,
+arguments, bounded working-directory scope, source and patch identity,
+timestamps, duration, exit status, bounded/redacted output or artifact
+references, execution outcome, and only the environment metadata necessary
+for reproduction. Provider completion and AI findings remain separate,
+non-deterministic provenance rather than deterministic evidence.
+
+=== Consequences
+
+Positive:
+
+* M0.6 can govern heterogeneous repositories without one architectural branch
+  per programming language;
+* ambiguous project conventions can receive bounded AI assistance while
+  explicit repository declarations remain distinguishable;
+* implementation, verification planning, deterministic execution, semantic
+  review, and human approval retain separate identities and authority;
+* structured plan validation prevents AI text from becoming an implicit shell
+  interface.
+
+Negative:
+
+* repository discovery and plan normalization add implementation complexity;
+* some repositories will still yield incomplete or ambiguous plans;
+* read-only provider execution and deterministic tools still require careful
+  filesystem, process, environment, timeout, and output controls;
+* executing repository-declared scripts can be risky even when their origin is
+  deterministic.
+
+=== Explicit boundary
+
+M0.6 does not introduce a mature semantic Reviewer or Approver. M1.1 remains
+responsible for maker-checker review enforcement. M0.6 does not introduce
+automatic provider selection, capability/trust/data-classification routing,
+fallback providers, ranking, load balancing, voting, ensembles, or a second
+provider; M1.3 and M1.4 remain authoritative for those capabilities.
+
+The initial plan safety gate is deliberately narrower than the mature M1.0
+Policy Engine. Exact persistent plan serialization, universal tool taxonomy,
+and enterprise execution policy are not decided here.
+
+=== Reopen / review trigger
+
+Allowing a planning role to mutate source, treating AI output as deterministic
+evidence, executing unvalidated shell text, merging planning with final review
+or approval, selecting a canonical persistent plan format, or introducing
+automatic/multi-provider routing requires the corresponding architecture and
+milestone review.

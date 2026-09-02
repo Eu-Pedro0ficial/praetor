@@ -158,6 +158,35 @@ ownership semantics. On success, it reports bounded provider provenance and
 the Git-derived patch summary; the proposal remains retained and the Change
 remains `isolated`.
 
+==== M0.6 Planned Verification Workflow
+
+M0.6 is the next implementation milestone; no verification command is added
+to the current shell by this documentation update. Its approved workflow is:
+
+[source,text]
+----
+surface-valid Proposal + PatchArtifact
+  -> language/toolchain-independent repository verification discovery
+  -> optional read-only verification-planning AI attempt
+  -> provenance-bearing VerificationCandidate values
+  -> structured VerificationPlan validation
+  -> deterministic Verification Engine execution
+  -> normalized EvidenceSet
+  -> existing isolated -> validated transition when required evidence passes
+  -> M0.7 human decision later
+----
+
+The `verification-planning` role uses an execution attempt and fresh context
+separate from `implementation`. It may propose what deterministic checks
+should run, but cannot mutate source, execute arbitrary shell text, declare a
+check passed, review semantic correctness, or approve/reject the Change. The
+same explicitly selected provider adapter may serve both roles without adding
+automatic routing, fallback, or multi-provider execution.
+
+Command and interaction design for the implemented M0.6 shell surface must
+continue to use ADR-029's single hierarchical metadata tree. This architecture
+update does not preselect command names or introduce placeholder handlers.
+
 ==== Predefined Workloads
 
 The system should support well-defined workflows rather than one universal autonomous loop. Candidate change types may include:

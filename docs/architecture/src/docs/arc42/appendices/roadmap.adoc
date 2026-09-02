@@ -15,10 +15,11 @@ Candidate capabilities:
 * Project Registry local configuration;
 * Change aggregate and persisted state;
 * workflow state machine;
-* repository discovery sufficient for one target language/project;
+* language/toolchain-independent repository verification discovery;
 * basic Change Surface Control;
 * isolated Git worktree implementation proposal;
-* deterministic command/test adapter;
+* separate read-only AI verification-planning role for ambiguous discovery;
+* validated structured VerificationPlan and deterministic tool adapters;
 * evidence normalization;
 * approval/rejection flow;
 * append-oriented audit;
@@ -38,7 +39,9 @@ Candidate capabilities:
 * memory invalidation from source fingerprints;
 * postmortem learning;
 * rejected-review learning candidate;
-* conflict/supersession handling.
+* conflict/supersession handling;
+* provider/tool-independent quality and security evidence adapters plus
+  composed quality gates (M1.8).
 
 ==== V2 — Multi-Developer / Organization
 

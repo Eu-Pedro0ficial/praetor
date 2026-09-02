@@ -24,15 +24,21 @@
 |R-019 |Go plugin mechanism becomes portability/security issue |Operational complexity |prefer process/protocol adapters; compile-time registration and composition-root selection remain the approved initial strategy
 |R-020 |AI output parser accepts malformed/ambiguous data |State corruption |strict schemas, validation and rejection before canonical mutation
 |R-021 |External provider CLI behavior or JSONL contract drifts |Failed or misclassified execution |bounded strict parsing, normalized failure, adapter conformance tests, version-aware operational validation, and no source authority for provider output
+|R-022 |Verification discovery hard-codes language/toolchain branches |Limited project applicability and maintenance growth |open-ended repository evidence, adapter-oriented execution and language-agnostic candidate/plan contracts
+|R-023 |AI verification planning becomes arbitrary shell authority |Command injection or unsafe execution |read-only separate role, structured schema validation, explicit executable/argument vectors and no blind shell interpolation
+|R-024 |Repository verification declarations are spoofed or malicious |Misleading evidence or harmful tool execution |retain provenance, validate plans, constrain execution and treat repository scripts as untrusted
+|R-025 |AI planning or semantic findings are mistaken for deterministic evidence |False acceptance |only actual Verification Engine tool execution produces deterministic evidence
+|R-026 |M1.8 fallback tools are treated as equivalent to preferred capabilities |False assurance |record capability source, availability, applicability and materially different evidence strength
+|R-027 |Advanced scanners create vendor or operational lock-in |Cost, deployment and sovereignty loss |replaceable adapters, existing-infrastructure integration and preference for adequate open-source/local/self-hostable tools
 |===
 
 === Known Architectural Debt at Baseline
 
-With implementation complete through M0.4 and the M0.5 provider-port slice
-active, the principal debt remains **decision debt**, not code debt. The most
-important deferred items are the canonical memory serialization benchmark,
-hosted organization memory, semantic conflict detection, M1.3 provider
-routing/trust enforcement, multi-provider maturity, and stronger sandboxing
-beyond the approved worktree-based isolation strategy. These items remain
-explicitly gated by their milestones, benchmark, ADR and human approval rather
-than silently being implemented.
+With implementation complete through M0.5 and M0.6 next, the principal debt
+remains **decision debt**, not code debt. The most important deferred items are
+the canonical memory serialization benchmark, hosted organization memory,
+semantic conflict detection, M1.3 provider routing/trust enforcement,
+multi-provider maturity, stronger sandboxing beyond the approved worktree
+strategy, and M1.8's concrete tool portfolio/final assurance taxonomy. These
+items remain explicitly gated by their milestones, benchmark, ADR and human
+approval rather than silently being implemented.

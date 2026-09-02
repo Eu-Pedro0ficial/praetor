@@ -38,7 +38,11 @@ include::../diagrams/dynamic-change-execution.puml[]
 . Agent Router selects an allowed provider for the Implementer role.
 . The implementer receives the approved spec, plan, bounded surface and context pack.
 . Sandbox enforces the write boundary and returns a patch/diff.
-. Verification Engine executes deterministic checks selected from language/project/policy metadata.
+. Verification discovery derives candidates from language/toolchain-independent
+  repository evidence and, where ambiguous, a separate read-only
+  `verification-planning` attempt.
+. Praetor validates a structured VerificationPlan and the Verification Engine
+  executes its admitted deterministic steps.
 . Change Surface Control compares actual and authorized surface.
 . Independent review roles evaluate the proposed change and evidence.
 . Policy Engine determines pass, failure, exception-required, or human-approval-required state.
@@ -115,6 +119,41 @@ expose only explicit session selection. There is no automatic provider
 selection, fallback, capability/trust/data routing, ranking, load balancing,
 or multi-provider execution in this scenario.
 
+==== M0.6 Planned Verification Subset
+
+M0.6 is the next implementation milestone and is not implemented by this
+architecture update. Its approved runtime sequence is:
+
+. consume the surface-valid Proposal, PatchArtifact, SourceSnapshot,
+  Repository Context, ChangeIntent, and ApprovedScope;
+. discover candidate checks from open-ended repository signals such as
+  manifests, build/task/test/lint/typecheck configuration, CI declarations,
+  toolchain files, and repository scripts;
+. retain repository-declared, deterministically inferred, AI-assisted inferred,
+  and user/configured origins without presenting AI inference as fact;
+. when ambiguity remains, create a new `verification-planning` provider
+  execution with a fresh context and `ExecutionAttemptId` distinct from the
+  `implementation` attempt;
+. enforce a read-only source/workspace boundary for that role and accept only
+  structured candidate metadata, never source edits or arbitrary executable
+  shell text;
+. construct and validate a structured VerificationPlan, including executable,
+  arguments, working-directory scope, provenance, timeout/cancellation,
+  environment, and output constraints;
+. execute the admitted build, test, lint, typecheck, patch-integrity, or other
+  repository-supported steps through the deterministic Verification Engine;
+. normalize actual tool results into an EvidenceSet linked to the source,
+  patch, plan step, tool/version, timestamps/duration, exit status, bounded
+  output/artifacts, outcome, and necessary reproducibility metadata;
+. permit only the existing `isolated -> validated` transition when all required
+  deterministic evidence satisfies the minimum V0 gate;
+. leave final human approval to M0.7.
+
+The planning provider may be `codex-cli` with a separately captured model or
+provider default, but M0.6 neither routes automatically nor requires a second
+provider. Verification planning is not the mature M1.1 semantic Reviewer and
+cannot declare the patch correct.
+
 === Scenario 5 — Memory Candidate Promotion
 
 [plantuml, "{plantUMLDir}dynamic-memory-promotion", png]
@@ -147,3 +186,21 @@ A human rejects a PR because the change violates a local convention not yet form
 === Scenario 8 — Project Knowledge Promoted to Organization Knowledge
 
 Repeated, validated project-level knowledge may become a candidate for Organization Memory. Promotion is governed separately and may require a higher authority. Organization policies can flow downward to projects, with explicit project exceptions where allowed.
+
+=== Scenario 9 — M1.8 Composed Quality and Security Gate
+
+. The runtime identifies applicable advanced quality/security capabilities and
+  prefers an approved existing integration when one is available.
+. Otherwise, mature policy may select an approved local/open-source capability
+  fallback whose lower or different assurance is retained explicitly. This
+  future tool fallback does not introduce M0.6 AI-provider fallback.
+. DAST runs only when an authorized runnable target, environment, network,
+  dependencies, and test data make it applicable; otherwise availability or
+  non-applicability is recorded rather than reported as pass.
+. Deterministic tool results, external quality/security evidence, and AI
+  semantic findings are normalized without collapsing their authority.
+. The mature Policy Engine composes the evidence into a Quality Gate outcome
+  such as `PASS`, `REVIEW`, or `FAIL`; AI findings cannot override a
+  deterministic failure by authority.
+. Project or Organization Memory may increase scrutiny or suggest additional
+  checks, but only executed checks become deterministic evidence.

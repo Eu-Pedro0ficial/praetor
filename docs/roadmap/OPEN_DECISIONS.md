@@ -92,6 +92,31 @@ Reopen trigger: changing the first integration mechanism or credential
 boundary. Automatic routing remains governed by M1.3; multi-provider maturity
 remains governed by M1.4.
 
+## 5B. AI-assisted verification planning
+
+Status: DECIDED FOR CORE V0
+
+M0.6 uses language/toolchain-independent verification discovery. Explicit
+repository declarations and deterministic inference retain their provenance
+and generally outrank AI inference. When evidence is ambiguous, a separate
+read-only AI role named exactly `verification-planning` may propose structured
+verification candidates and a VerificationPlan.
+
+The planning role has its own `ExecutionAttemptId` and fresh context, distinct
+from the `implementation` attempt. It cannot mutate source, declare semantic
+correctness, approve/reject the Change, or produce deterministic success
+evidence. Structured plan validation precedes process execution; arbitrary AI
+shell text is not executable authority. Only actual Verification Engine tool
+execution produces deterministic evidence. See ADR-031.
+
+Core V0 may reuse the explicitly selected `codex-cli` adapter without
+requiring a second provider. This does not introduce automatic selection,
+routing, fallback, ranking, or multi-provider operation.
+
+Reopen trigger: granting planner write authority, merging it with final
+review/approval, allowing unvalidated shell execution, or treating AI output
+as deterministic evidence.
+
 ## 6. First remote SCM
 
 Status: DECIDED
@@ -103,6 +128,28 @@ GitHub is the first remote SCM integration after Core V0.
 SCM ports must remain provider-independent. Do not embed GitHub concepts into the domain/core.
 
 Additional SCM integrations require their own roadmap justification but do not require redesign of the core port.
+
+## 6A. M1.8 quality/security tool portfolio and assurance model
+
+Status: DEFERRED
+
+M1.8 — Quality Intelligence + Security Verification is approved roadmap scope,
+but no mandatory vendor, final scanner portfolio, deployment topology, or
+assurance/evidence-strength taxonomy is selected now. These choices require
+representative capability needs and operational evidence at M1.8.
+
+Praetor should prefer adequate open-source, locally executable, or
+self-hostable tooling and should reuse approved user infrastructure rather
+than duplicate it. Proprietary/managed products remain optional adapters. An
+approved fallback must report materially lower or different assurance rather
+than impersonating the preferred capability. DAST remains conditional on
+applicability and an authorized runnable target/environment.
+
+Decision trigger: before M1.8 implementation needs a final assurance taxonomy,
+introduces a meaningful external dependency/service, or chooses consequential
+scanner execution, credential, network, or deployment boundaries. Produce the
+appropriate capability comparison, architecture/security evidence, ADR where
+material, and human approval.
 
 ## 7. Audit cryptographic evolution
 
