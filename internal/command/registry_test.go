@@ -54,6 +54,10 @@ func TestDefaultRegistryHasUniqueCompleteHierarchicalMetadata(t *testing.T) {
 	for _, commandPath := range []string{
 		"change isolate", "change implement", "change patch", "change verify", "change approve", "change reject", "change apply", "change close", "change discard",
 		"provider list", "provider show", "provider select", "provider model", "configure project",
+		"configure layout show", "configure layout sidebar show", "configure layout sidebar identity",
+		"configure layout sidebar context", "configure layout sidebar provider", "configure layout sidebar status",
+		"configure layout color accent", "configure layout color border", "configure layout color background",
+		"configure layout color text", "configure layout reset",
 	} {
 		if _, exists := seen[commandPath]; !exists {
 			t.Fatalf("registry lacks %s", commandPath)
@@ -812,6 +816,7 @@ func prepareCommittedCommandTest(t *testing.T) (string, string, *command.Session
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	container := composition.New()
 	session, err := container.NewInteractiveSession(".")
 	if err != nil {

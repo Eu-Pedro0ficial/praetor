@@ -45,7 +45,7 @@ See:
 
 Core V0 complete.
 
-M0.0 through M0.8 are complete. The local governed-change loop now connects
+M0.0 through M0.9 are complete. The local governed-change loop now connects
 Project identity, bounded source scope, isolated proposal production,
 deterministic verification, explicit local-human disposition, canonical
 application or rejection closure, and append-oriented audit history.
@@ -122,3 +122,16 @@ audit-locked`. Late failures report whether mutation occurred and never claim
 rollback; replay then fails closed against canonical drift. Temporary proposal
 workspaces are cleaned after terminal closure without placing `.praetor` or
 patch files in governed source.
+
+M0.9 adds the lightweight Engineering Console presentation without changing
+Core V0 governance. A restrained header, adaptive status sidebar, binary
+Praetor identity, and truthful footer are rendered around the existing
+keyboard-first readline shell. Both the sidebar and the `status` command
+consume the same session status snapshot. User-local layout preferences are
+available under `configure layout`, persist as versioned JSON beneath
+`$XDG_CONFIG_HOME/praetor` (or the platform user configuration directory),
+and affect rendering only. The sidebar is enabled by default and is temporarily
+suppressed below 84 columns without changing the saved preference. Colors use
+a bounded ANSI palette and degrade to readable plain text when color is
+unavailable. No `.praetor` directory or presentation state is written to the
+governed repository.

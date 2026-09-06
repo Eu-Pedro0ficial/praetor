@@ -60,6 +60,7 @@
 |QS-015 |AI proposes shell interpolation or an unsafe command |M0.6 plan validation |Structured plan gate rejects it before process execution |Zero unvalidated AI command strings executed
 |QS-016 |Preferred quality/security integration is unavailable |M1.8 quality gate |Approved fallback evidence records lower/different assurance |No fallback is represented as equivalent evidence
 |QS-017 |DAST is not applicable or lacks an authorized target |M1.8 quality gate |Applicability/availability is explicit and policy decides the consequence |No fabricated pass and no forced unsafe target execution
+|QS-018 |Interactive terminal narrows below the useful two-column width |M0.9 shell session |Sidebar is temporarily suppressed while the command surface, configured preference, and command behavior remain intact |No wrapped sidebar corruption and sidebar returns at sufficient width
 |===
 
 === Performance Direction

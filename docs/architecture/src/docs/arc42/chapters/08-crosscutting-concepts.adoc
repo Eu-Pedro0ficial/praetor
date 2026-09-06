@@ -131,6 +131,20 @@ built-in defaults < user configuration < project configuration < workflow config
 
 However, configuration precedence does not override governance authority. A lower-level configuration cannot weaken a higher-authority non-overridable policy.
 
+=== Presentation Boundary
+
+M0.9 presentation preferences are a separate user-local rendering concern,
+not another layer in governed configuration precedence. Sidebar visibility,
+section visibility, and bounded terminal colors cannot affect Project or
+Change identity, provider execution, verification, evidence, policy, audit,
+canonical integration, or source-state digests. Terminal dimensions may
+temporarily suppress presentation but never rewrite stored preference.
+
+Dynamic terminal values are treated as untrusted presentation input: invalid
+UTF-8 and control characters are neutralized, display width is measured by
+grapheme clusters, and ANSI sequences originate only from a fixed
+Praetor-owned palette when the output terminal supports color.
+
 === Role-Based Authority
 
 A possible configurable authority model is:

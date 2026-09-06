@@ -14,6 +14,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
+	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
@@ -31,6 +32,7 @@ type Session struct {
 	verification              *verification.Service
 	approval                  approval.Port
 	canonicalIntegration      *integration.Service
+	presentationPreferences   *preferences.Service
 	providerRegistry          *aiprovider.Registry
 	providerSelection         aiprovider.Selection
 	currentChange             change.Change
@@ -56,6 +58,7 @@ func NewSession(
 	verificationService *verification.Service,
 	approvalPort approval.Port,
 	canonicalIntegration *integration.Service,
+	presentationPreferences *preferences.Service,
 	providerRegistry *aiprovider.Registry,
 	providerSelection aiprovider.Selection,
 ) (*Session, error) {
@@ -86,6 +89,9 @@ func NewSession(
 	if canonicalIntegration == nil {
 		return nil, fmt.Errorf("canonical integration capability is not configured")
 	}
+	if presentationPreferences == nil {
+		return nil, fmt.Errorf("presentation preferences are not configured")
+	}
 	if providerRegistry == nil {
 		return nil, fmt.Errorf("AI provider registry is not configured")
 	}
@@ -93,18 +99,43 @@ func NewSession(
 		return nil, fmt.Errorf("initial AI provider selection: %w", err)
 	}
 	return &Session{
-		registration:           registration,
-		changeWorkflow:         changeWorkflow,
-		repositoryIntelligence: repositoryIntelligence,
-		proposalLifecycle:      proposalLifecycle,
-		providerExecution:      providerExecution,
-		verification:           verificationService,
-		approval:               approvalPort,
-		canonicalIntegration:   canonicalIntegration,
-		providerRegistry:       providerRegistry,
-		providerSelection:      providerSelection,
-		modeStack:              []ModeContext{rootModeContext()},
+		registration:            registration,
+		changeWorkflow:          changeWorkflow,
+		repositoryIntelligence:  repositoryIntelligence,
+		proposalLifecycle:       proposalLifecycle,
+		providerExecution:       providerExecution,
+		verification:            verificationService,
+		approval:                approvalPort,
+		canonicalIntegration:    canonicalIntegration,
+		presentationPreferences: presentationPreferences,
+		providerRegistry:        providerRegistry,
+		providerSelection:       providerSelection,
+		modeStack:               []ModeContext{rootModeContext()},
 	}, nil
+}
+
+// LayoutPreferences returns the current user-local rendering preferences.
+func (session *Session) LayoutPreferences() preferences.Layout {
+	if session == nil || session.presentationPreferences == nil {
+		return preferences.Defaults()
+	}
+	return session.presentationPreferences.Current()
+}
+
+func (session *Session) SetSidebarVisible(visible bool) error {
+	return session.presentationPreferences.SetSidebarVisible(visible)
+}
+
+func (session *Session) SetSidebarSection(section string, visible bool) error {
+	return session.presentationPreferences.SetSidebarSection(section, visible)
+}
+
+func (session *Session) SetPresentationColor(role string, color preferences.Color) error {
+	return session.presentationPreferences.SetColor(role, color)
+}
+
+func (session *Session) ResetLayoutPreferences() error {
+	return session.presentationPreferences.Reset()
 }
 
 // ProviderSelection returns the active session-scoped provider/model choice.

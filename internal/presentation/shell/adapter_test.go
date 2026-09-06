@@ -54,10 +54,11 @@ func TestAdapterRetainsProjectContextAndContinuesAfterCommandErrors(t *testing.T
 
 	registration := session.Registration()
 	for _, expected := range []string{
-		"Praetor\n",
-		"Project: " + string(registration.ProjectId) + "\n",
-		"Repository: " + repositoryRoot + "\n",
-		"Change: none\n",
+		"P R A E T O R",
+		"GOVERNED AI ENGINEERING",
+		"Project ID: " + string(registration.ProjectId) + "\n",
+		"Repository root: " + repositoryRoot + "\n",
+		"110101010101011",
 		"praetor: unknown command",
 		"Change ID: change-shell\n",
 		"praetor: usage: status",
@@ -279,6 +280,7 @@ func prepareShellTest(t *testing.T) (string, string, *command.Session, command.R
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	container := composition.New()
 	session, err := container.NewInteractiveSession(".")
 	if err != nil {

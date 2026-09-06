@@ -98,3 +98,26 @@ func (editor *readlineEditor) Readline() (string, error) {
 	}
 	return line, err
 }
+
+func (editor *readlineEditor) setPrompt(prompt func() string) {
+	if editor == nil || editor.shell == nil || prompt == nil {
+		return
+	}
+	editor.shell.Prompt.Primary(prompt)
+}
+
+func (editor *readlineEditor) setRightPrompt(prompt func() string) {
+	if editor == nil || editor.shell == nil || prompt == nil {
+		return
+	}
+	editor.shell.Prompt.Right(prompt)
+}
+
+func (editor *readlineEditor) setFooter(footer func() string) {
+	if editor == nil || editor.shell == nil || footer == nil {
+		return
+	}
+	editor.shell.Hint.SetProvider(func(_ []rune, _ int) []rune {
+		return []rune(strings.TrimSuffix(footer(), "\n"))
+	})
+}

@@ -16,8 +16,9 @@ When a milestone reaches a deferred or benchmark trigger, the milestone must sto
 
 This rule is part of the delivery gate, not an optional policy note.
 
-Current implementation status: M0.0 through M0.8 are complete. The Core V0
-release gate has passed; no post-V0 milestone is implied to have started.
+Current implementation status: M0.0 through M0.9 are complete. The Core V0
+release gate has passed, and the bounded post-V0 presentation milestone is
+complete. M1.0 has not started.
 
 ## Revised delivery order
 
@@ -92,45 +93,52 @@ mutation; exact post-application proof and completion audit precede
 `audit-locked`. Rejection uses a separate unchanged-source closure path.
 Neither path commits, pushes, merges, creates a branch, or creates a PR.
 
-### Step 10 — M1.0 policy maturity
+### Step 10 — M0.9 terminal presentation and layout configuration
+
+This bounded post-V0 step gives the interactive shell an adaptive Engineering
+Console and persistent user-local presentation preferences. It changes only
+rendering: preferences remain outside governed repositories and have no role in
+governance configuration precedence, execution, evidence, or audit authority.
+
+### Step 11 — M1.0 policy maturity
 
 Only after the core loop exists does the runtime add explicit policy semantics, exceptions, and evidence weighting.
 
-### Step 11 — M1.1 review engine and maker-checker enforcement
+### Step 12 — M1.1 review engine and maker-checker enforcement
 
 The runtime enforces independent review after the proof exists.
 
-### Step 12 — M1.2 local project memory
+### Step 13 — M1.2 local project memory
 
 Memory is added only after the governed-change loop is stable.
 
 Canonical project memory serialization remains BENCHMARK REQUIRED. Project memory persistence may not begin until the benchmark, ADR and human approval are complete.
 
-### Step 13 — M1.3 capability routing and trust boundaries
+### Step 14 — M1.3 capability routing and trust boundaries
 
 Capability-based routing and trust classification follow the proven system, not precede it. They depend on the mature policy model and governance layer, not on project memory.
 
 Provider trust levels and data classification are DECIDED and authoritative. Future changes require architecture review and ADR approval.
 
-### Step 14 — M1.4 multi-provider maturity
+### Step 15 — M1.4 multi-provider maturity
 
 This adds broader provider operation after the runtime is stable, without collapsing provider, SCM, and CI into a single milestone.
 
-### Step 15 — M1.5 SCM integration
+### Step 16 — M1.5 SCM integration
 
 SCM integration is introduced as an independent, independently testable addition to the runtime once the local governance loop is proven.
 
-### Step 16 — M1.6 CI and external evidence integration
+### Step 17 — M1.6 CI and external evidence integration
 
 CI and external evidence inputs are normalized separately from SCM integration and from provider maturity.
 
-### Step 17 — M1.7 organization memory and learning loop
+### Step 18 — M1.7 organization memory and learning loop
 
 Institutional learning and organization memory remain downstream extensions, not V0 prerequisites, and are primarily derived from project memory, audit, governance, and promotion authority.
 
 Hosted organization memory remains DEFERRED; this milestone may not proceed beyond concept design until the persistence spike, ADR, and human approval are complete.
 
-### Step 18 — M1.8 quality intelligence and security verification
+### Step 19 — M1.8 quality intelligence and security verification
 
 Advanced quality/security capabilities build on the mature Policy Engine,
 Review Engine, and CI/external evidence pipeline. Delivery follows M1.7, but
@@ -173,15 +181,16 @@ Do not add broad infrastructure or speculative abstraction before the current pr
 7. M0.6 deterministic verification + evidence
 8. M0.7 human approval + audit completeness
 9. M0.8 governed change end-to-end
-10. M1.0 policy maturity
-11. M1.1 review engine + maker-checker enforcement
-12. M1.2 local project memory
-13. M1.3 capability routing + trust boundaries
-14. M1.4 multi-provider maturity
-15. M1.5 SCM integration
-16. M1.6 CI + external evidence integration
-17. M1.7 organization memory + learning loop
-18. M1.8 quality intelligence + security verification
+10. M0.9 terminal presentation + layout configuration
+11. M1.0 policy maturity
+12. M1.1 review engine + maker-checker enforcement
+13. M1.2 local project memory
+14. M1.3 capability routing + trust boundaries
+15. M1.4 multi-provider maturity
+16. M1.5 SCM integration
+17. M1.6 CI + external evidence integration
+18. M1.7 organization memory + learning loop
+19. M1.8 quality intelligence + security verification
 
 ## Quality maturity framing
 

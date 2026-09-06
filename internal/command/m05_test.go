@@ -390,6 +390,7 @@ func prepareProviderCommandTestWithContainer(
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	container := composition.New()
 	container.AIProviders = []aiprovider.Provider{provider}
 	container.ConfiguredProvider = "codex-cli"

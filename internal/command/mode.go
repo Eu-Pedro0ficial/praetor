@@ -18,6 +18,9 @@ const (
 	ModeProvider         ModeIdentity = "provider"
 	ModeConfigure        ModeIdentity = "configure"
 	ModeConfigureProject ModeIdentity = "configure-project"
+	ModeConfigureLayout  ModeIdentity = "configure-layout"
+	ModeLayoutSidebar    ModeIdentity = "configure-layout-sidebar"
+	ModeLayoutColor      ModeIdentity = "configure-layout-color"
 )
 
 // ModeContext is immutable-by-value contextual shell navigation metadata.

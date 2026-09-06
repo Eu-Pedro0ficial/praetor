@@ -14,7 +14,7 @@ status
 analysis [impact ...]
 change [new|isolate|implement|patch|discard ...]
 provider [list|show|select|model ...]
-configure [project]
+configure [project|layout ...]
 help
 ?
 exit
@@ -234,6 +234,25 @@ workspace, and replay cannot apply the patch again. No automatic execution is
 attached to approval, rejection, verification, provider completion, help,
 completion, empty input, or session close. Both successful terminal paths use
 the existing session-owned workspace cleanup and preserve audit history.
+
+==== M0.9 Presentation Configuration
+
+M0.9 extends the same immutable command tree without adding a parser:
+
+[source,text]
+----
+configure layout show
+configure layout sidebar show|identity|context|provider|status <on|off>
+configure layout color accent|border|background|text <color>
+configure layout reset
+----
+
+Direct paths and their contextual equivalents resolve the same handlers.
+Help, contextual `?`, and completion derive from the command metadata and do
+not mutate preferences. Each mutating command validates and persists the full
+candidate before changing session-visible presentation. These commands cannot
+change Project, Change, provider selection, verification, decision, source, or
+audit state.
 
 ==== Predefined Workloads
 

@@ -231,6 +231,22 @@ is claimed. A repeat attempt fails closed because canonical source no longer
 matches the approved base. Empty input, help, completion, provider completion,
 verification, approval alone, and session close never apply source.
 
+==== M0.9 Interactive Presentation
+
+. At composition, Praetor loads versioned presentation preferences from the
+  user configuration directory, or uses safe defaults when no file exists.
+. Before each interactive read, the shell obtains current terminal dimensions,
+  preferences, and the shared session status snapshot.
+. The renderer emits a sanitized Engineering Console. It renders the configured
+  sidebar only when enabled and sufficient command width remains; temporary
+  narrow-terminal suppression never changes the stored preference.
+. `configure layout` commands validate and atomically persist a complete
+  candidate before replacing process-local preferences.
+. Readline retains ownership of editing, history, completion, cancellation,
+  prompt redisplay, and the input cursor. Rendering cannot execute commands or
+  alter Project, Change, provider, verification, decision, audit, or source
+  state.
+
 === Scenario 5 — Memory Candidate Promotion
 
 [plantuml, "{plantUMLDir}dynamic-memory-promotion", png]

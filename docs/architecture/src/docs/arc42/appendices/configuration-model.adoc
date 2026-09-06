@@ -35,6 +35,25 @@ records only provider identity and model identity or `provider-default`.
 Codex CLI authentication remains outside these values and is not copied into
 Praetor configuration or audit.
 
+==== M0.9 Presentation Preferences
+
+Presentation preferences are distinct from the governed configuration model
+above. They are user-local, affect rendering only, and never participate in
+configuration precedence or governance authority. The narrow versioned JSON
+document is stored under the platform user configuration directory at
+`praetor/presentation-v1.json` (`$XDG_CONFIG_HOME` on Linux when set), outside
+governed repositories.
+
+The document contains only sidebar/section visibility and colors selected from
+a bounded Praetor-owned vocabulary; identical explicit foreground/background
+choices are rejected to preserve readable regions. Missing files use defaults. Reads reject
+unknown fields, malformed or oversized content, symlinks, and unsafe file
+permissions. Writes use a process-coordinated lock, a private temporary file,
+file synchronization, atomic replacement, and directory synchronization.
+Invalid updates do not partially replace either persisted or process-local
+preferences. The document contains no credentials, project state, evidence,
+policy, audit data, or provider configuration.
+
 ==== Configuration Drift
 
 The runtime should be able to show the effective configuration for a Change, including source of each rule. This is analogous to a compiler explaining effective flags and is important when organization/project policies overlap.

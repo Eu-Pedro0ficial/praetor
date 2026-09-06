@@ -10,10 +10,11 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
-Current implementation status: M0.0 through M0.8 are complete. M0.8 preserves
+Current implementation status: M0.0 through M0.9 are complete. M0.8 preserves
 M0.7's authorization-only decision step, then requires separate explicit
 canonical application or rejection closure before the applicable disposition
-can reach `audit-locked`. The Core V0 release gate has passed.
+can reach `audit-locked`. The Core V0 release gate has passed. M0.9 adds
+presentation-only post-V0 console polish; M1.0 has not begun.
 
 ## Mandatory architecture decision closure rule
 
@@ -121,6 +122,12 @@ An implementation convenience is NOT an architecture decision.
 - Capability: Core V0 release gate
   - Sub-capability: end-to-end proof of the thesis
   - Implementation tasks: complete the full loop from change request to isolated patch to deterministic verification to explicit human approval or rejection, exact working-tree-only canonical application or unchanged-source rejection closure, terminal audit lock, and full append-only audit
+
+#### M0.9 — Terminal Presentation & Layout Configuration
+- Capability: post-V0 Engineering Console presentation
+  - Sub-capability: adaptive header, command-first layout, status sidebar, binary identity, and truthful footer
+  - Implementation tasks: render a lightweight readline-compatible console, project existing session status through one shared snapshot, and persist bounded user-local rendering preferences outside governed repositories
+  - Explicit boundary: presentation preferences affect rendering only and never participate in Project, Change, policy, evidence, provider, verification, audit, or canonical-source semantics
 
 ### Phase 1 — post-V0 maturity and expansion
 
@@ -233,9 +240,8 @@ This is the minimal path proving the Praetor thesis without depending on mature 
 
 ## Implementation sequence status
 
-M0.0 through M0.8 are implemented. Core V0 is complete. Post-V0 milestones
-remain governed by their own dependencies and decision gates; this status does
-not begin M1.0.
+M0.0 through M0.9 are implemented. Core V0 remains complete. M0.9 is
+presentation-only post-V0 polish; this status does not begin M1.0.
 
 ## Minimum necessary architecture before V0
 

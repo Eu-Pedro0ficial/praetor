@@ -23,7 +23,7 @@ Responsibilities:
 * explicit execution of workflow steps;
 * approval/rejection/exception commands;
 * inspection of evidence, diffs, policy violations and memory;
-* provider/project configuration;
+* provider/project configuration and presentation preferences;
 * status and audit navigation.
 
 The developer interface is a persistent, retained-context shell. A
@@ -37,6 +37,14 @@ The readline adapter owns terminal key handling, history, buffer/cursor
 redisplay, and completion rendering only. The CLI is an inbound adapter. It
 must not contain domain logic that cannot also be invoked by another future
 adapter such as an API, IDE extension, or desktop UI.
+
+The M0.9 Engineering Console renderer owns only terminal presentation: a
+minimal header/footer, a width-adaptive command surface, and an optional right
+sidebar. Both the sidebar and the `status` command project the same
+presentation-neutral session status snapshot. A narrow user-local preference
+service persists layout and a bounded color vocabulary through the explicit
+composition root; neither preferences nor terminal state enter the domain or
+application model.
 
 ==== Workflow Engine
 

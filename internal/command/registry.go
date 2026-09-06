@@ -7,6 +7,8 @@ import (
 	"io"
 	"strings"
 	"unicode"
+
+	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 )
 
 var errInvalidArguments = errors.New("invalid command arguments")
@@ -111,7 +113,7 @@ func newRegistry(definitions []Definition, end Definition) (Registry, error) {
 	return registry, nil
 }
 
-// DefaultRegistry constructs the current M0.1-M0.8 hierarchical shell
+// DefaultRegistry constructs the current M0.1-M0.9 hierarchical shell
 // command surface.
 func DefaultRegistry() (Registry, error) {
 	var registry Registry
@@ -241,8 +243,8 @@ func DefaultRegistry() (Registry, error) {
 		},
 		{
 			Name:        "configure",
-			Description: "Enter non-persistent runtime configuration contexts",
-			Usage:       "configure [project]",
+			Description: "Enter runtime and presentation configuration contexts",
+			Usage:       "configure [project|layout ...]",
 			Mode:        ModeConfigure,
 			Children: []Definition{
 				{
@@ -250,6 +252,35 @@ func DefaultRegistry() (Registry, error) {
 					Description: "Enter Project configuration context; no mutating settings exist in M0.5",
 					Usage:       "project",
 					Mode:        ModeConfigureProject,
+				},
+				{
+					Name:        "layout",
+					Description: "Configure user-local terminal presentation preferences",
+					Usage:       "layout [show|sidebar|color|reset ...]",
+					Mode:        ModeConfigureLayout,
+					Children: []Definition{
+						{Name: "show", Description: "Show effective layout preferences", Usage: "show", Handler: handleLayoutShow},
+						{
+							Name: "sidebar", Description: "Configure sidebar visibility and sections", Usage: "sidebar [show|identity|context|provider|status ...]", Mode: ModeLayoutSidebar,
+							Children: []Definition{
+								{Name: "show", Description: "Show or hide the complete sidebar", Usage: "show <on|off>", Handler: handleSidebarVisible, ArgumentSuggestions: onOffSuggestions},
+								{Name: "identity", Description: "Show or hide Praetor identity", Usage: "identity <on|off>", Handler: handleSidebarSection("identity"), ArgumentSuggestions: onOffSuggestions},
+								{Name: "context", Description: "Show or hide Project and Change context", Usage: "context <on|off>", Handler: handleSidebarSection("context"), ArgumentSuggestions: onOffSuggestions},
+								{Name: "provider", Description: "Show or hide provider selection", Usage: "provider <on|off>", Handler: handleSidebarSection("provider"), ArgumentSuggestions: onOffSuggestions},
+								{Name: "status", Description: "Show or hide runtime status", Usage: "status <on|off>", Handler: handleSidebarSection("status"), ArgumentSuggestions: onOffSuggestions},
+							},
+						},
+						{
+							Name: "color", Description: "Configure the bounded terminal color palette", Usage: "color [accent|border|background|text ...]", Mode: ModeLayoutColor,
+							Children: []Definition{
+								{Name: "accent", Description: "Set the restrained accent color", Usage: "accent <color>", Handler: handlePresentationColor("accent"), ArgumentSuggestions: foregroundColorSuggestions},
+								{Name: "border", Description: "Set the console border color", Usage: "border <color>", Handler: handlePresentationColor("border"), ArgumentSuggestions: foregroundColorSuggestions},
+								{Name: "background", Description: "Set Praetor-rendered background regions", Usage: "background <color>", Handler: handlePresentationColor("background"), ArgumentSuggestions: backgroundColorSuggestions},
+								{Name: "text", Description: "Set console text color", Usage: "text <color>", Handler: handlePresentationColor("text"), ArgumentSuggestions: foregroundColorSuggestions},
+							},
+						},
+						{Name: "reset", Description: "Persist Praetor layout defaults", Usage: "reset", Handler: handleLayoutReset},
+					},
 				},
 			},
 		},
@@ -301,6 +332,28 @@ func DefaultRegistry() (Registry, error) {
 	var err error
 	registry, err = newRegistry(definitions, end)
 	return registry, err
+}
+
+func onOffSuggestions(_ *Session, prefix string) []Suggestion {
+	return valueSuggestions([]string{"on", "off"}, prefix, "Set presentation visibility")
+}
+
+func foregroundColorSuggestions(_ *Session, prefix string) []Suggestion {
+	return valueSuggestions(preferences.ColorNames(false), prefix, "Use bounded terminal color")
+}
+
+func backgroundColorSuggestions(_ *Session, prefix string) []Suggestion {
+	return valueSuggestions(preferences.ColorNames(true), prefix, "Use bounded rendered background color")
+}
+
+func valueSuggestions(values []string, prefix, description string) []Suggestion {
+	var suggestions []Suggestion
+	for _, value := range values {
+		if strings.HasPrefix(value, prefix) {
+			suggestions = append(suggestions, Suggestion{Text: value, Description: description})
+		}
+	}
+	return suggestions
 }
 
 func surfaceOptions(includeActual bool) []Option {

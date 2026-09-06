@@ -1,6 +1,6 @@
 # Documentation Manifest
 
-Generated: 2026-09-02
+Generated: 2026-09-06
 
 ## Files
 - `./README.md`

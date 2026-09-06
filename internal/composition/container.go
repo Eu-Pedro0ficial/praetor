@@ -15,6 +15,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
+	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
@@ -35,29 +36,33 @@ type AuditLoggerFunc func(dataDirectory string, eventType string, projectID stri
 // ChangeAuditLoggerFunc records a Change lifecycle event with top-level audit linkage.
 type ChangeAuditLoggerFunc func(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (audit.Event, error)
 
-// Container assembles only the dependencies required by the current M0.8 runtime scope.
+// PresentationPreferencesFunc loads user-local rendering preferences.
+type PresentationPreferencesFunc func() (*preferences.Service, error)
+
+// Container assembles only the dependencies required by the current M0.9 runtime scope.
 type Container struct {
-	RepositoryDiscovery    RepositoryDiscoveryFunc
-	RepositoryInspection   intelligence.RepositoryInspector
-	ProjectRegistration    ProjectRegistrationFunc
-	AuditLogger            AuditLoggerFunc
-	ChangeAuditLogger      ChangeAuditLoggerFunc
-	ChangeStore            *workflow.MemoryStore
-	WorkflowClock          workflow.Clock
-	ProposalWorkspaces     proposal.WorkspacePort
-	PatchExtraction        proposal.PatchPort
-	ProposalClock          proposal.Clock
-	AIProviders            []aiprovider.Provider
-	ConfiguredProvider     string
-	ConfiguredModel        string
-	ExecutionAttemptIds    execution.AttemptIdGenerator
-	ExecutionClock         execution.Clock
-	VerificationRunner     verification.StepRunner
-	VerificationAttemptIds verification.AttemptIdGenerator
-	VerificationClock      verification.Clock
-	ApprovalClock          approval.Clock
-	CanonicalSource        integration.CanonicalSourcePort
-	IntegrationClock       integration.Clock
+	RepositoryDiscovery     RepositoryDiscoveryFunc
+	RepositoryInspection    intelligence.RepositoryInspector
+	ProjectRegistration     ProjectRegistrationFunc
+	AuditLogger             AuditLoggerFunc
+	ChangeAuditLogger       ChangeAuditLoggerFunc
+	ChangeStore             *workflow.MemoryStore
+	WorkflowClock           workflow.Clock
+	ProposalWorkspaces      proposal.WorkspacePort
+	PatchExtraction         proposal.PatchPort
+	ProposalClock           proposal.Clock
+	AIProviders             []aiprovider.Provider
+	ConfiguredProvider      string
+	ConfiguredModel         string
+	ExecutionAttemptIds     execution.AttemptIdGenerator
+	ExecutionClock          execution.Clock
+	VerificationRunner      verification.StepRunner
+	VerificationAttemptIds  verification.AttemptIdGenerator
+	VerificationClock       verification.Clock
+	ApprovalClock           approval.Clock
+	CanonicalSource         integration.CanonicalSourcePort
+	IntegrationClock        integration.Clock
+	PresentationPreferences PresentationPreferencesFunc
 }
 
 // New creates the explicit composition root for the current runtime boundary.
@@ -105,11 +110,12 @@ func New() Container {
 		IntegrationClock: func() time.Time {
 			return time.Now().UTC()
 		},
+		PresentationPreferences: preferences.OpenDefault,
 	}
 }
 
 // NewInteractiveSession composes one retained shell session around the active
-// Project and the current M0.1-M0.8 application capabilities.
+// Project and the current M0.1-M0.9 application and presentation capabilities.
 func (container Container) NewInteractiveSession(path string) (*command.Session, error) {
 	registration, err := container.EnsureProjectRegistration(path)
 	if err != nil {
@@ -158,6 +164,13 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
+	if container.PresentationPreferences == nil {
+		return nil, fmt.Errorf("presentation preference loader is not configured")
+	}
+	presentationPreferences, err := container.PresentationPreferences()
+	if err != nil {
+		return nil, err
+	}
 	session, err := command.NewSession(
 		registration,
 		changeWorkflow,
@@ -167,6 +180,7 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		verificationService,
 		approvalService,
 		integrationService,
+		presentationPreferences,
 		providerRegistry,
 		providerSelection,
 	)

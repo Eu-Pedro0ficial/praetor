@@ -1,8 +1,9 @@
 # Praetor Roadmap
 
-Este diretório será preenchido durante a etapa formal de planejamento.
+This directory contains Praetor's approved implementation roadmap, milestone
+definitions, delivery strategy, research backlog, and explicitly deferred
+architecture decisions. The roadmap is derived from the authoritative arc42
+sources and must be kept synchronized with accepted implementation evidence.
 
-O roadmap deverá ser derivado da arquitetura existente.
-
-Nenhuma implementação substancial deve começar antes da aprovação
-do roadmap inicial.
+No milestone may silently resolve an architecture decision marked deferred,
+benchmark-required, spike-required, or undecided.

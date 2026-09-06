@@ -24,6 +24,7 @@ type Adapter struct {
 	session  *command.Session
 	output   io.Writer
 	editor   lineEditor
+	renderer *consoleRenderer
 }
 
 // New constructs the approved readline-backed presentation adapter.
@@ -32,7 +33,16 @@ func New(registry command.Registry, session *command.Session, output io.Writer) 
 	if err != nil {
 		return nil, err
 	}
-	return newWithEditor(registry, session, output, editor)
+	adapter, err := newWithEditor(registry, session, output, editor)
+	if err != nil {
+		return nil, err
+	}
+	dimensions, color := terminalCapabilities(output)
+	adapter.renderer = newConsoleRenderer(session, dimensions, color)
+	editor.setPrompt(adapter.renderer.Prompt)
+	editor.setRightPrompt(adapter.renderer.RightPrompt)
+	editor.setFooter(adapter.renderer.ClosePrompt)
+	return adapter, nil
 }
 
 func newWithEditor(
@@ -58,6 +68,9 @@ func newWithEditor(
 		session:  session,
 		output:   output,
 		editor:   editor,
+		renderer: newConsoleRenderer(session, func() terminalDimensions {
+			return terminalDimensions{Width: 100, Height: 30}
+		}, false),
 	}, nil
 }
 
@@ -74,14 +87,17 @@ func (adapter *Adapter) RunContext(ctx context.Context) error {
 	if ctx == nil {
 		return fmt.Errorf("shell execution context is required")
 	}
-	if err := adapter.writeBanner(); err != nil {
-		return err
-	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		if _, err := fmt.Fprint(adapter.output, adapter.renderer.Render()); err != nil {
+			return err
+		}
 		line, err := adapter.editor.Readline()
+		if _, closeError := fmt.Fprint(adapter.output, adapter.renderer.ClosePrompt()); closeError != nil {
+			return closeError
+		}
 		switch {
 		case errors.Is(err, io.EOF):
 			return nil
@@ -104,20 +120,4 @@ func (adapter *Adapter) RunContext(ctx context.Context) error {
 			return nil
 		}
 	}
-}
-
-func (adapter *Adapter) writeBanner() error {
-	registration := adapter.session.Registration()
-	currentChange := "none"
-	if activeChange, ok := adapter.session.CurrentChange(); ok {
-		currentChange = fmt.Sprintf("%s (%s)", activeChange.ChangeId(), activeChange.State())
-	}
-	_, err := fmt.Fprintf(
-		adapter.output,
-		"Praetor\nProject: %s\nRepository: %s\nChange: %s\n\n",
-		registration.ProjectId,
-		registration.RepositoryRoot,
-		currentChange,
-	)
-	return err
 }

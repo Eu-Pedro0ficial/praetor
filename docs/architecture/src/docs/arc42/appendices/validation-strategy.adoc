@@ -208,6 +208,19 @@ mutation; and late-failure replay prevention. Deterministic fixture E2E and
 real PTY approval, rejection, help/completion, and session-close checks use
 temporary repositories and temporary XDG data directories.
 
+==== M0.9 Presentation Validation
+
+M0.9 tests cover default and bounded preference values, every layout command,
+reset, cross-service reload, missing/malformed/oversized configuration, file
+permissions, symlink rejection, and failure without partial replacement.
+Rendering tests cover wide/narrow/widened dimensions, configured and temporary
+sidebar suppression, individual sections, shared status projection, bounded
+ANSI generation, disabled-color fallback, control/escape neutralization,
+grapheme-aware truncation, deterministic identity artwork, and retained command
+output. Direct/contextual help, `?`, and completion tests prove non-mutation.
+Real wide and narrow PTY inspection complements unit tests for border, prompt,
+readline, completion, persistence, reset, and existing-command behavior.
+
 ==== M1.8 Advanced Quality and Security Evidence Direction
 
 M1.8 broadens replaceable evidence adapters for applicable SAST, SCA, secret,

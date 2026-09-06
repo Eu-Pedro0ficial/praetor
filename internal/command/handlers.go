@@ -12,6 +12,7 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
@@ -21,38 +22,124 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 	if len(invocation.Arguments) != 0 {
 		return Result{}, errInvalidArguments
 	}
-	registration := session.Registration()
-	fmt.Fprintf(output, "Project ID: %s\n", registration.ProjectId)
-	fmt.Fprintf(output, "Repository root: %s\n", registration.RepositoryRoot)
-	fmt.Fprintln(output, "Git repository: true")
-	writeProviderSelection(output, session)
-	if currentChange, ok := session.CurrentChange(); ok {
-		fmt.Fprintf(output, "Current change: %s (%s)\n", currentChange.ChangeId(), currentChange.State())
-	} else {
-		fmt.Fprintln(output, "Current change: none")
+	snapshot := session.StatusSnapshot()
+	fmt.Fprintf(output, "Project ID: %s\n", snapshot.Project)
+	fmt.Fprintf(output, "Repository root: %s\n", snapshot.Repository)
+	fmt.Fprintf(output, "Git repository: %s\n", snapshot.GitRepository)
+	fmt.Fprintf(output, "AI provider adapter: %s\n", snapshot.ProviderAdapter)
+	fmt.Fprintf(output, "AI provider vendor: %s\n", snapshot.ProviderVendor)
+	fmt.Fprintf(output, "AI model: %s\n", snapshot.ProviderModel)
+	fmt.Fprintf(output, "Current change: %s\n", snapshot.Change)
+	fmt.Fprintf(output, "Current proposal: %s\n", snapshot.Proposal)
+	if snapshot.ProposalBase != "" {
+		fmt.Fprintf(output, "Proposal base revision: %s\n", snapshot.ProposalBase)
 	}
-	if currentProposal, ok := session.CurrentProposal(); ok {
-		workspace := currentProposal.Workspace()
-		fmt.Fprintf(output, "Current proposal: %s (%s)\n", workspace.WorkspaceId(), workspace.State())
-		fmt.Fprintf(output, "Proposal base revision: %s\n", workspace.BaseRevision())
-	} else {
-		fmt.Fprintln(output, "Current proposal: none")
-	}
-	if lastVerification, ok := session.LastVerification(); ok {
-		outcome := "FAIL"
-		if lastVerification.EvidenceSet().Passed() {
-			outcome = "PASS"
-		}
-		fmt.Fprintf(output, "Last verification: %s (%s)\n", lastVerification.AttemptId(), outcome)
+	if snapshot.VerificationAttempt != "" {
+		fmt.Fprintf(output, "Last verification: %s (%s)\n", snapshot.VerificationAttempt, snapshot.Verification)
 	} else {
 		fmt.Fprintln(output, "Last verification: none")
 	}
-	if lastDecision, ok := session.LastDecision(); ok {
-		fmt.Fprintf(output, "Last human decision: %s (%s)\n", lastDecision.Kind(), lastDecision.Actor())
+	if snapshot.HumanActor != "" {
+		fmt.Fprintf(output, "Last human decision: %s (%s)\n", snapshot.HumanDecision, snapshot.HumanActor)
 	} else {
 		fmt.Fprintln(output, "Last human decision: none")
 	}
 	return Result{}, nil
+}
+
+func handleLayoutShow(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	layout := session.LayoutPreferences()
+	fmt.Fprintln(output, "Layout")
+	fmt.Fprintf(output, "  Sidebar       %s\n", onOff(layout.Sidebar.Visible))
+	fmt.Fprintf(output, "    Identity    %s\n", onOff(layout.Sidebar.Identity))
+	fmt.Fprintf(output, "    Context     %s\n", onOff(layout.Sidebar.Context))
+	fmt.Fprintf(output, "    Provider    %s\n", onOff(layout.Sidebar.Provider))
+	fmt.Fprintf(output, "    Status      %s\n", onOff(layout.Sidebar.Status))
+	fmt.Fprintln(output)
+	fmt.Fprintln(output, "  Colors")
+	fmt.Fprintf(output, "    Accent      %s\n", layout.Colors.Accent)
+	fmt.Fprintf(output, "    Border      %s\n", layout.Colors.Border)
+	fmt.Fprintf(output, "    Background  %s\n", layout.Colors.Background)
+	fmt.Fprintf(output, "    Text        %s\n", layout.Colors.Text)
+	return Result{}, nil
+}
+
+func handleSidebarVisible(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	value, err := parseOnOff(invocation.Arguments)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := session.SetSidebarVisible(value); err != nil {
+		return Result{}, err
+	}
+	fmt.Fprintf(output, "Sidebar: %s\n", onOff(value))
+	return Result{}, nil
+}
+
+func handleSidebarSection(section string) Handler {
+	return func(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+		value, err := parseOnOff(invocation.Arguments)
+		if err != nil {
+			return Result{}, err
+		}
+		if err := session.SetSidebarSection(section, value); err != nil {
+			return Result{}, err
+		}
+		fmt.Fprintf(output, "Sidebar %s: %s\n", section, onOff(value))
+		return Result{}, nil
+	}
+}
+
+func handlePresentationColor(role string) Handler {
+	return func(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+		if len(invocation.Arguments) != 1 {
+			return Result{}, errInvalidArguments
+		}
+		color, err := preferences.ParseColor(invocation.Arguments[0], role == "background")
+		if err != nil {
+			return Result{}, err
+		}
+		if err := session.SetPresentationColor(role, color); err != nil {
+			return Result{}, err
+		}
+		fmt.Fprintf(output, "Layout color %s: %s\n", role, color)
+		return Result{}, nil
+	}
+}
+
+func handleLayoutReset(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	if err := session.ResetLayoutPreferences(); err != nil {
+		return Result{}, err
+	}
+	fmt.Fprintln(output, "Layout preferences reset to Praetor defaults")
+	return Result{}, nil
+}
+
+func parseOnOff(arguments []string) (bool, error) {
+	if len(arguments) != 1 {
+		return false, errInvalidArguments
+	}
+	switch strings.ToLower(arguments[0]) {
+	case "on":
+		return true, nil
+	case "off":
+		return false, nil
+	default:
+		return false, fmt.Errorf("expected on or off")
+	}
+}
+
+func onOff(value bool) string {
+	if value {
+		return "on"
+	}
+	return "off"
 }
 
 func handleProviderShow(session *Session, invocation Invocation, output io.Writer) (Result, error) {

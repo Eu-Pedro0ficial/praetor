@@ -6,8 +6,9 @@ The roadmap must not treat memory, routing sophistication, or organizational lea
 
 The project must prove a governed change loop first, then expand capability after V0.
 
-Current implementation status: M0.0 through M0.8 are complete. The Core V0
-release gate has passed; M1.0 has not begun.
+Current implementation status: M0.0 through M0.9 are complete. The Core V0
+release gate and the bounded post-V0 presentation milestone have passed; M1.0
+has not begun.
 
 ## Mandatory decision closure rule
 
@@ -844,6 +845,68 @@ repositories and the Core V0 release-gate criteria are satisfied.
 
 ---
 
+### Milestone M0.9 — Terminal Presentation and Layout Configuration
+
+#### Objective
+Give the interactive shell a distinctive, adaptive Engineering Console while
+preserving its keyboard-first command semantics and every Core V0 governance
+boundary.
+
+#### Architectural components involved
+- presentation shell renderer
+- presentation-neutral session status snapshot
+- immutable hierarchical command tree
+- user-local presentation preference store
+- explicit composition root
+
+#### Inputs
+- current retained session/application state
+- terminal dimensions and color capability
+- versioned user-local presentation preferences
+
+#### Outputs
+- minimal branded header and footer
+- adaptive primary command area and optional right sidebar
+- bounded color and section preferences under `configure layout`
+
+#### Dependencies
+- M0.8
+- ADR-026 explicit composition root
+- ADR-028 interactive shell
+- ADR-029 hierarchical contextual commands
+
+#### Implementation boundaries
+- presentation preferences are separate from governed configuration precedence
+- preferences affect rendering only and live outside governed repositories
+- the sidebar and `status` consume the same status snapshot
+- narrow-terminal suppression never changes the persisted sidebar preference
+
+#### Explicit non-goals
+- full-screen TUI behavior
+- domain, workflow, evidence, policy, provider, or audit changes
+- M1.x routing, review, memory, SCM, or CI capabilities
+
+#### Tests and validation
+- preference defaults, validation, persistence, reset, and safe file handling
+- wide, narrow, resize, section, truncation, UTF-8, and ANSI-safe rendering
+- direct/contextual commands, help, completion, and non-mutation
+- real wide and narrow PTY inspection plus the complete Core V0 regression suite
+
+#### Acceptance criteria
+- the command area remains dominant and all existing shell commands work
+- the default sidebar presents identity, context, provider, and status coherently
+- layout and bounded colors are configurable and persist between sessions
+- small terminals remain usable without overwriting output or changing preferences
+- no governed repository metadata, new governance semantics, or heavy TUI
+  dependency is introduced
+
+#### Definition of Done
+Complete. The Engineering Console, adaptive sidebar, persistent presentation
+preferences, shared status projection, command integration, safety tests, and
+real PTY checks satisfy the M0.9 release criteria without beginning M1.0.
+
+---
+
 ## Phase 1 — post-V0 maturity
 
 ### Milestone M1.0 — Mature Policy Engine and Policy Packs
@@ -1557,15 +1620,16 @@ deterministic evidence with AI judgment.
 7. M0.6 — Deterministic Verification + Evidence
 8. M0.7 — Human Approval + Change Audit
 9. M0.8 — Governed Change End-to-End
-10. M1.0 — Mature Policy Engine and Policy Packs
-11. M1.1 — Review Engine + Maker-Checker Enforcement
-12. M1.2 — Local Project Memory
-13. M1.3 — Capability Model + Routing + Trust Boundaries
-14. M1.4 — Multi-provider Maturity
-15. M1.5 — SCM Integration
-16. M1.6 — CI + External Evidence Integration
-17. M1.7 — Organization Memory + Learning Loop
-18. M1.8 — Quality Intelligence + Security Verification
+10. M0.9 — Terminal Presentation and Layout Configuration
+11. M1.0 — Mature Policy Engine and Policy Packs
+12. M1.1 — Review Engine + Maker-Checker Enforcement
+13. M1.2 — Local Project Memory
+14. M1.3 — Capability Model + Routing + Trust Boundaries
+15. M1.4 — Multi-provider Maturity
+16. M1.5 — SCM Integration
+17. M1.6 — CI + External Evidence Integration
+18. M1.7 — Organization Memory + Learning Loop
+19. M1.8 — Quality Intelligence + Security Verification
 
 This ordering keeps the architecture honest: the runtime proves a governed
 change loop before it adds memory, review maturity, routing sophistication,

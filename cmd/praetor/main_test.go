@@ -12,6 +12,7 @@ func TestRunRejectsArgvCommandsBeforeRuntimeMutation(t *testing.T) {
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 
 	err := run([]string{"status"})
 	if err == nil || !strings.Contains(err.Error(), "interactive shell") {

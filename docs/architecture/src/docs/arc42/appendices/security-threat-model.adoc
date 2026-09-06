@@ -55,6 +55,8 @@ Primary assets include:
 |Cross-project context leakage |Project A memory used in Project B |Project/organization scope enforcement in retrieval
 |Organization memory poisoning |Bad project rule promoted globally |Higher promotion authority, evidence, scope/versioning and rollback/supersession
 |Sensitive memory retention |Secrets/incidents become durable |secret/PII scan, classification, redaction, retention policy
+|Terminal escape injection |Repository or status text contains controls or ANSI escapes |Neutralize invalid UTF-8/control characters, truncate by grapheme display width, and emit ANSI only from a fixed palette
+|Presentation preference tampering |Malformed, oversized, linked, or broadly readable user config alters rendering |Bounded strict parsing, safe defaults/failure, link and permission checks, private atomic writes, and no governance authority
 |===
 
 ==== Prompt Injection Posture
