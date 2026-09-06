@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
+	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
@@ -27,6 +28,7 @@ type Session struct {
 	proposalLifecycle      *proposal.Service
 	providerExecution      *execution.Service
 	verification           *verification.Service
+	approval               approval.Port
 	providerRegistry       *aiprovider.Registry
 	providerSelection      aiprovider.Selection
 	currentChange          change.Change
@@ -35,6 +37,8 @@ type Session struct {
 	hasCurrentProposal     bool
 	lastVerification       verification.Result
 	hasLastVerification    bool
+	lastDecision           approval.HumanDecision
+	hasLastDecision        bool
 	modeStack              []ModeContext
 }
 
@@ -47,6 +51,7 @@ func NewSession(
 	proposalLifecycle *proposal.Service,
 	providerExecution *execution.Service,
 	verificationService *verification.Service,
+	approvalPort approval.Port,
 	providerRegistry *aiprovider.Registry,
 	providerSelection aiprovider.Selection,
 ) (*Session, error) {
@@ -71,6 +76,9 @@ func NewSession(
 	if verificationService == nil {
 		return nil, fmt.Errorf("verification capability is not configured")
 	}
+	if approvalPort == nil {
+		return nil, fmt.Errorf("human approval capability is not configured")
+	}
 	if providerRegistry == nil {
 		return nil, fmt.Errorf("AI provider registry is not configured")
 	}
@@ -84,6 +92,7 @@ func NewSession(
 		proposalLifecycle:      proposalLifecycle,
 		providerExecution:      providerExecution,
 		verification:           verificationService,
+		approval:               approvalPort,
 		providerRegistry:       providerRegistry,
 		providerSelection:      providerSelection,
 		modeStack:              []ModeContext{rootModeContext()},
@@ -186,6 +195,15 @@ func (session *Session) LastVerification() (verification.Result, bool) {
 	return session.lastVerification, true
 }
 
+// LastDecision returns the successful explicit M0.7 human disposition in
+// this process-local session, when one exists.
+func (session *Session) LastDecision() (approval.HumanDecision, bool) {
+	if session == nil || !session.hasLastDecision {
+		return approval.HumanDecision{}, false
+	}
+	return session.lastDecision, true
+}
+
 func (session *Session) setCurrentChange(currentChange change.Change) {
 	session.currentChange = currentChange
 	session.hasCurrentChange = true
@@ -201,6 +219,11 @@ func (session *Session) setLastVerification(result verification.Result) {
 	session.hasLastVerification = true
 }
 
+func (session *Session) setLastDecision(decision approval.HumanDecision) {
+	session.lastDecision = decision
+	session.hasLastDecision = true
+}
+
 func (session *Session) clearCurrentProposal() {
 	session.currentProposal = proposal.Proposal{}
 	session.hasCurrentProposal = false
@@ -212,7 +235,13 @@ func (session *Session) Close() error {
 	if session == nil || !session.hasCurrentProposal {
 		return nil
 	}
-	transitionError := session.rejectCurrentChange("interactive session closed with proposal workspace")
+	var transitionError error
+	if !session.hasCurrentChange ||
+		(session.currentChange.State() != change.StateApproved &&
+			session.currentChange.State() != change.StateRejected &&
+			session.currentChange.State() != change.StateAuditLocked) {
+		transitionError = session.rejectCurrentChange("interactive session closed with proposal workspace")
+	}
 	cleaned, discardError := session.proposalLifecycle.Discard(
 		session.currentProposal,
 		"interactive session closed",

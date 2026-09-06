@@ -46,6 +46,7 @@ const (
 	EventVerificationStepCompleted     = "VERIFICATION_STEP_COMPLETED"
 	EventVerificationCompleted         = "VERIFICATION_COMPLETED"
 	EventVerificationFailed            = "VERIFICATION_FAILED"
+	EventHumanDecisionRecorded         = "HUMAN_DECISION_RECORDED"
 )
 
 // Event is one append-oriented local runtime audit record.
@@ -314,7 +315,15 @@ func eventRequiresChangeId(eventType string) bool {
 		EventProposalWorkspaceDiscarded,
 		EventProviderExecutionStarted,
 		EventProviderExecutionCompleted,
-		EventProviderExecutionFailed:
+		EventProviderExecutionFailed,
+		EventVerificationPlanningStarted,
+		EventVerificationPlanningCompleted,
+		EventVerificationPlanningFailed,
+		EventVerificationStarted,
+		EventVerificationStepCompleted,
+		EventVerificationCompleted,
+		EventVerificationFailed,
+		EventHumanDecisionRecorded:
 		return true
 	default:
 		return false

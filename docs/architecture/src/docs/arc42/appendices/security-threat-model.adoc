@@ -147,6 +147,25 @@ mature M1.0 Policy Engine. Any stronger filesystem, process, container,
 network, or credential boundary required by real verification tools must
 follow the existing security spike/ADR governance.
 
+==== M0.7 Local Human Decision Boundary
+
+M0.7 has no default, timeout, provider-driven, or session-close approval path.
+Only an explicit local interactive command reaches the Approval Port, and only
+from `validated` with coherent passing evidence and retained patch/source
+linkage. Proposal and canonical integrity are checked before the decision
+event and again before the state transition. Because M0.7 performs no
+canonical write, the remaining check-to-transition interval grants no patch
+application authority.
+
+Rationale is valid UTF-8, single-line, control-free, and limited to 1024 bytes;
+shell summary fields are bounded and sanitized against terminal control
+injection. Audit stores linkage and bounded rationale, never patch/source
+bodies, raw provider/process output, credentials, prompts, or workspace paths.
+`local-interactive-human` is provenance only, not authenticated identity.
+Decision append and workflow transition are separate append-oriented writes:
+failure of the first preserves `validated`, while failure of the second may
+leave a truthful attempted decision without a state transition.
+
 ==== M1.8 External Quality/Security Tool Boundary
 
 Advanced scanners may introduce heavyweight services/images, network and

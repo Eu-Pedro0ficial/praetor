@@ -10,9 +10,11 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
-Current implementation status: M0.0 through M0.6 are complete. M0.7 remains
-unimplemented; M0.6 stops at deterministic `validated` state and does not
-perform human approval or canonical-source application.
+Current implementation status: M0.0 through M0.7 are complete. M0.7 records an
+explicit local-human decision and advances a coherent validated proposal only
+to `approved` or `rejected`; it does not apply canonical source or
+automatically enter `audit-locked`. M0.8 remains unimplemented and is the Core
+V0 release gate.
 
 ## Mandatory architecture decision closure rule
 
@@ -111,10 +113,10 @@ An implementation convenience is NOT an architecture decision.
 #### M0.7 — Human Approval + Change Audit
 - Capability: explicit human decision gate
   - Sub-capability: accept or reject before canonical source mutation
-  - Implementation tasks: ask for explicit human approval or rejection, persist decision and rationale
+  - Implementation tasks: require explicit local-human approval or rejection over coherent retained evidence, record bounded decision/rationale provenance, and stop at the resulting disposition without canonical application
 - Capability: change audit completeness
   - Sub-capability: V0 lifecycle audit required for release gate
-  - Implementation tasks: record all state changes, patch generation, validation evidence, provider execution metadata, and human decision
+  - Implementation tasks: link existing state, proposal, provider, verification, human-decision, and resulting-transition events in append-oriented audit history
 
 #### M0.8 — Governed Change End-to-End
 - Capability: Core V0 release gate
@@ -228,13 +230,14 @@ This is the minimal path proving the Praetor thesis without depending on mature 
 - broad SCM and CI support
 - embeddings-first retrieval
 
-## Recommended first implementation milestone
+## Implementation sequence status
 
 The first milestone to implement is M0.0 — Baseline Verification.
 
 It is objective, executable, and low-risk. It verifies the repo is ready for implementation without constructing product logic.
 
-The next milestone is M0.1 — Runtime Shell + Project Identity.
+M0.0 through M0.7 are implemented. The next milestone is M0.8 — Governed
+Change End-to-End.
 
 ## Minimum necessary architecture before V0
 

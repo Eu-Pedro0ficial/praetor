@@ -186,8 +186,30 @@ working-directory scope, timestamps/duration, exit code, bounded/redacted
 output or artifact references, outcome, and only necessary reproducibility
 metadata. AI planning and later semantic review remain separate
 non-deterministic provenance. Required successful evidence permits only the
-existing `isolated -> validated` Change transition; M0.7 still owns the human
-approval decision.
+existing `isolated -> validated` Change transition.
+
+===== M0.7 Human Decision Boundary
+
+M0.7 introduces an immutable process-local `HumanDecision` with exactly two
+decision kinds: `APPROVE` and `REJECT`. Absence of a decision is absence of
+authorization. The value links Project, Change, retained proposal workspace,
+base revision, source-state digest, patch digest, verification attempt,
+EvidenceSet, decision timestamp, requested disposition, changed-path/evidence
+counts, the optional bounded rationale, and actor provenance.
+
+The actor provenance is exactly `local-interactive-human`. It truthfully means
+that the command entered through the local interactive process; it is not an
+authenticated operating-system, enterprise, or personal identity. Rationale
+is optional, trimmed, valid UTF-8, single-line, control-free, and limited to
+1024 bytes.
+
+A HumanDecision can be created only for a `validated` Change with a retained
+PatchArtifact, coherent passing deterministic evidence, and unchanged
+proposal/canonical integrity. `APPROVE` requests `approved`; `REJECT` requests
+`rejected`. M0.7 does not apply the patch and does not automatically advance
+either disposition to `audit-locked`. The proposal remains session-owned for
+inspection until the existing cleanup path runs; M0.8 owns canonical
+integration.
 
 Potential value objects/entities:
 
@@ -212,7 +234,7 @@ Potential value objects/entities:
 |VerificationStep |One bounded executable/tool invocation with arguments, working-directory scope, origin and supporting evidence
 |EvidenceSet |Normalized evidence produced by validators/reviewers
 |Review |Reviewer role, findings, confidence/evidence and disposition
-|Approval |Authorized actor decision permitting a transition
+|Approval |Explicit actor decision permitting a disposition transition without itself applying canonical source
 |Exception |Explicit bounded departure from a policy
 |Postmortem |Outcome analysis and candidate learning artifacts
 |===

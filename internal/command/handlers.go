@@ -7,7 +7,10 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
+	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
@@ -43,6 +46,11 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 		fmt.Fprintf(output, "Last verification: %s (%s)\n", lastVerification.AttemptId(), outcome)
 	} else {
 		fmt.Fprintln(output, "Last verification: none")
+	}
+	if lastDecision, ok := session.LastDecision(); ok {
+		fmt.Fprintf(output, "Last human decision: %s (%s)\n", lastDecision.Kind(), lastDecision.Actor())
+	} else {
+		fmt.Fprintln(output, "Last human decision: none")
 	}
 	return Result{}, nil
 }
@@ -459,6 +467,132 @@ func writeVerificationReport(output io.Writer, result verification.Result, curre
 	if !evidenceSet.Passed() {
 		fmt.Fprintf(output, "Change state: %s\n", currentState)
 	}
+}
+
+func handleChangeApprove(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	return handleHumanDecision(session, invocation, output, approval.DecisionApprove)
+}
+
+func handleChangeReject(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	return handleHumanDecision(session, invocation, output, approval.DecisionReject)
+}
+
+func handleHumanDecision(
+	session *Session,
+	invocation Invocation,
+	output io.Writer,
+	kind approval.DecisionKind,
+) (Result, error) {
+	if len(invocation.Arguments) > 1 {
+		return Result{}, errInvalidArguments
+	}
+	currentChange, hasChange := session.CurrentChange()
+	if !hasChange {
+		return Result{}, fmt.Errorf("no current Change for human decision")
+	}
+	currentProposal, hasProposal := session.CurrentProposal()
+	if !hasProposal {
+		return Result{}, fmt.Errorf("no retained proposal for human decision")
+	}
+	verificationResult, hasVerification := session.LastVerification()
+	if !hasVerification {
+		return Result{}, fmt.Errorf("no deterministic EvidenceSet for human decision")
+	}
+	rationale := ""
+	if len(invocation.Arguments) == 1 {
+		rationale = invocation.Arguments[0]
+	}
+	writeHumanDecisionSummary(output, currentChange, currentProposal, verificationResult)
+	decision, transitioned, err := session.approval.Decide(
+		invocation.Context,
+		currentChange,
+		currentProposal,
+		verificationResult,
+		kind,
+		rationale,
+	)
+	if err != nil {
+		if decision.Kind() == "" {
+			fmt.Fprintln(output, "Human decision: NOT RECORDED")
+		} else {
+			fmt.Fprintf(output, "Human decision: %s RECORDED; state transition failed\n", decision.Kind())
+			fmt.Fprintf(output, "Change state: %s\n", currentChange.State())
+		}
+		return Result{}, err
+	}
+	session.setCurrentChange(transitioned)
+	session.setLastDecision(decision)
+	fmt.Fprintf(output, "Human decision: %s\n", decision.Kind())
+	fmt.Fprintf(output, "Actor provenance: %s\n", decision.Actor())
+	if decision.Rationale() != "" {
+		fmt.Fprintf(output, "Rationale: %s\n", decision.Rationale())
+	}
+	fmt.Fprintf(output, "Change state: %s\n", transitioned.State())
+	fmt.Fprintln(output, "Canonical source: unchanged; decision authorizes or rejects later application")
+	return Result{}, nil
+}
+
+func writeHumanDecisionSummary(
+	output io.Writer,
+	currentChange change.Change,
+	currentProposal proposal.Proposal,
+	verificationResult verification.Result,
+) {
+	artifact, hasArtifact := currentProposal.PatchArtifact()
+	evidenceSet := verificationResult.EvidenceSet()
+	fmt.Fprintln(output, "Decision summary:")
+	fmt.Fprintf(output, "  Change: %s\n", boundedSingleLine(string(currentChange.ChangeId()), 160))
+	fmt.Fprintf(output, "  Intent: %s\n", boundedSingleLine(string(currentChange.Intent()), 512))
+	fmt.Fprintf(output, "  State: %s\n", currentChange.State())
+	if hasArtifact {
+		fmt.Fprintf(output, "  Patch: %s (%s)\n", artifact.PatchDigest(), artifact.DiffSummary())
+		fmt.Fprintf(output, "  Changed files: %d\n", len(artifact.ChangedPaths()))
+		for index, changedPath := range artifact.ChangedPaths() {
+			if index == 10 {
+				fmt.Fprintf(output, "    ... %d more\n", len(artifact.ChangedPaths())-index)
+				break
+			}
+			fmt.Fprintf(output, "    %s\n", boundedSingleLine(changedPath, 256))
+		}
+		fmt.Fprintf(output, "  Base revision: %s\n", boundedSingleLine(artifact.BaseRevision(), 160))
+	}
+	verificationOutcome := "FAIL"
+	if evidenceSet.Passed() {
+		verificationOutcome = "PASS"
+	}
+	fmt.Fprintf(output, "  Verification: %s; attempt=%s; evidence=%s; checks=%d\n",
+		verificationOutcome,
+		evidenceSet.VerificationAttemptId(),
+		evidenceSet.Id(),
+		len(evidenceSet.Evidence()),
+	)
+}
+
+func boundedSingleLine(value string, maximumBytes int) string {
+	if maximumBytes <= 0 {
+		return ""
+	}
+	value = strings.ToValidUTF8(value, "�")
+	var builder strings.Builder
+	truncated := false
+	for _, character := range value {
+		if unicode.IsControl(character) || unicode.In(character, unicode.Zl, unicode.Zp) {
+			character = ' '
+		}
+		characterBytes := utf8.RuneLen(character)
+		if builder.Len()+characterBytes > maximumBytes {
+			truncated = true
+			break
+		}
+		builder.WriteRune(character)
+	}
+	result := strings.TrimSpace(builder.String())
+	if truncated {
+		if len(result)+3 <= maximumBytes {
+			result += "..."
+		}
+	}
+	return result
 }
 
 func handleChangeDiscard(session *Session, invocation Invocation, output io.Writer) (Result, error) {

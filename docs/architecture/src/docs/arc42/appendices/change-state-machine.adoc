@@ -49,8 +49,11 @@ transition context in the local append-oriented audit ledger. A forbidden
 edge returns a deterministic domain error and leaves both aggregate state and
 successful-transition audit history unchanged.
 
-`approved` and `rejected` are M0.2 lifecycle dispositions. The mature human
-approval, policy and evidence gates remain M0.7 scope.
+`approved` and `rejected` are M0.2 lifecycle dispositions. M0.7 now reaches
+them only through an explicit coherent human decision. The allowed later
+`audit-locked` edges remain modeled but M0.7 does not invoke them; M0.8 retains
+access to the explicit disposition for canonical integration and release
+proof.
 
 ==== M0.4 Integration with Existing States
 

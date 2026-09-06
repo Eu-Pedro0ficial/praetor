@@ -9,6 +9,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/verification/localexec"
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
+	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
@@ -33,7 +34,7 @@ type AuditLoggerFunc func(dataDirectory string, eventType string, projectID stri
 // ChangeAuditLoggerFunc records a Change lifecycle event with top-level audit linkage.
 type ChangeAuditLoggerFunc func(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (audit.Event, error)
 
-// Container assembles only the dependencies required by the current M0.6 runtime scope.
+// Container assembles only the dependencies required by the current M0.7 runtime scope.
 type Container struct {
 	RepositoryDiscovery    RepositoryDiscoveryFunc
 	RepositoryInspection   intelligence.RepositoryInspector
@@ -53,6 +54,7 @@ type Container struct {
 	VerificationRunner     verification.StepRunner
 	VerificationAttemptIds verification.AttemptIdGenerator
 	VerificationClock      verification.Clock
+	ApprovalClock          approval.Clock
 }
 
 // New creates the explicit composition root for the current runtime boundary.
@@ -93,11 +95,14 @@ func New() Container {
 		VerificationClock: func() time.Time {
 			return time.Now().UTC()
 		},
+		ApprovalClock: func() time.Time {
+			return time.Now().UTC()
+		},
 	}
 }
 
 // NewInteractiveSession composes one retained shell session around the active
-// Project and the current M0.1-M0.5 application capabilities.
+// Project and the current M0.1-M0.7 application capabilities.
 func (container Container) NewInteractiveSession(path string) (*command.Session, error) {
 	registration, err := container.EnsureProjectRegistration(path)
 	if err != nil {
@@ -138,6 +143,10 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
+	approvalService, err := container.NewApprovalService(registration, changeWorkflow, proposalLifecycle)
+	if err != nil {
+		return nil, err
+	}
 	session, err := command.NewSession(
 		registration,
 		changeWorkflow,
@@ -145,6 +154,7 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		proposalLifecycle,
 		providerExecution,
 		verificationService,
+		approvalService,
 		providerRegistry,
 		providerSelection,
 	)
@@ -174,6 +184,97 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		return nil, err
 	}
 	return session, nil
+}
+
+// NewApprovalService composes the M0.7 explicit local-human decision gate
+// around existing workflow, evidence, proposal-integrity, and audit behavior.
+func (container Container) NewApprovalService(
+	registration project.Registration,
+	changeWorkflow *workflow.Service,
+	proposalLifecycle *proposal.Service,
+) (*approval.Service, error) {
+	if changeWorkflow == nil {
+		return nil, fmt.Errorf("Change workflow dependency is not configured")
+	}
+	if proposalLifecycle == nil {
+		return nil, fmt.Errorf("proposal lifecycle dependency is not configured")
+	}
+	if container.ChangeAuditLogger == nil {
+		return nil, fmt.Errorf("Change audit logger dependency is not configured")
+	}
+	if container.ApprovalClock == nil {
+		return nil, fmt.Errorf("human decision clock dependency is not configured")
+	}
+	dataDirectory, err := audit.ResolveDataDir()
+	if err != nil {
+		return nil, err
+	}
+	recorder := func(event approval.LifecycleEvent) error {
+		decision := event.Decision
+		if decision.ProjectId() != registration.ProjectId {
+			return fmt.Errorf(
+				"M0.7 decision ProjectId %q does not match registered ProjectId %q",
+				decision.ProjectId(),
+				registration.ProjectId,
+			)
+		}
+		metadata, metadataError := humanDecisionMetadata(event)
+		if metadataError != nil {
+			return metadataError
+		}
+		_, recordError := container.ChangeAuditLogger(
+			dataDirectory,
+			event.EventType,
+			string(decision.ProjectId()),
+			string(decision.ChangeId()),
+			registration.RepositoryRoot,
+			metadata,
+		)
+		return recordError
+	}
+	return approval.New(
+		changeWorkflow,
+		proposalLifecycle.VerifyIntegrity,
+		recorder,
+		container.ApprovalClock,
+	)
+}
+
+func humanDecisionMetadata(event approval.LifecycleEvent) (map[string]any, error) {
+	decision := event.Decision
+	if event.EventType != approval.EventHumanDecisionRecorded {
+		return nil, fmt.Errorf("unknown M0.7 lifecycle event type %q", event.EventType)
+	}
+	if event.OccurredAt.IsZero() || !event.OccurredAt.Equal(decision.OccurredAt()) {
+		return nil, fmt.Errorf("M0.7 decision event timestamp linkage is inconsistent")
+	}
+	if decision.ProjectId() == "" || decision.ChangeId() == "" ||
+		decision.WorkspaceId() == "" || decision.PatchDigest() == "" ||
+		decision.SourceStateDigest() == "" || decision.VerificationAttemptId() == "" ||
+		decision.EvidenceSetId() == "" || decision.EvidenceCount() <= 0 ||
+		decision.ChangedPathCount() <= 0 {
+		return nil, fmt.Errorf("M0.7 decision event linkage is incomplete")
+	}
+	metadata := map[string]any{
+		"decision":                string(decision.Kind()),
+		"decision_timestamp":      decision.OccurredAt().Format(time.RFC3339Nano),
+		"actor_type":              "human",
+		"actor_provenance":        string(decision.Actor()),
+		"identity_assurance":      "local-process-interaction-only",
+		"requested_state":         string(decision.RequestedState()),
+		"workspace_id":            string(decision.WorkspaceId()),
+		"base_revision":           decision.BaseRevision(),
+		"source_state_digest":     string(decision.SourceStateDigest()),
+		"patch_digest":            decision.PatchDigest(),
+		"verification_attempt_id": string(decision.VerificationAttemptId()),
+		"evidence_set_id":         decision.EvidenceSetId(),
+		"evidence_count":          decision.EvidenceCount(),
+		"changed_path_count":      decision.ChangedPathCount(),
+	}
+	if decision.Rationale() != "" {
+		metadata["rationale"] = string(decision.Rationale())
+	}
+	return metadata, nil
 }
 
 // NewProviderRegistry performs explicit compile-time adapter registration.

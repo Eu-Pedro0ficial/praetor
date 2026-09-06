@@ -189,6 +189,34 @@ the same command definition. Passing deterministic evidence advances only
 `isolated -> validated`; failure retains the proposal and leaves the Change
 `isolated`.
 
+==== M0.7 Human Approval and Rejection Workflow
+
+M0.7 adds direct `change approve [<rationale>]` and
+`change reject [<rationale>]`, plus contextual `approve` and `reject` in
+Change mode, through ADR-029's same immutable command tree. Empty input,
+contextual help, completion, provider completion, verification success,
+timeout, cancellation, and session close never manufacture approval.
+
+Before a decision, the shell prints a bounded summary of Change identity and
+state, patch digest/summary and changed paths, plus PASS and
+verification/evidence linkage. The Approval Port then requires `validated`,
+validates exact retained proposal/evidence linkage, and reuses the proposal
+integrity guard for proposal and canonical-source drift.
+
+After all preconditions pass, the service appends
+`HUMAN_DECISION_RECORDED`, rechecks integrity, and asks the existing Workflow
+Service for `validated -> approved` or `validated -> rejected`. The decision
+event therefore precedes the separately appended `CHANGE_TRANSITION`. If the
+decision append fails, state remains `validated`. If the decision append
+succeeds but the later transition append/state operation fails, the truthful
+attempted decision remains in append-oriented history while process-local
+state remains unchanged; M0.7 does not claim transactionality.
+
+This workflow is authorization-only. It retains the proposal during the
+active session, does not mutate canonical source, and does not automatically
+perform `approved/rejected -> audit-locked`. Existing session cleanup owns the
+temporary workspace; M0.8 owns canonical application and release proof.
+
 ==== Predefined Workloads
 
 The system should support well-defined workflows rather than one universal autonomous loop. Candidate change types may include:

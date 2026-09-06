@@ -247,7 +247,7 @@ func TestChangeImplementDirectAndContextualUseProviderPipeline(t *testing.T) {
 					t.Fatalf("enter change mode: %v", err)
 				}
 				assertSuggestions(t, registry.ContextualHelp(session, ""), []string{
-					"new", "isolate", "implement", "patch", "verify", "discard", "help", "?", "end",
+					"new", "isolate", "implement", "patch", "verify", "approve", "reject", "discard", "help", "?", "end",
 				})
 			}
 
@@ -356,6 +356,15 @@ func prepareProviderCommandTest(
 	provider aiprovider.Provider,
 	verificationRunner verification.StepRunner,
 ) (string, string, *command.Session, command.Registry) {
+	return prepareProviderCommandTestWithContainer(t, provider, verificationRunner, nil)
+}
+
+func prepareProviderCommandTestWithContainer(
+	t *testing.T,
+	provider aiprovider.Provider,
+	verificationRunner verification.StepRunner,
+	configure func(*composition.Container),
+) (string, string, *command.Session, command.Registry) {
 	t.Helper()
 	repositoryRoot := t.TempDir()
 	runCommandGit(t, repositoryRoot, "init", "--quiet")
@@ -408,6 +417,9 @@ func prepareProviderCommandTest(
 	}
 	container.VerificationAttemptIds = func() (verification.VerificationAttemptId, error) {
 		return "verification-abcdef0123456789abcdef0123456789", nil
+	}
+	if configure != nil {
+		configure(&container)
 	}
 	session, err := container.NewInteractiveSession(".")
 	if err != nil {

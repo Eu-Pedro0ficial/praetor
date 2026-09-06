@@ -6,8 +6,8 @@ The roadmap must not treat memory, routing sophistication, or organizational lea
 
 The project must prove a governed change loop first, then expand capability after V0.
 
-Current implementation status: M0.0 through M0.6 are complete. M0.7 remains
-unimplemented; this document continues to define its approved scope and gate.
+Current implementation status: M0.0 through M0.7 are complete. M0.8 remains
+unimplemented and is the Core V0 release gate.
 
 ## Mandatory decision closure rule
 
@@ -641,7 +641,8 @@ deterministic outcome.
 - actual checks produce normalized source/patch-linked evidence
 - a patch with insufficient evidence does not pass the gate
 - successful evidence may advance the Change only through the existing
-  `isolated -> validated` transition; M0.7 still owns human approval
+  `isolated -> validated` transition; the separate M0.7 gate owns human
+  disposition
 
 #### Definition of Done
 The runtime can discover, safely plan, and deterministically verify an isolated
@@ -699,6 +700,16 @@ The human remains the decision authority. The system must not silently choose ac
 
 #### Implementation boundaries
 - minimal local approval UX is sufficient for V0
+- M0.7 is authorization-only: approval/rejection leaves canonical source
+  unchanged and ends in `approved`/`rejected`, without automatic
+  `audit-locked`
+- actor provenance is `local-interactive-human`, meaning local process
+  interaction rather than authenticated personal identity
+- the HumanDecision is process-local while the existing append-oriented audit
+  event is durable outside the governed repository
+- the proposal remains retained during the active session and uses the
+  existing session-owned cleanup path
+- M0.8 owns canonical patch integration and the release proof
 - no broad review engine or organization policy model yet
 
 #### Explicit non-goals

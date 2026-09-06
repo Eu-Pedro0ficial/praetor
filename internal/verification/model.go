@@ -455,6 +455,71 @@ func (result Result) PlanningFailure() string  { return result.planningFailure }
 func (result Result) EvidenceSet() EvidenceSet { return result.evidence }
 func (result Result) Passed() bool             { return result.evidence.Passed() }
 
+// ValidateResultForDecision proves that one successful deterministic result
+// still identifies the exact retained Proposal and Change presented to the
+// M0.7 human-decision gate. It performs no source inspection itself.
+func ValidateResultForDecision(
+	currentChange change.Change,
+	currentProposal proposal.Proposal,
+	result Result,
+) error {
+	workspace := currentProposal.Workspace()
+	artifact, hasArtifact := currentProposal.PatchArtifact()
+	if workspace.State() != proposal.WorkspaceRetained || !hasArtifact {
+		return fmt.Errorf("human decision requires a retained Proposal and PatchArtifact")
+	}
+	if currentChange.ProjectId() != workspace.ProjectId() ||
+		currentChange.ChangeId() != workspace.ChangeId() ||
+		artifact.ProjectId() != workspace.ProjectId() ||
+		artifact.ChangeId() != workspace.ChangeId() ||
+		artifact.WorkspaceId() != workspace.WorkspaceId() {
+		return fmt.Errorf("human decision Change, Proposal, and PatchArtifact linkage is inconsistent")
+	}
+	if result.attemptId == "" || result.evidence.Id() == "" {
+		return fmt.Errorf("human decision requires a completed deterministic EvidenceSet")
+	}
+	if err := validateVerificationAttemptId(result.attemptId); err != nil {
+		return fmt.Errorf("human decision VerificationAttempt linkage is invalid: %w", err)
+	}
+	evidenceSet := result.evidence
+	if evidenceSet.VerificationAttemptId() != result.attemptId {
+		return fmt.Errorf("human decision VerificationAttempt linkage is inconsistent")
+	}
+	if !evidenceSet.Passed() {
+		return fmt.Errorf("human decision requires a passing deterministic EvidenceSet")
+	}
+	if evidenceSet.ProjectId() != currentChange.ProjectId() ||
+		evidenceSet.ChangeId() != currentChange.ChangeId() ||
+		evidenceSet.WorkspaceId() != workspace.WorkspaceId() {
+		return fmt.Errorf("human decision EvidenceSet identity linkage is inconsistent")
+	}
+	if evidenceSet.PatchDigest() != artifact.PatchDigest() {
+		return fmt.Errorf("human decision EvidenceSet patch digest does not match the retained PatchArtifact")
+	}
+	if evidenceSet.SourceStateDigest() != artifact.SourceStateDigest() ||
+		evidenceSet.SourceStateDigest() != workspace.SourceStateDigest() {
+		return fmt.Errorf("human decision EvidenceSet source-state linkage is inconsistent")
+	}
+	steps := result.plan.Steps()
+	evidence := evidenceSet.Evidence()
+	if len(steps) == 0 || len(evidence) != len(steps)+1 {
+		return fmt.Errorf("human decision EvidenceSet is incomplete for its VerificationPlan")
+	}
+	patchIntegrityCount := 0
+	for _, item := range evidence {
+		if item.Outcome() != OutcomePass {
+			return fmt.Errorf("human decision EvidenceSet contains non-passing outcome %q", item.Outcome())
+		}
+		if item.Kind() == KindPatchIntegrity {
+			patchIntegrityCount++
+		}
+	}
+	if patchIntegrityCount != 1 {
+		return fmt.Errorf("human decision EvidenceSet requires exactly one passing patch-integrity result")
+	}
+	return nil
+}
+
 // AttemptIdGenerator creates opaque Praetor-owned verification identity.
 type AttemptIdGenerator func() (VerificationAttemptId, error)
 

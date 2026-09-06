@@ -569,3 +569,71 @@ func TestServiceEmptyPlannerResultAndExecutionMutationFailClosed(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateResultForDecisionRequiresExactPassingEvidenceLinkage(t *testing.T) {
+	fixture := newVerificationFixture(t, map[string]string{"go.mod": "module fixture\n"})
+	runner := &fakeStepRunner{results: []ProcessResult{NewProcessResult(0, true, nil, nil, false)}}
+	var events []LifecycleEvent
+	service := newVerificationTestService(t, fixture, runner, &events, fixedVerificationAttemptId)
+	result, err := service.Verify(context.Background(), fixture.currentChange, fixture.currentProposal, nil)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if err := ValidateResultForDecision(fixture.currentChange, fixture.currentProposal, result); err != nil {
+		t.Fatalf("ValidateResultForDecision() valid result error = %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*Result)
+		want   string
+	}{
+		{name: "missing EvidenceSet", mutate: func(candidate *Result) { candidate.evidence = EvidenceSet{} }, want: "completed deterministic EvidenceSet"},
+		{name: "non-passing EvidenceSet", mutate: func(candidate *Result) { candidate.evidence.passed = false }, want: "passing deterministic EvidenceSet"},
+		{name: "VerificationAttempt mismatch", mutate: func(candidate *Result) {
+			candidate.evidence.verificationAttemptId = "verification-ffeeddccbbaa99887766554433221100"
+		}, want: "VerificationAttempt linkage is inconsistent"},
+		{name: "patch mismatch", mutate: func(candidate *Result) { candidate.evidence.patchDigest = "sha256:" + strings.Repeat("f", 64) }, want: "patch digest"},
+		{name: "source mismatch", mutate: func(candidate *Result) {
+			candidate.evidence.sourceDigest = source.SourceStateDigest("sha256:" + strings.Repeat("f", 64))
+		}, want: "source-state linkage"},
+		{name: "workspace mismatch", mutate: func(candidate *Result) {
+			candidate.evidence.workspaceId = "proposal-ffeeddccbbaa99887766554433221100"
+		}, want: "identity linkage"},
+		{name: "ChangeId mismatch", mutate: func(candidate *Result) {
+			candidate.evidence.changeId = "change-other"
+		}, want: "identity linkage"},
+		{name: "ProjectId mismatch", mutate: func(candidate *Result) {
+			candidate.evidence.projectId = "01890f47-9f20-7cc1-98c8-ffeeddccbbaa"
+		}, want: "identity linkage"},
+		{name: "incomplete plan", mutate: func(candidate *Result) { candidate.plan = VerificationPlan{} }, want: "incomplete"},
+		{name: "missing patch integrity", mutate: func(candidate *Result) {
+			candidate.evidence.evidence[len(candidate.evidence.evidence)-1].kind = KindTest
+		}, want: "patch-integrity"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := result
+			candidate.evidence = EvidenceSet{
+				id:                    result.evidence.id,
+				verificationAttemptId: result.evidence.verificationAttemptId,
+				projectId:             result.evidence.projectId,
+				changeId:              result.evidence.changeId,
+				workspaceId:           result.evidence.workspaceId,
+				patchDigest:           result.evidence.patchDigest,
+				sourceDigest:          result.evidence.sourceDigest,
+				evidence:              cloneEvidenceSlice(result.evidence.evidence),
+				passed:                result.evidence.passed,
+			}
+			test.mutate(&candidate)
+			if err := ValidateResultForDecision(fixture.currentChange, fixture.currentProposal, candidate); err == nil ||
+				!strings.Contains(err.Error(), test.want) {
+				t.Fatalf("ValidateResultForDecision() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+	if err := ValidateResultForDecision(fixture.currentChange, proposal.Proposal{}, result); err == nil ||
+		!strings.Contains(err.Error(), "retained Proposal") {
+		t.Fatalf("missing Proposal error = %v", err)
+	}
+}

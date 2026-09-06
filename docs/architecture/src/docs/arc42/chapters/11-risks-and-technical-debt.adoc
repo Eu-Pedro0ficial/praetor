@@ -34,7 +34,7 @@
 
 === Known Architectural Debt at Baseline
 
-With implementation complete through M0.6 and M0.7 still unimplemented, the
+With implementation complete through M0.7 and M0.8 still unimplemented, the
 principal debt remains **decision debt**, not code debt. The most important
 deferred items are
 the canonical memory serialization benchmark, hosted organization memory,

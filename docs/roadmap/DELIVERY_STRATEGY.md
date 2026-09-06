@@ -16,8 +16,8 @@ When a milestone reaches a deferred or benchmark trigger, the milestone must sto
 
 This rule is part of the delivery gate, not an optional policy note.
 
-Current implementation status: M0.0 through M0.6 are complete. M0.7 remains
-unimplemented and is the next milestone.
+Current implementation status: M0.0 through M0.7 are complete. M0.8 remains
+unimplemented and is the next milestone and Core V0 release gate.
 
 ## Revised delivery order
 
@@ -73,7 +73,13 @@ routing, fallback, or multi-provider maturity.
 
 ### Step 8 — M0.7 human approval and audit completeness
 
-The runtime requires an explicit accept or reject decision and records the complete lifecycle in append-only audit history.
+The runtime requires an explicit local-human accept or reject decision over a
+retained, coherently verified proposal and records bounded decision provenance
+before the existing state transition event. This step is authorization-only:
+it leaves canonical source unchanged, stops at `approved` or `rejected`, does
+not automatically enter `audit-locked`, and leaves canonical integration to
+M0.8. The actor label records local interactive provenance, not authenticated
+identity.
 
 ### Step 9 — M0.8 V0 release gate
 

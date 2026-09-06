@@ -181,8 +181,19 @@ deterministic result. Empty plans and any non-passing outcome fail closed.
 The M0.6 gate uses only the minimum deterministic rules required for V0. It
 does not implement the mature M1.0 Policy Engine, M1.1 Reviewer, or M1.3/M1.4
 routing/multi-provider capabilities. Required passing evidence may authorize
-only the existing `isolated -> validated` transition. Human approval remains
-M0.7.
+only the existing `isolated -> validated` transition.
+
+==== M0.7 Human Decision Validation
+
+M0.7 tests prove explicit `APPROVE` and `REJECT`, the validated-state gate,
+safe 1024-byte optional rationale, exact local actor provenance, immutable
+decision linkage, coherent passing EvidenceSet/PatchArtifact requirements,
+proposal and canonical drift failure, audit-before-transition ordering,
+fail-closed audit behavior, replay rejection, and absence of provider calls or
+canonical mutation. Command-tree/help/completion tests and real PTY approval
+and rejection smokes cover the local adapter. Lifecycle tests reconstruct the
+V0 path from linked append-oriented events without adding a new persistence
+format or query subsystem.
 
 ==== M1.8 Advanced Quality and Security Evidence Direction
 

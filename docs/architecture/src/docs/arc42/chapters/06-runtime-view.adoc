@@ -174,6 +174,31 @@ provider default, but M0.6 neither routes automatically nor requires a second
 provider. Verification planning is not the mature M1.1 semantic Reviewer and
 cannot declare the patch correct.
 
+==== M0.7 Explicit Human Disposition Subset
+
+The M0.7 runtime sequence is:
+
+. receive an explicit local interactive `approve` or `reject` command;
+. show a bounded Change, patch, changed-path, and verification/evidence
+  summary;
+. require `validated` and verify exact Project/Change/workspace,
+  PatchArtifact, source digest, patch digest, VerificationAttempt, and passing
+  EvidenceSet linkage;
+. reuse the retained proposal and canonical-source integrity guard;
+. append `HUMAN_DECISION_RECORDED` with bounded rationale and
+  `local-interactive-human` provenance;
+. recheck integrity and request the existing audited transition to `approved`
+  or `rejected`.
+
+The decision event is intentionally before the transition event. A failed
+decision append leaves state `validated`; a later transition failure may leave
+the attempted decision in truthful append-oriented history while state stays
+unchanged. No transactionality or authenticated actor identity is claimed.
+Neither disposition is automatically audit-locked, and no patch is applied to
+canonical source. The process-local decision/proposal context remains available
+during the session; existing session cleanup removes the owned workspace.
+M0.8 owns canonical integration.
+
 === Scenario 5 — Memory Candidate Promotion
 
 [plantuml, "{plantUMLDir}dynamic-memory-promotion", png]

@@ -45,10 +45,10 @@ See:
 
 Implementation in progress.
 
-M0.0 through M0.6 are complete. M0.6 delivered deterministic verification
-discovery, constrained AI-assisted planning, direct-process execution, and
-source/patch-linked evidence. M0.7 — Human Approval + Change Audit remains
-unimplemented.
+M0.0 through M0.7 are complete. M0.7 adds explicit local-human approval and
+rejection over retained, deterministically validated proposals, with bounded
+decision provenance in append-oriented audit history. M0.8 — Governed Change
+End-to-End remains unimplemented and is the Core V0 release gate.
 
 The primary developer interface is the retained-context interactive shell.
 Run `praetor` inside a Git repository, then use plain commands such as `status`,
@@ -93,5 +93,17 @@ set, runs every admitted step with finite time/output/environment boundaries,
 rechecks the retained patch and canonical source, and records an immutable
 runtime EvidenceSet plus bounded audit provenance. All required steps and the
 patch-integrity check must pass before the existing `isolated -> validated`
-transition. Failure leaves the Change `isolated` and the proposal retained;
-M0.7 still owns human approval and any canonical-source application.
+transition. Failure leaves the Change `isolated` and the proposal retained.
+
+M0.7 adds direct `change approve [<rationale>]` and
+`change reject [<rationale>]` commands, also available contextually as
+`approve` and `reject` in `change` mode. They require a retained proposal and
+coherent passing EvidenceSet, recheck proposal and canonical-source integrity,
+and record `HUMAN_DECISION_RECORDED` before the existing audited state
+transition. The actor provenance is exactly `local-interactive-human`; it
+describes local process interaction, not authenticated personal identity.
+M0.7 is authorization-only: it stops at `approved` or `rejected`, keeps the
+proposal for the active session, does not automatically enter `audit-locked`,
+and never applies the patch to canonical source. Session-local decision state
+is not resumable; the existing durable audit remains outside the governed
+repository. M0.8 owns canonical integration and the end-to-end release proof.

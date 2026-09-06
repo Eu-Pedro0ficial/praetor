@@ -215,6 +215,16 @@ include::../diagrams/c4-memory-components.puml[]
 
 Receives append-oriented events for commands, runs, inputs, outputs, model/provider identity, hashes, state transitions, approvals, memory promotions, policy outcomes and exceptions.
 
+==== Approval Gate
+
+The M0.7 application service exposes a terminal-independent Approval Port.
+It accepts only explicit `APPROVE` or `REJECT`, requires a validated Change and
+coherent retained patch/evidence linkage, reuses proposal/canonical integrity
+checks, records bounded `HUMAN_DECISION_RECORDED` provenance, and then invokes
+the existing audited workflow transition. The local interactive command
+adapter is the sole M0.7 caller. It does not depend on an AI provider, mutate
+canonical source, or enter `audit-locked`.
+
 ==== Project Registry
 
 Associates a project identity with its source repository, memory repository and local configuration without requiring the source repository itself to contain a Git submodule or vendor-specific metadata.

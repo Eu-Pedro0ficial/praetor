@@ -143,6 +143,14 @@ func TestAppendCannotWriteChangeEventWithoutChangeId(t *testing.T) {
 		EventProviderExecutionStarted,
 		EventProviderExecutionCompleted,
 		EventProviderExecutionFailed,
+		EventVerificationPlanningStarted,
+		EventVerificationPlanningCompleted,
+		EventVerificationPlanningFailed,
+		EventVerificationStarted,
+		EventVerificationStepCompleted,
+		EventVerificationCompleted,
+		EventVerificationFailed,
+		EventHumanDecisionRecorded,
 	}
 	for _, eventType := range eventTypes {
 		t.Run(eventType, func(t *testing.T) {
