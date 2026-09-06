@@ -111,7 +111,7 @@ func newRegistry(definitions []Definition, end Definition) (Registry, error) {
 	return registry, nil
 }
 
-// DefaultRegistry constructs the current M0.1-M0.5 hierarchical shell
+// DefaultRegistry constructs the current M0.1-M0.6 hierarchical shell
 // command surface.
 func DefaultRegistry() (Registry, error) {
 	var registry Registry
@@ -140,7 +140,7 @@ func DefaultRegistry() (Registry, error) {
 		{
 			Name:        "change",
 			Description: "Enter software Change governance mode",
-			Usage:       "change [new|isolate|implement|patch|discard ...]",
+			Usage:       "change [new|isolate|implement|patch|verify|discard ...]",
 			Mode:        ModeChange,
 			Children: []Definition{
 				{
@@ -167,6 +167,12 @@ func DefaultRegistry() (Registry, error) {
 					Description: "Extract and surface-check the current isolated proposal",
 					Usage:       "patch",
 					Handler:     handleChangePatch,
+				},
+				{
+					Name:        "verify",
+					Description: "Run the deterministic verification gate for the retained proposal",
+					Usage:       "verify",
+					Handler:     handleChangeVerify,
 				},
 				{
 					Name:        "discard",

@@ -20,6 +20,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
+	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 )
 
 const executionTestProjectId project.ProjectId = "01890f47-9f20-7cc1-98c8-0123456789ab"
@@ -38,6 +39,7 @@ func newFakeProvider(t *testing.T, execute func(context.Context, aiprovider.Exec
 		"Test Provider",
 		[]aiprovider.ProviderCapability{
 			aiprovider.CapabilityWorkspaceMutation,
+			aiprovider.CapabilityWorkspaceReadOnly,
 			aiprovider.CapabilityNonInteractive,
 			aiprovider.CapabilityStructuredEvents,
 			aiprovider.CapabilityContextCancellation,
@@ -372,6 +374,159 @@ func TestExecutionServiceDoesNotFallbackFromManualSelection(t *testing.T) {
 	}
 }
 
+type planningVerificationRunner struct{ calls int }
+
+func (*planningVerificationRunner) Resolve(string) (string, error) { return os.Executable() }
+func (runner *planningVerificationRunner) Run(context.Context, verification.ProcessInvocation) (verification.ProcessResult, error) {
+	runner.calls++
+	return verification.NewProcessResult(0, true, []byte("pass\n"), nil, false), nil
+}
+func (*planningVerificationRunner) MaximumOutputBytes() int { return 4096 }
+
+func TestVerificationPlanningUsesFreshSelectedReadOnlyProviderAttempt(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	if err := os.WriteFile(
+		filepath.Join(fixture.currentProposal.Workspace().Root(), "service.go"),
+		[]byte("package service\n\nfunc Greeting() string { return \"hello-praetor\" }\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	retainedProposal, validation, err := fixture.proposalService.ExtractPatch(fixture.currentProposal)
+	if err != nil || !validation.Allowed() {
+		t.Fatalf("ExtractPatch() = %#v/%v", validation, err)
+	}
+	var capturedRequest aiprovider.ExecutionRequest
+	provider := newFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		capturedRequest = request
+		started := time.Date(2026, time.September, 2, 12, 0, 0, 0, time.UTC)
+		return aiprovider.NewProviderResponse(
+			request.AttemptId(),
+			request.Selection(),
+			"test-provider 1.0",
+			"thread-planning",
+			`{"candidates":[{"kind":"lint","executable":"ruff","arguments":[],"working_directory":".","supporting_evidence":["pyproject.toml"]}]}`,
+			false,
+			aiprovider.ProviderUsage{},
+			started,
+			started.Add(time.Second),
+		)
+	})
+	executionService, executionEvents := prepareExecutionService(t, fixture.proposalService, provider)
+	runner := &planningVerificationRunner{}
+	clock := func() time.Time { return time.Date(2026, time.September, 2, 13, 0, 0, 0, time.UTC) }
+	engine, err := verification.NewEngine(runner, fixture.proposalService.VerifyIntegrity, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificationService, err := verification.New(
+		engine,
+		func(verification.LifecycleEvent) error { return nil },
+		func() (verification.VerificationAttemptId, error) {
+			return "verification-11223344556677889900aabbccddeeff", nil
+		},
+		clock,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selection, _ := aiprovider.NewSelection("test-provider", "planner-model")
+	result, err := verificationService.Verify(
+		context.Background(),
+		fixture.currentChange,
+		retainedProposal,
+		func(ctx context.Context, request verification.PlanningRequest) (verification.PlanningResult, error) {
+			return executionService.PlanVerification(ctx, fixture.currentChange, retainedProposal, selection, request)
+		},
+	)
+	if err != nil || !result.Passed() {
+		t.Fatalf("Verify() = %#v/%v", result, err)
+	}
+	if capturedRequest.AttemptId() != executionTestAttemptId ||
+		capturedRequest.RoleContract().Role() != aiprovider.RoleVerificationPlanning ||
+		capturedRequest.RoleContract().WorkspaceAccess() != aiprovider.WorkspaceAccessReadOnly {
+		t.Fatalf("planning request = %#v", capturedRequest)
+	}
+	if capturedRequest.AttemptId() == aiprovider.ExecutionAttemptId(result.AttemptId()) {
+		t.Fatal("AI ExecutionAttemptId reused VerificationAttemptId")
+	}
+	if len(*executionEvents) != 2 ||
+		(*executionEvents)[0].EventType != execution.EventVerificationPlanningStarted ||
+		(*executionEvents)[1].EventType != execution.EventVerificationPlanningCompleted ||
+		runner.calls != 2 {
+		t.Fatalf("planning events / verification calls = %#v / %d", *executionEvents, runner.calls)
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
+}
+
+func TestVerificationPlanningMutationFailsClosedAndIsAudited(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	workspaceRoot := fixture.currentProposal.Workspace().Root()
+	if err := os.WriteFile(
+		filepath.Join(workspaceRoot, "service.go"),
+		[]byte("package service\n\nfunc Greeting() string { return \"hello-praetor\" }\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	retainedProposal, _, err := fixture.proposalService.ExtractPatch(fixture.currentProposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := newFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		if err := os.WriteFile(
+			filepath.Join(request.Workspace().Root(), "service.go"),
+			[]byte("package service\n\nconst PlannerMutated = true\n"),
+			0o600,
+		); err != nil {
+			return aiprovider.ProviderResponse{}, err
+		}
+		started := time.Date(2026, time.September, 2, 12, 0, 0, 0, time.UTC)
+		return aiprovider.NewProviderResponse(
+			request.AttemptId(), request.Selection(), "test-provider 1.0", "thread-mutating-planner",
+			`{"candidates":[]}`, false, aiprovider.ProviderUsage{}, started, started.Add(time.Second),
+		)
+	})
+	service, events := prepareExecutionService(t, fixture.proposalService, provider)
+	discovery, err := verification.Discover(workspaceRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Build the otherwise-private planning request through the verification
+	// service, whose planner port is its only intended producer boundary.
+	runner := &planningVerificationRunner{}
+	clock := func() time.Time { return time.Date(2026, time.September, 2, 13, 0, 0, 0, time.UTC) }
+	engine, _ := verification.NewEngine(runner, fixture.proposalService.VerifyIntegrity, clock)
+	verificationService, _ := verification.New(
+		engine,
+		func(verification.LifecycleEvent) error { return nil },
+		func() (verification.VerificationAttemptId, error) {
+			return "verification-11223344556677889900aabbccddeeff", nil
+		},
+		clock,
+	)
+	if !discovery.NeedsPlanning() {
+		t.Fatal("fixture did not exercise planning")
+	}
+	selection, _ := aiprovider.NewSelection("test-provider", "")
+	_, err = verificationService.Verify(
+		context.Background(),
+		fixture.currentChange,
+		retainedProposal,
+		func(ctx context.Context, request verification.PlanningRequest) (verification.PlanningResult, error) {
+			return service.PlanVerification(ctx, fixture.currentChange, retainedProposal, selection, request)
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "changed protected source state") {
+		t.Fatalf("mutating planner error = %v", err)
+	}
+	if len(*events) != 2 || (*events)[1].EventType != execution.EventVerificationPlanningFailed ||
+		!(*events)[1].WorkspaceMayBeChanged {
+		t.Fatalf("mutating planner events = %#v", *events)
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
+}
+
 func TestCodexCLILiveProposalWorkspaceE2E(t *testing.T) {
 	if os.Getenv("PRAETOR_CODEX_CLI_E2E") != "1" {
 		t.Skip("set PRAETOR_CODEX_CLI_E2E=1 to run the authenticated Codex CLI smoke test")
@@ -464,6 +619,7 @@ func prepareExecutionFixture(t *testing.T) executionFixture {
 		"service_test.go": "package service\n",
 		"README.md":       "fixture\n",
 		"go.mod":          "module fixture\n\ngo 1.25.1\n",
+		"pyproject.toml":  "[tool.pytest.ini_options]\n",
 	}
 	for name, contents := range files {
 		if err := os.WriteFile(filepath.Join(canonicalRoot, name), []byte(contents), 0o600); err != nil {

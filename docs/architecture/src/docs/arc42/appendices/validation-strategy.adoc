@@ -130,14 +130,14 @@ source digest remain unchanged, no `.praetor` metadata appears, and external
 drift fails closed. These checks establish M0.5 provider/patch behavior only;
 they are not M0.6 deterministic target-project evidence.
 
-==== M0.6 Planned Verification Discovery and Evidence
+==== M0.6 Executable Verification Discovery and Evidence
 
-M0.6 separates repository discovery, optional AI-assisted planning, structured
-plan validation, deterministic execution, and evidence normalization.
-Discovery is language/framework/toolchain agnostic: package/dependency
-manifests, lockfiles, build/task files, repository scripts, test/lint/typecheck
-configuration, CI definitions, toolchain files, and similar project evidence
-are examples rather than a closed taxonomy.
+M0.6 implements separate repository discovery, optional AI-assisted planning,
+structured plan validation, deterministic execution, and evidence
+normalization. Discovery is language/framework/toolchain agnostic: bounded
+manifests, build/task files, test/lint/typecheck configuration, CI definitions,
+toolchain files, and similar project evidence are signals rather than an
+architecture-level language taxonomy.
 
 Verification knowledge retains its origin: repository-declared,
 deterministically inferred, AI-assisted inferred, or user/configured. Explicit
@@ -169,6 +169,14 @@ linkage, timestamps/duration, exit code, bounded/redacted stdout/stderr or
 artifact references, outcome, and only necessary reproducibility environment
 metadata. Provider completion, planning confidence, and semantic findings
 remain non-deterministic provenance.
+
+The executable discovery rules infer `go test ./...` from `go.mod` and read
+recognized verification scripts/targets from `package.json` and Makefile;
+other bounded manifests, CI definitions, and tool configuration remain
+available as optional planner evidence. Every admitted step is required,
+execution is sequential, and ordinary failures do not suppress later evidence
+unless caller cancellation prevents it. Patch integrity is always a separate
+deterministic result. Empty plans and any non-passing outcome fail closed.
 
 The M0.6 gate uses only the minimum deterministic rules required for V0. It
 does not implement the mature M1.0 Policy Engine, M1.1 Reviewer, or M1.3/M1.4

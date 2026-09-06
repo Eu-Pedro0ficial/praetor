@@ -14,6 +14,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
 )
 
@@ -25,12 +26,15 @@ type Session struct {
 	repositoryIntelligence *intelligence.Service
 	proposalLifecycle      *proposal.Service
 	providerExecution      *execution.Service
+	verification           *verification.Service
 	providerRegistry       *aiprovider.Registry
 	providerSelection      aiprovider.Selection
 	currentChange          change.Change
 	hasCurrentChange       bool
 	currentProposal        proposal.Proposal
 	hasCurrentProposal     bool
+	lastVerification       verification.Result
+	hasLastVerification    bool
 	modeStack              []ModeContext
 }
 
@@ -42,6 +46,7 @@ func NewSession(
 	repositoryIntelligence *intelligence.Service,
 	proposalLifecycle *proposal.Service,
 	providerExecution *execution.Service,
+	verificationService *verification.Service,
 	providerRegistry *aiprovider.Registry,
 	providerSelection aiprovider.Selection,
 ) (*Session, error) {
@@ -63,6 +68,9 @@ func NewSession(
 	if providerExecution == nil {
 		return nil, fmt.Errorf("provider execution capability is not configured")
 	}
+	if verificationService == nil {
+		return nil, fmt.Errorf("verification capability is not configured")
+	}
 	if providerRegistry == nil {
 		return nil, fmt.Errorf("AI provider registry is not configured")
 	}
@@ -75,6 +83,7 @@ func NewSession(
 		repositoryIntelligence: repositoryIntelligence,
 		proposalLifecycle:      proposalLifecycle,
 		providerExecution:      providerExecution,
+		verification:           verificationService,
 		providerRegistry:       providerRegistry,
 		providerSelection:      providerSelection,
 		modeStack:              []ModeContext{rootModeContext()},
@@ -168,6 +177,15 @@ func (session *Session) CurrentChange() (change.Change, bool) {
 	return session.currentChange, true
 }
 
+// LastVerification returns the most recent in-session M0.6 result, including
+// failure evidence when execution reached the deterministic gate.
+func (session *Session) LastVerification() (verification.Result, bool) {
+	if session == nil || !session.hasLastVerification {
+		return verification.Result{}, false
+	}
+	return session.lastVerification, true
+}
+
 func (session *Session) setCurrentChange(currentChange change.Change) {
 	session.currentChange = currentChange
 	session.hasCurrentChange = true
@@ -176,6 +194,11 @@ func (session *Session) setCurrentChange(currentChange change.Change) {
 func (session *Session) setCurrentProposal(currentProposal proposal.Proposal) {
 	session.currentProposal = currentProposal
 	session.hasCurrentProposal = true
+}
+
+func (session *Session) setLastVerification(result verification.Result) {
+	session.lastVerification = result
+	session.hasLastVerification = true
 }
 
 func (session *Session) clearCurrentProposal() {
@@ -221,7 +244,8 @@ func (session *Session) rejectCurrentChange(context string) error {
 		return nil
 	}
 	if session.currentChange.State() != change.StatePlanned &&
-		session.currentChange.State() != change.StateIsolated {
+		session.currentChange.State() != change.StateIsolated &&
+		session.currentChange.State() != change.StateValidated {
 		return fmt.Errorf(
 			"cannot reject Change %q from state %q while discarding proposal",
 			session.currentChange.ChangeId(),

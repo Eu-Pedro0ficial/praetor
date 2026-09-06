@@ -6,8 +6,8 @@ The roadmap must not treat memory, routing sophistication, or organizational lea
 
 The project must prove a governed change loop first, then expand capability after V0.
 
-Current implementation status: M0.0 through M0.5 are complete. M0.6 is next
-and remains unimplemented; this document defines its approved scope and gate.
+Current implementation status: M0.0 through M0.6 are complete. M0.7 remains
+unimplemented; this document continues to define its approved scope and gate.
 
 ## Mandatory decision closure rule
 

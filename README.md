@@ -45,9 +45,10 @@ See:
 
 Implementation in progress.
 
-M0.0 through M0.5 are complete; M0.5 delivered the AI Provider Port + First
-Adapter. M0.6 — Deterministic Verification + Evidence is the next
-implementation milestone and is not implemented yet.
+M0.0 through M0.6 are complete. M0.6 delivered deterministic verification
+discovery, constrained AI-assisted planning, direct-process execution, and
+source/patch-linked evidence. M0.7 — Human Approval + Change Audit remains
+unimplemented.
 
 The primary developer interface is the retained-context interactive shell.
 Run `praetor` inside a Git repository, then use plain commands such as `status`,
@@ -78,5 +79,19 @@ multi-provider execution.
 Codex CLI authentication remains owned by Codex CLI. Praetor does not persist
 provider credentials. This path retains Git source/workspace isolation only;
 it is not process, host-filesystem, credential, network, container, VM, or
-hostile-code containment. A surface-valid proposal remains `isolated`; M0.6
-owns deterministic validation and M0.7 owns human approval.
+hostile-code containment. A surface-valid proposal remains `isolated` until
+`change verify` executes the required checks against the retained proposal.
+
+M0.6 discovers explicit `package.json` scripts and Makefile targets, infers
+the baseline Go check from `go.mod`, and retains other bounded manifest,
+tooling, and CI signals for optional AI assistance. That assistance uses the
+same explicitly selected provider/model through a fresh
+`verification-planning` attempt; `codex-cli` enforces this role with its
+read-only sandbox. Planner output is parsed as structured candidates and is
+never sent through a shell. Praetor admits a small Core V0 direct-process tool
+set, runs every admitted step with finite time/output/environment boundaries,
+rechecks the retained patch and canonical source, and records an immutable
+runtime EvidenceSet plus bounded audit provenance. All required steps and the
+patch-integrity check must pass before the existing `isolated -> validated`
+transition. Failure leaves the Change `isolated` and the proposal retained;
+M0.7 still owns human approval and any canonical-source application.

@@ -257,6 +257,42 @@ func TestImplementationRoleRequiresOnlyItsDeclaredCapabilities(t *testing.T) {
 	}
 }
 
+func TestVerificationPlanningRoleRequiresReadOnlyCapability(t *testing.T) {
+	contract := aiprovider.VerificationPlanningRoleContract()
+	if contract.Role() != aiprovider.RoleVerificationPlanning ||
+		contract.WorkspaceAccess() != aiprovider.WorkspaceAccessReadOnly {
+		t.Fatalf("verification-planning role contract = %#v", contract)
+	}
+	incomplete, err := aiprovider.NewProviderDescriptor(
+		"write-only-provider",
+		"Test Vendor",
+		"Write-only Provider",
+		[]aiprovider.ProviderCapability{
+			aiprovider.CapabilityWorkspaceMutation,
+			aiprovider.CapabilityContextCancellation,
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewProviderDescriptor() error = %v", err)
+	}
+	if err := aiprovider.ValidateRole(incomplete, contract); err == nil ||
+		!strings.Contains(err.Error(), string(aiprovider.CapabilityWorkspaceReadOnly)) {
+		t.Fatalf("ValidateRole() read-only error = %v", err)
+	}
+	complete, err := aiprovider.NewProviderDescriptor(
+		"planner-provider",
+		"Test Vendor",
+		"Planner Provider",
+		contract.RequiredCapabilities(),
+	)
+	if err != nil {
+		t.Fatalf("NewProviderDescriptor() error = %v", err)
+	}
+	if err := aiprovider.ValidateRole(complete, contract); err != nil {
+		t.Fatalf("ValidateRole() error = %v", err)
+	}
+}
+
 type requestWorkspacePort struct{ workspaceRoot string }
 
 func (port requestWorkspacePort) Create(request proposal.WorkspaceRequest) (proposal.ProposalWorkspace, error) {

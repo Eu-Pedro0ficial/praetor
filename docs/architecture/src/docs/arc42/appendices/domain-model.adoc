@@ -149,7 +149,7 @@ events produced by an execution also link the Praetor attempt identity. Raw
 prompts, source bodies, provider output, workspace paths, and credentials are
 not audit metadata.
 
-===== M0.6 Planned Verification Boundary
+===== M0.6 Executable Verification Boundary
 
 M0.6 extends the provider-independent role contract with the exact
 `verification-planning` role while preserving `implementation` as a separate

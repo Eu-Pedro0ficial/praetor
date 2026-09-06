@@ -223,6 +223,27 @@ func TestServiceClassifiesCompletePatchSurface(t *testing.T) {
 	}
 }
 
+func TestServiceVerifiesRetainedPatchAndCanonicalIntegrity(t *testing.T) {
+	fixture := newProposalFixture(t)
+	currentProposal := fixture.create(t)
+	fixture.adapter.extracted = ExtractedPatch{
+		Content:      []byte("deterministic retained patch\n"),
+		ChangedPaths: []string{"service.go"},
+	}
+	retained, validation, err := fixture.service.ExtractPatch(currentProposal)
+	if err != nil || !validation.Allowed() || retained.Workspace().State() != WorkspaceRetained {
+		t.Fatalf("ExtractPatch() = %q/%t/%v", retained.Workspace().State(), validation.Allowed(), err)
+	}
+	if err := fixture.service.VerifyIntegrity(retained); err != nil {
+		t.Fatalf("VerifyIntegrity() error = %v", err)
+	}
+	fixture.adapter.extracted.Content = []byte("changed after retention\n")
+	if err := fixture.service.VerifyIntegrity(retained); err == nil ||
+		!strings.Contains(err.Error(), "changed after PatchArtifact creation") {
+		t.Fatalf("changed retained patch error = %v", err)
+	}
+}
+
 func TestServiceRejectsEmptyPatch(t *testing.T) {
 	fixture := newProposalFixture(t)
 	classified, validation, err := fixture.service.ExtractPatch(fixture.create(t))

@@ -158,10 +158,10 @@ ownership semantics. On success, it reports bounded provider provenance and
 the Git-derived patch summary; the proposal remains retained and the Change
 remains `isolated`.
 
-==== M0.6 Planned Verification Workflow
+==== M0.6 Executable Verification Workflow
 
-M0.6 is the next implementation milestone; no verification command is added
-to the current shell by this documentation update. Its approved workflow is:
+M0.6 adds direct `change verify` and contextual `verify` commands over the same
+centralized handler. The implemented workflow is:
 
 [source,text]
 ----
@@ -183,9 +183,11 @@ check passed, review semantic correctness, or approve/reject the Change. The
 same explicitly selected provider adapter may serve both roles without adding
 automatic routing, fallback, or multi-provider execution.
 
-Command and interaction design for the implemented M0.6 shell surface must
-continue to use ADR-029's single hierarchical metadata tree. This architecture
-update does not preselect command names or introduce placeholder handlers.
+The M0.6 shell surface remains in ADR-029's single hierarchical metadata tree,
+so contextual help, completion, direct invocation, and mode navigation share
+the same command definition. Passing deterministic evidence advances only
+`isolated -> validated`; failure retains the proposal and leaves the Change
+`isolated`.
 
 ==== Predefined Workloads
 

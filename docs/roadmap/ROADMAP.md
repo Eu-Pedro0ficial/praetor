@@ -10,9 +10,9 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
-Current implementation status: M0.0 through M0.5 are complete. M0.6 is the
-next implementation milestone; the architecture below is approved, but its
-runtime behavior is not implemented yet.
+Current implementation status: M0.0 through M0.6 are complete. M0.7 remains
+unimplemented; M0.6 stops at deterministic `validated` state and does not
+perform human approval or canonical-source application.
 
 ## Mandatory architecture decision closure rule
 

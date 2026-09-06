@@ -110,28 +110,37 @@ trust/data-classification enforcement. M1.3 owns provider trust and data
 routing; stronger process/container/network isolation remains a separate
 security decision.
 
-==== M0.6 Planned Verification Execution Boundary
+==== M0.6 Executable Verification Execution Boundary
 
-M0.6 introduces a separate `verification-planning` role with a fresh
+M0.6 implements a separate `verification-planning` role with a fresh
 `ExecutionAttemptId` and context. Unlike `implementation`, it has no
 source/workspace mutation capability. It receives only bounded relevant
 repository and patch context and returns structured planning metadata. The
-read-only boundary must be enforced by the provider/sandbox execution
-mechanism; prompt instructions alone are not a security control.
+`codex-cli` enforces that boundary with non-interactive ephemeral execution
+and `--sandbox read-only`; patch and canonical-source integrity checks before
+and after planning detect and reject mutation. Prompt instructions are only
+defense in depth, not the source security control.
 
 Planning output is untrusted. Praetor parses it into provenance-bearing
 VerificationCandidate values and validates each structured VerificationStep
 before execution. Raw AI strings are never interpolated through a shell.
-Validation bounds executable and arguments, resolves the working-directory
-scope, applies timeout/cancellation and output limits, and explicitly manages
-environment exposure. Repository-declared scripts remain potentially
-malicious even when discovery is deterministic.
+Validation bounds executable and arguments to admitted Core V0 direct-process
+templates, resolves tools outside governed source, confines the working
+directory to the ProposalWorkspace, applies timeout/cancellation and output
+limits, and passes a minimal environment without provider credentials. The
+local adapter captures PATH once, admits only absolute existing
+non-world-writable directories, excludes proposal/canonical directories from
+the child PATH, uses an ephemeral HOME/TMPDIR/build cache, and rejects Go path
+settings that target governed source. The authenticated host user's remaining
+PATH and installed tools are an explicit V0 trust boundary.
+Repository-declared npm/Make scripts remain potentially malicious even when
+discovery is deterministic; M0.6 is not hostile-code containment.
 
 Only real Verification Engine execution creates deterministic evidence.
 Source/patch linkage and drift checks prevent the planner or tool from
-silently changing the artifact being evaluated. Bounded stdout/stderr may
-still contain secrets, so evidence/audit storage requires minimization,
-redaction, or safe artifact references rather than indiscriminate capture.
+silently changing the artifact being evaluated. Bounded stdout/stderr is
+line-redacted for credential markers in runtime evidence. Audit records
+presence/truncation and outcome metadata rather than raw process output.
 
 These are minimum V0 controls, not a claim of hostile-code isolation or the
 mature M1.0 Policy Engine. Any stronger filesystem, process, container,

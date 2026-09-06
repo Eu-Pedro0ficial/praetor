@@ -19,6 +19,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/composition"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 )
 
 const commandExecutionAttemptId aiprovider.ExecutionAttemptId = "attempt-abcdef0123456789abcdef0123456789"
@@ -39,6 +40,7 @@ func newCommandFakeProvider(
 		"OpenAI Codex CLI",
 		[]aiprovider.ProviderCapability{
 			aiprovider.CapabilityWorkspaceMutation,
+			aiprovider.CapabilityWorkspaceReadOnly,
 			aiprovider.CapabilityNonInteractive,
 			aiprovider.CapabilityStructuredEvents,
 			aiprovider.CapabilityContextCancellation,
@@ -245,7 +247,7 @@ func TestChangeImplementDirectAndContextualUseProviderPipeline(t *testing.T) {
 					t.Fatalf("enter change mode: %v", err)
 				}
 				assertSuggestions(t, registry.ContextualHelp(session, ""), []string{
-					"new", "isolate", "implement", "patch", "discard", "help", "?", "end",
+					"new", "isolate", "implement", "patch", "verify", "discard", "help", "?", "end",
 				})
 			}
 
@@ -346,6 +348,14 @@ func prepareM05CommandTest(
 	t *testing.T,
 	provider aiprovider.Provider,
 ) (string, string, *command.Session, command.Registry) {
+	return prepareProviderCommandTest(t, provider, nil)
+}
+
+func prepareProviderCommandTest(
+	t *testing.T,
+	provider aiprovider.Provider,
+	verificationRunner verification.StepRunner,
+) (string, string, *command.Session, command.Registry) {
 	t.Helper()
 	repositoryRoot := t.TempDir()
 	runCommandGit(t, repositoryRoot, "init", "--quiet")
@@ -354,6 +364,7 @@ func prepareM05CommandTest(
 		"internal/service/service.go":      "package service\n\nfunc Greeting() string { return \"hello\" }\n",
 		"internal/service/service_test.go": "package service_test\n",
 		"go.mod":                           "module example.invalid/fixture\n\ngo 1.25.1\n",
+		"pyproject.toml":                   "[tool.pytest.ini_options]\n",
 		"README.md":                        "# Fixture\n",
 	}
 	for relativePath, contents := range files {
@@ -374,13 +385,29 @@ func prepareM05CommandTest(
 	container.AIProviders = []aiprovider.Provider{provider}
 	container.ConfiguredProvider = "codex-cli"
 	container.ConfiguredModel = ""
+	executionAttemptIndex := 0
 	container.ExecutionAttemptIds = func() (aiprovider.ExecutionAttemptId, error) {
-		return commandExecutionAttemptId, nil
+		identities := []aiprovider.ExecutionAttemptId{
+			commandExecutionAttemptId,
+			"attempt-fedcba9876543210fedcba9876543210",
+		}
+		if executionAttemptIndex < len(identities) {
+			identity := identities[executionAttemptIndex]
+			executionAttemptIndex++
+			return identity, nil
+		}
+		return aiprovider.GenerateExecutionAttemptId()
 	}
 	nextTime := time.Date(2026, time.September, 1, 15, 0, 0, 0, time.UTC)
 	container.ExecutionClock = func() time.Time {
 		nextTime = nextTime.Add(time.Second)
 		return nextTime
+	}
+	if verificationRunner != nil {
+		container.VerificationRunner = verificationRunner
+	}
+	container.VerificationAttemptIds = func() (verification.VerificationAttemptId, error) {
+		return "verification-abcdef0123456789abcdef0123456789", nil
 	}
 	session, err := container.NewInteractiveSession(".")
 	if err != nil {

@@ -1,6 +1,7 @@
 package proposal
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -278,6 +279,65 @@ func (service *Service) InspectChangedPaths(currentProposal Proposal) ([]string,
 		return nil, err
 	}
 	return append([]string(nil), extracted.ChangedPaths...), nil
+}
+
+// VerifyIntegrity proves a retained proposal still represents the exact
+// surface-valid PatchArtifact and unchanged canonical source captured by M0.4.
+// It does not create a new artifact or mutate proposal state.
+func (service *Service) VerifyIntegrity(currentProposal Proposal) error {
+	if currentProposal.workspace.State() != WorkspaceRetained {
+		return fmt.Errorf(
+			"proposal workspace %q must be retained for verification",
+			currentProposal.workspace.WorkspaceId(),
+		)
+	}
+	artifact, hasArtifact := currentProposal.PatchArtifact()
+	if !hasArtifact {
+		return fmt.Errorf("retained proposal has no PatchArtifact")
+	}
+	if artifact.WorkspaceId() != currentProposal.workspace.WorkspaceId() ||
+		artifact.ProjectId() != currentProposal.workspace.ProjectId() ||
+		artifact.ChangeId() != currentProposal.workspace.ChangeId() ||
+		artifact.BaseRevision() != currentProposal.workspace.BaseRevision() ||
+		artifact.SourceStateDigest() != currentProposal.workspace.SourceStateDigest() {
+		return fmt.Errorf("retained PatchArtifact linkage is inconsistent")
+	}
+
+	guard, err := NewCanonicalSourceGuard(currentProposal.canonicalSource, service.inspector)
+	if err != nil {
+		return err
+	}
+	if err := guard.Verify(); err != nil {
+		return err
+	}
+	extracted, err := service.patches.Extract(currentProposal.workspace)
+	if err != nil {
+		return fmt.Errorf("re-extract retained proposal patch: %w", err)
+	}
+	if !bytes.Equal(extracted.Content, artifact.Content()) ||
+		!equalStrings(extracted.ChangedPaths, artifact.ChangedPaths()) {
+		return fmt.Errorf("retained proposal changed after PatchArtifact creation")
+	}
+	validation, validationError := currentProposal.approvedScope.ValidateActualSurface(extracted.ChangedPaths)
+	if validationError != nil || !validation.Allowed() {
+		return fmt.Errorf("retained proposal no longer satisfies ApprovedScope: %w", validationError)
+	}
+	if err := guard.Verify(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func equalStrings(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 // ExtractPatch extracts the actual isolated diff, validates its complete path

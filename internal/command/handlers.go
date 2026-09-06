@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
+	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 )
 
 func handleStatus(session *Session, invocation Invocation, output io.Writer) (Result, error) {
@@ -32,6 +34,15 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 		fmt.Fprintf(output, "Proposal base revision: %s\n", workspace.BaseRevision())
 	} else {
 		fmt.Fprintln(output, "Current proposal: none")
+	}
+	if lastVerification, ok := session.LastVerification(); ok {
+		outcome := "FAIL"
+		if lastVerification.EvidenceSet().Passed() {
+			outcome = "PASS"
+		}
+		fmt.Fprintf(output, "Last verification: %s (%s)\n", lastVerification.AttemptId(), outcome)
+	} else {
+		fmt.Fprintln(output, "Last verification: none")
 	}
 	return Result{}, nil
 }
@@ -360,6 +371,94 @@ func handleChangeImplement(session *Session, invocation Invocation, output io.Wr
 	}
 	writePatchReport(output, executionResult.Proposal(), executionResult.Validation())
 	return Result{}, nil
+}
+
+func handleChangeVerify(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	currentProposal, ok := session.CurrentProposal()
+	if !ok {
+		return Result{}, fmt.Errorf("no retained proposal; use change implement or change patch first")
+	}
+	currentChange, ok := session.CurrentChange()
+	if !ok || currentChange.State() != change.StateIsolated {
+		return Result{}, fmt.Errorf("current Change must be isolated before verification")
+	}
+	if currentChange.ChangeId() != currentProposal.Workspace().ChangeId() ||
+		currentProposal.Workspace().State() != proposal.WorkspaceRetained {
+		return Result{}, fmt.Errorf("verification requires the current retained proposal for the isolated Change")
+	}
+
+	verificationResult, verificationError := session.verification.Verify(
+		invocation.Context,
+		currentChange,
+		currentProposal,
+		func(ctx context.Context, request verification.PlanningRequest) (verification.PlanningResult, error) {
+			return session.providerExecution.PlanVerification(
+				ctx,
+				currentChange,
+				currentProposal,
+				session.ProviderSelection(),
+				request,
+			)
+		},
+	)
+	session.setLastVerification(verificationResult)
+	writeVerificationReport(output, verificationResult, currentChange.State())
+	if verificationError != nil {
+		return Result{}, verificationError
+	}
+	validatedChange, err := session.changeWorkflow.Transition(
+		currentChange.ChangeId(),
+		change.StateValidated,
+		invocation.CommandPath+" deterministic verification passed",
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	session.setCurrentChange(validatedChange)
+	fmt.Fprintf(output, "Change state: %s\n", validatedChange.State())
+	return Result{}, nil
+}
+
+func writeVerificationReport(output io.Writer, result verification.Result, currentState change.ChangeState) {
+	if result.AttemptId() == "" {
+		fmt.Fprintln(output, "Verification attempt: unavailable")
+		fmt.Fprintln(output, "Verification result: FAIL")
+		fmt.Fprintf(output, "Change state: %s\n", currentState)
+		return
+	}
+	fmt.Fprintf(output, "Verification attempt: %s\n", result.AttemptId())
+	evidenceSet := result.EvidenceSet()
+	verdict := "FAIL"
+	if evidenceSet.Passed() {
+		verdict = "PASS"
+	}
+	fmt.Fprintf(output, "Verification result: %s\n", verdict)
+	if planning, used := result.PlanningResult(); used {
+		fmt.Fprintf(output, "AI planning provenance: provider=%s attempt=%s candidates=%d\n",
+			planning.Provider(), planning.ExecutionAttemptId(), len(planning.Candidates()))
+	} else if result.PlanningFailure() != "" {
+		fmt.Fprintln(output, "AI planning provenance: failed; deterministic candidates retained")
+	} else {
+		fmt.Fprintln(output, "AI planning provenance: not required")
+	}
+	for _, evidence := range evidenceSet.Evidence() {
+		arguments := strings.Join(evidence.Arguments(), " ")
+		command := evidence.Executable()
+		if arguments != "" {
+			command += " " + arguments
+		}
+		fmt.Fprintf(output, "Check: %s [%s] %s (%s)\n",
+			evidence.Kind(), evidence.Outcome(), command, evidence.Origin())
+	}
+	if evidenceSet.Id() != "" {
+		fmt.Fprintf(output, "Evidence set: %s (%d items)\n", evidenceSet.Id(), len(evidenceSet.Evidence()))
+	}
+	if !evidenceSet.Passed() {
+		fmt.Fprintf(output, "Change state: %s\n", currentState)
+	}
 }
 
 func handleChangeDiscard(session *Session, invocation Invocation, output io.Writer) (Result, error) {

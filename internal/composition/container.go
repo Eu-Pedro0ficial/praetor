@@ -7,6 +7,7 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/aiprovider/codexcli"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/verification/localexec"
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
@@ -16,6 +17,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
+	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
 )
 
@@ -31,23 +33,26 @@ type AuditLoggerFunc func(dataDirectory string, eventType string, projectID stri
 // ChangeAuditLoggerFunc records a Change lifecycle event with top-level audit linkage.
 type ChangeAuditLoggerFunc func(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (audit.Event, error)
 
-// Container assembles only the dependencies required by the current M0.5 runtime scope.
+// Container assembles only the dependencies required by the current M0.6 runtime scope.
 type Container struct {
-	RepositoryDiscovery  RepositoryDiscoveryFunc
-	RepositoryInspection intelligence.RepositoryInspector
-	ProjectRegistration  ProjectRegistrationFunc
-	AuditLogger          AuditLoggerFunc
-	ChangeAuditLogger    ChangeAuditLoggerFunc
-	ChangeStore          *workflow.MemoryStore
-	WorkflowClock        workflow.Clock
-	ProposalWorkspaces   proposal.WorkspacePort
-	PatchExtraction      proposal.PatchPort
-	ProposalClock        proposal.Clock
-	AIProviders          []aiprovider.Provider
-	ConfiguredProvider   string
-	ConfiguredModel      string
-	ExecutionAttemptIds  execution.AttemptIdGenerator
-	ExecutionClock       execution.Clock
+	RepositoryDiscovery    RepositoryDiscoveryFunc
+	RepositoryInspection   intelligence.RepositoryInspector
+	ProjectRegistration    ProjectRegistrationFunc
+	AuditLogger            AuditLoggerFunc
+	ChangeAuditLogger      ChangeAuditLoggerFunc
+	ChangeStore            *workflow.MemoryStore
+	WorkflowClock          workflow.Clock
+	ProposalWorkspaces     proposal.WorkspacePort
+	PatchExtraction        proposal.PatchPort
+	ProposalClock          proposal.Clock
+	AIProviders            []aiprovider.Provider
+	ConfiguredProvider     string
+	ConfiguredModel        string
+	ExecutionAttemptIds    execution.AttemptIdGenerator
+	ExecutionClock         execution.Clock
+	VerificationRunner     verification.StepRunner
+	VerificationAttemptIds verification.AttemptIdGenerator
+	VerificationClock      verification.Clock
 }
 
 // New creates the explicit composition root for the current runtime boundary.
@@ -81,6 +86,11 @@ func New() Container {
 		ConfiguredModel:     os.Getenv("PRAETOR_AI_MODEL"),
 		ExecutionAttemptIds: aiprovider.GenerateExecutionAttemptId,
 		ExecutionClock: func() time.Time {
+			return time.Now().UTC()
+		},
+		VerificationRunner:     localexec.NewDefault(),
+		VerificationAttemptIds: verification.GenerateVerificationAttemptId,
+		VerificationClock: func() time.Time {
 			return time.Now().UTC()
 		},
 	}
@@ -124,12 +134,17 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
+	verificationService, err := container.NewVerificationService(registration, proposalLifecycle)
+	if err != nil {
+		return nil, err
+	}
 	session, err := command.NewSession(
 		registration,
 		changeWorkflow,
 		repositoryIntelligence,
 		proposalLifecycle,
 		providerExecution,
+		verificationService,
 		providerRegistry,
 		providerSelection,
 	)
@@ -193,7 +208,7 @@ func (container Container) NewProviderExecutionService(
 		request := event.Request
 		if request.ProjectId() != registration.ProjectId {
 			return fmt.Errorf(
-				"M0.5 event ProjectId %q does not match registered ProjectId %q",
+				"provider event ProjectId %q does not match registered ProjectId %q",
 				request.ProjectId(),
 				registration.ProjectId,
 			)
@@ -218,6 +233,70 @@ func (container Container) NewProviderExecutionService(
 		recorder,
 		container.ExecutionAttemptIds,
 		container.ExecutionClock,
+	)
+}
+
+// NewVerificationService composes deterministic verification execution and
+// append-oriented evidence around one retained proposal lifecycle.
+func (container Container) NewVerificationService(
+	registration project.Registration,
+	proposalLifecycle *proposal.Service,
+) (*verification.Service, error) {
+	if proposalLifecycle == nil {
+		return nil, fmt.Errorf("proposal lifecycle dependency is not configured")
+	}
+	if container.VerificationRunner == nil {
+		return nil, fmt.Errorf("verification process runner dependency is not configured")
+	}
+	if container.VerificationAttemptIds == nil {
+		return nil, fmt.Errorf("verification attempt identity dependency is not configured")
+	}
+	if container.VerificationClock == nil {
+		return nil, fmt.Errorf("verification clock dependency is not configured")
+	}
+	if container.ChangeAuditLogger == nil {
+		return nil, fmt.Errorf("Change audit logger dependency is not configured")
+	}
+	dataDirectory, err := audit.ResolveDataDir()
+	if err != nil {
+		return nil, err
+	}
+	recorder := func(event verification.LifecycleEvent) error {
+		workspace := event.Proposal.Workspace()
+		if workspace.ProjectId() != registration.ProjectId {
+			return fmt.Errorf(
+				"M0.6 event ProjectId %q does not match registered ProjectId %q",
+				workspace.ProjectId(),
+				registration.ProjectId,
+			)
+		}
+		metadata, metadataError := verificationLifecycleMetadata(event)
+		if metadataError != nil {
+			return metadataError
+		}
+		_, recordError := container.ChangeAuditLogger(
+			dataDirectory,
+			event.EventType,
+			string(workspace.ProjectId()),
+			string(workspace.ChangeId()),
+			registration.RepositoryRoot,
+			metadata,
+		)
+		return recordError
+	}
+	engine, err := verification.NewEngine(
+		container.VerificationRunner,
+		proposalLifecycle.VerifyIntegrity,
+		container.VerificationClock,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return verification.New(
+		engine,
+		recorder,
+		container.VerificationAttemptIds,
+		container.VerificationClock,
 	)
 }
 
@@ -324,10 +403,10 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 	selection := request.Selection()
 	workspace := request.Workspace()
 	if descriptor.Identifier() == "" || descriptor.Identifier() != selection.ProviderIdentifier() {
-		return nil, fmt.Errorf("M0.5 provider descriptor and selection linkage is inconsistent")
+		return nil, fmt.Errorf("provider descriptor and selection linkage is inconsistent")
 	}
 	if event.OccurredAt.IsZero() {
-		return nil, fmt.Errorf("M0.5 provider execution event timestamp is required")
+		return nil, fmt.Errorf("provider execution event timestamp is required")
 	}
 	metadata := map[string]any{
 		"execution_attempt_id":  string(request.AttemptId()),
@@ -346,13 +425,15 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 	}
 
 	switch event.EventType {
-	case execution.EventProviderExecutionStarted:
+	case execution.EventProviderExecutionStarted,
+		execution.EventVerificationPlanningStarted:
 		metadata["disposition"] = "started"
-	case execution.EventProviderExecutionCompleted:
+	case execution.EventProviderExecutionCompleted,
+		execution.EventVerificationPlanningCompleted:
 		if !event.HasResponse ||
 			event.Response.AttemptId() != request.AttemptId() ||
 			event.Response.Selection().ProviderIdentifier() != selection.ProviderIdentifier() {
-			return nil, fmt.Errorf("M0.5 completed response linkage is inconsistent")
+			return nil, fmt.Errorf("completed provider response linkage is inconsistent")
 		}
 		response := event.Response
 		metadata["disposition"] = string(response.Outcome())
@@ -375,9 +456,10 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 				"reasoning_output_tokens": response.Usage().ReasoningOutputTokens(),
 			}
 		}
-	case execution.EventProviderExecutionFailed:
+	case execution.EventProviderExecutionFailed,
+		execution.EventVerificationPlanningFailed:
 		if event.FailureKind == "" {
-			return nil, fmt.Errorf("M0.5 failed execution requires a failure classification")
+			return nil, fmt.Errorf("failed provider execution requires a failure classification")
 		}
 		metadata["disposition"] = "failed"
 		metadata["failure_kind"] = string(event.FailureKind)
@@ -387,7 +469,89 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 			metadata["external_execution_id"] = event.ExternalExecutionId
 		}
 	default:
-		return nil, fmt.Errorf("unknown M0.5 lifecycle event type %q", event.EventType)
+		return nil, fmt.Errorf("unknown provider lifecycle event type %q", event.EventType)
+	}
+	return metadata, nil
+}
+
+func verificationLifecycleMetadata(event verification.LifecycleEvent) (map[string]any, error) {
+	workspace := event.Proposal.Workspace()
+	artifact, hasArtifact := event.Proposal.PatchArtifact()
+	if event.AttemptId == "" || event.OccurredAt.IsZero() || !hasArtifact {
+		return nil, fmt.Errorf("M0.6 verification event identity, time, and PatchArtifact are required")
+	}
+	if artifact.WorkspaceId() != workspace.WorkspaceId() ||
+		artifact.ProjectId() != workspace.ProjectId() ||
+		artifact.ChangeId() != workspace.ChangeId() {
+		return nil, fmt.Errorf("M0.6 verification event linkage is inconsistent")
+	}
+	metadata := map[string]any{
+		"verification_attempt_id": string(event.AttemptId),
+		"workspace_id":            string(workspace.WorkspaceId()),
+		"base_revision":           workspace.BaseRevision(),
+		"source_state_digest":     string(workspace.SourceStateDigest()),
+		"patch_digest":            artifact.PatchDigest(),
+		"event_timestamp":         event.OccurredAt.UTC().Format(time.RFC3339Nano),
+		"disposition":             event.Disposition,
+	}
+	if event.PlanStepCount > 0 {
+		metadata["plan_step_count"] = event.PlanStepCount
+	}
+	if event.HasEvidence {
+		evidence := event.Evidence
+		metadata["step_id"] = evidence.StepId()
+		metadata["step_kind"] = string(evidence.Kind())
+		metadata["candidate_origin"] = string(evidence.Origin())
+		metadata["executable"] = evidence.Executable()
+		metadata["arguments"] = evidence.Arguments()
+		metadata["working_directory"] = evidence.WorkingDirectory()
+		metadata["supporting_evidence"] = repositoryPathStrings(evidence.SupportingEvidence())
+		metadata["started_at"] = evidence.StartedAt().Format(time.RFC3339Nano)
+		metadata["completed_at"] = evidence.CompletedAt().Format(time.RFC3339Nano)
+		metadata["duration_milliseconds"] = evidence.Duration().Milliseconds()
+		metadata["outcome"] = string(evidence.Outcome())
+		metadata["stdout_present"] = evidence.StandardOutput() != ""
+		metadata["stderr_present"] = evidence.StandardError() != ""
+		metadata["output_truncated"] = evidence.OutputTruncated()
+		if exitCode, available := evidence.ExitCode(); available {
+			metadata["exit_code"] = exitCode
+		}
+	}
+	if event.HasEvidenceSet {
+		evidenceSet := event.EvidenceSet
+		if evidenceSet.VerificationAttemptId() != event.AttemptId ||
+			evidenceSet.ProjectId() != workspace.ProjectId() ||
+			evidenceSet.ChangeId() != workspace.ChangeId() ||
+			evidenceSet.WorkspaceId() != workspace.WorkspaceId() ||
+			evidenceSet.PatchDigest() != artifact.PatchDigest() {
+			return nil, fmt.Errorf("M0.6 EvidenceSet linkage is inconsistent")
+		}
+		metadata["evidence_set_id"] = evidenceSet.Id()
+		metadata["evidence_count"] = len(evidenceSet.Evidence())
+		metadata["passed"] = evidenceSet.Passed()
+	}
+	if event.Failure != "" {
+		metadata["failure"] = event.Failure
+	}
+	switch event.EventType {
+	case verification.EventVerificationStarted:
+		if event.Disposition != "started" {
+			return nil, fmt.Errorf("M0.6 start disposition is invalid")
+		}
+	case verification.EventVerificationStepCompleted:
+		if !event.HasEvidence {
+			return nil, fmt.Errorf("M0.6 step completion requires evidence")
+		}
+	case verification.EventVerificationCompleted:
+		if !event.HasEvidenceSet || !event.EvidenceSet.Passed() {
+			return nil, fmt.Errorf("M0.6 completion requires passing EvidenceSet")
+		}
+	case verification.EventVerificationFailed:
+		if event.Failure == "" {
+			return nil, fmt.Errorf("M0.6 failure requires bounded failure metadata")
+		}
+	default:
+		return nil, fmt.Errorf("unknown M0.6 lifecycle event type %q", event.EventType)
 	}
 	return metadata, nil
 }

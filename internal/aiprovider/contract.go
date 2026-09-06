@@ -35,29 +35,56 @@ type ProviderCapability string
 
 const (
 	CapabilityWorkspaceMutation   ProviderCapability = "workspace-mutation"
+	CapabilityWorkspaceReadOnly   ProviderCapability = "workspace-read-only"
 	CapabilityNonInteractive      ProviderCapability = "non-interactive-execution"
 	CapabilityStructuredEvents    ProviderCapability = "structured-events"
 	CapabilityContextCancellation ProviderCapability = "context-cancellation"
 )
 
-// ProviderRole identifies the single role implemented in M0.5.
+// ProviderRole identifies one explicitly supported AI responsibility.
 type ProviderRole string
 
-const RoleImplementation ProviderRole = "implementation"
+const (
+	RoleImplementation       ProviderRole = "implementation"
+	RoleVerificationPlanning ProviderRole = "verification-planning"
+)
+
+// WorkspaceAccess expresses the provider-independent filesystem authority of
+// one invocation. Concrete adapter sandbox names do not cross this boundary.
+type WorkspaceAccess string
+
+const (
+	WorkspaceAccessReadOnly WorkspaceAccess = "read-only"
+	WorkspaceAccessWrite    WorkspaceAccess = "workspace-write"
+)
 
 // ProviderRoleContract states what the selected provider invocation is doing
 // and the minimum capabilities required for that invocation.
 type ProviderRoleContract struct {
 	role                 ProviderRole
+	workspaceAccess      WorkspaceAccess
 	requiredCapabilities []ProviderCapability
 }
 
 // ImplementationRoleContract returns the narrow M0.5 implementation role.
 func ImplementationRoleContract() ProviderRoleContract {
 	return ProviderRoleContract{
-		role: RoleImplementation,
+		role:            RoleImplementation,
+		workspaceAccess: WorkspaceAccessWrite,
 		requiredCapabilities: []ProviderCapability{
 			CapabilityWorkspaceMutation,
+			CapabilityContextCancellation,
+		},
+	}
+}
+
+// VerificationPlanningRoleContract returns the read-only M0.6 planning role.
+func VerificationPlanningRoleContract() ProviderRoleContract {
+	return ProviderRoleContract{
+		role:            RoleVerificationPlanning,
+		workspaceAccess: WorkspaceAccessReadOnly,
+		requiredCapabilities: []ProviderCapability{
+			CapabilityWorkspaceReadOnly,
 			CapabilityContextCancellation,
 		},
 	}
@@ -66,14 +93,28 @@ func ImplementationRoleContract() ProviderRoleContract {
 // Role returns the role identity.
 func (contract ProviderRoleContract) Role() ProviderRole { return contract.role }
 
+// WorkspaceAccess returns the invocation's provider-independent write boundary.
+func (contract ProviderRoleContract) WorkspaceAccess() WorkspaceAccess {
+	return contract.workspaceAccess
+}
+
 // RequiredCapabilities returns a defensive copy of contract requirements.
 func (contract ProviderRoleContract) RequiredCapabilities() []ProviderCapability {
 	return append([]ProviderCapability(nil), contract.requiredCapabilities...)
 }
 
 func (contract ProviderRoleContract) validate() error {
-	if contract.role != RoleImplementation {
-		return fmt.Errorf("M0.5 requires the implementation provider role")
+	switch contract.role {
+	case RoleImplementation:
+		if contract.workspaceAccess != WorkspaceAccessWrite {
+			return fmt.Errorf("implementation role requires workspace-write access")
+		}
+	case RoleVerificationPlanning:
+		if contract.workspaceAccess != WorkspaceAccessReadOnly {
+			return fmt.Errorf("verification-planning role requires read-only access")
+		}
+	default:
+		return fmt.Errorf("unknown ProviderRole %q", contract.role)
 	}
 	if len(contract.requiredCapabilities) == 0 {
 		return fmt.Errorf("provider role requires capability metadata")
@@ -216,6 +257,81 @@ type ExecutionRequest struct {
 	sourceDigest  source.SourceStateDigest
 	roleContract  ProviderRoleContract
 	selection     Selection
+	planningInput VerificationPlanningInput
+	hasPlanning   bool
+}
+
+// PlanningEvidence is bounded repository context supplied to the read-only
+// verification planner. It is runtime input, not a persistent representation.
+type PlanningEvidence struct {
+	path    source.RepositoryPath
+	kind    string
+	content string
+}
+
+// NewPlanningEvidence validates one bounded provider-facing evidence item.
+func NewPlanningEvidence(pathValue string, kindValue string, content string) (PlanningEvidence, error) {
+	repositoryPath, err := source.NormalizeRepositoryPath(pathValue)
+	if err != nil {
+		return PlanningEvidence{}, err
+	}
+	kind := strings.TrimSpace(kindValue)
+	if kind == "" || kind != kindValue || len(kind) > 64 {
+		return PlanningEvidence{}, fmt.Errorf("planning evidence kind is invalid")
+	}
+	if len(content) > 32<<10 {
+		return PlanningEvidence{}, fmt.Errorf("planning evidence content exceeds 32 KiB")
+	}
+	return PlanningEvidence{path: repositoryPath, kind: kind, content: content}, nil
+}
+
+func (evidence PlanningEvidence) Path() source.RepositoryPath { return evidence.path }
+func (evidence PlanningEvidence) Kind() string                { return evidence.kind }
+func (evidence PlanningEvidence) Content() string             { return evidence.content }
+
+// VerificationPlanningInput carries only the bounded patch and repository
+// context needed by the M0.6 read-only role.
+type VerificationPlanningInput struct {
+	patchDigest  string
+	diffSummary  string
+	changedPaths []string
+	evidence     []PlanningEvidence
+}
+
+func newVerificationPlanningInput(
+	artifact proposal.PatchArtifact,
+	evidence []PlanningEvidence,
+) (VerificationPlanningInput, error) {
+	if len(evidence) > 64 {
+		return VerificationPlanningInput{}, fmt.Errorf("verification planning evidence exceeds 64 items")
+	}
+	totalBytes := 0
+	items := make([]PlanningEvidence, len(evidence))
+	for index, item := range evidence {
+		if item.path == "" || item.kind == "" {
+			return VerificationPlanningInput{}, fmt.Errorf("verification planning evidence item %d is invalid", index)
+		}
+		totalBytes += len(item.content)
+		if totalBytes > 256<<10 {
+			return VerificationPlanningInput{}, fmt.Errorf("verification planning evidence exceeds 256 KiB")
+		}
+		items[index] = item
+	}
+	return VerificationPlanningInput{
+		patchDigest:  artifact.PatchDigest(),
+		diffSummary:  artifact.DiffSummary(),
+		changedPaths: artifact.ChangedPaths(),
+		evidence:     items,
+	}, nil
+}
+
+func (input VerificationPlanningInput) PatchDigest() string { return input.patchDigest }
+func (input VerificationPlanningInput) DiffSummary() string { return input.diffSummary }
+func (input VerificationPlanningInput) ChangedPaths() []string {
+	return append([]string(nil), input.changedPaths...)
+}
+func (input VerificationPlanningInput) Evidence() []PlanningEvidence {
+	return append([]PlanningEvidence(nil), input.evidence...)
 }
 
 // ExecutionWorkspace is the safe provider-facing projection of an existing
@@ -243,6 +359,57 @@ func NewExecutionRequest(
 	roleContract ProviderRoleContract,
 	selection Selection,
 ) (ExecutionRequest, error) {
+	if roleContract.Role() != RoleImplementation {
+		return ExecutionRequest{}, fmt.Errorf("implementation request requires the implementation provider role")
+	}
+	return newExecutionRequest(
+		attemptId,
+		currentChange,
+		currentProposal,
+		roleContract,
+		selection,
+		VerificationPlanningInput{},
+		false,
+	)
+}
+
+// NewVerificationPlanningRequest constructs one fresh, read-only provider
+// request against a retained surface-valid proposal.
+func NewVerificationPlanningRequest(
+	attemptId ExecutionAttemptId,
+	currentChange change.Change,
+	currentProposal proposal.Proposal,
+	selection Selection,
+	evidence []PlanningEvidence,
+) (ExecutionRequest, error) {
+	artifact, hasArtifact := currentProposal.PatchArtifact()
+	if !hasArtifact {
+		return ExecutionRequest{}, fmt.Errorf("verification planning requires a retained PatchArtifact")
+	}
+	planningInput, err := newVerificationPlanningInput(artifact, evidence)
+	if err != nil {
+		return ExecutionRequest{}, err
+	}
+	return newExecutionRequest(
+		attemptId,
+		currentChange,
+		currentProposal,
+		VerificationPlanningRoleContract(),
+		selection,
+		planningInput,
+		true,
+	)
+}
+
+func newExecutionRequest(
+	attemptId ExecutionAttemptId,
+	currentChange change.Change,
+	currentProposal proposal.Proposal,
+	roleContract ProviderRoleContract,
+	selection Selection,
+	planningInput VerificationPlanningInput,
+	hasPlanning bool,
+) (ExecutionRequest, error) {
 	if err := validateExecutionAttemptId(attemptId); err != nil {
 		return ExecutionRequest{}, err
 	}
@@ -262,10 +429,22 @@ func NewExecutionRequest(
 	workspace := currentProposal.Workspace()
 	approvedScope := currentProposal.ApprovedScope()
 	canonicalSource := currentProposal.CanonicalSource()
-	if workspace.State() != proposal.WorkspaceActive {
+	requiredWorkspaceState := proposal.WorkspaceActive
+	if roleContract.Role() == RoleVerificationPlanning {
+		requiredWorkspaceState = proposal.WorkspaceRetained
+	}
+	if workspace.State() != requiredWorkspaceState {
+		if roleContract.Role() == RoleImplementation {
+			return ExecutionRequest{}, fmt.Errorf(
+				"proposal workspace %q is not active for provider execution",
+				workspace.WorkspaceId(),
+			)
+		}
 		return ExecutionRequest{}, fmt.Errorf(
-			"proposal workspace %q is not active",
+			"proposal workspace %q must be %q for role %q",
 			workspace.WorkspaceId(),
+			requiredWorkspaceState,
+			roleContract.Role(),
 		)
 	}
 	if currentChange.ProjectId() != workspace.ProjectId() ||
@@ -302,6 +481,8 @@ func NewExecutionRequest(
 		sourceDigest:  workspace.SourceStateDigest(),
 		roleContract:  roleContract,
 		selection:     selection,
+		planningInput: planningInput,
+		hasPlanning:   hasPlanning,
 	}, nil
 }
 
@@ -323,6 +504,9 @@ func (request ExecutionRequest) RoleContract() ProviderRoleContract {
 	return request.roleContract
 }
 func (request ExecutionRequest) Selection() Selection { return request.selection }
+func (request ExecutionRequest) VerificationPlanningInput() (VerificationPlanningInput, bool) {
+	return request.planningInput, request.hasPlanning
+}
 
 // ProviderUsage normalizes token usage when the adapter supplies it.
 type ProviderUsage struct {
@@ -533,6 +717,7 @@ func validateProviderVersion(value string) error {
 func isKnownCapability(capability ProviderCapability) bool {
 	switch capability {
 	case CapabilityWorkspaceMutation,
+		CapabilityWorkspaceReadOnly,
 		CapabilityNonInteractive,
 		CapabilityStructuredEvents,
 		CapabilityContextCancellation:

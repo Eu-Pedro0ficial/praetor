@@ -108,17 +108,19 @@ Selects an AI provider/model adapter based on the role's required capabilities a
 The Agent Router is not part of the M0.5 executable subset. M0.5 performs
 exact configuration/session selection only; it does not rank, route, fall
 back, or choose providers by capability, trust, classification, cost, or
-latency. The planned M0.6 scope introduces a second logical AI role while
+latency. The executable M0.6 scope introduces a second logical AI role while
 reusing the same explicitly selected adapter; this remains manual selection
 rather than Agent Router behavior.
 
 ==== AI Provider Port and First Adapter
 
-The executable M0.5 AI Provider Port describes one implementation attempt in
-provider-independent Praetor semantics. It accepts a normalized
-`ExecutionRequest` tied to an existing active ProposalWorkspace and returns a
-normalized `ProviderResponse`. The response is untrusted execution
-provenance; Git-derived workspace state is authoritative.
+M0.5 introduced the executable AI Provider Port for an implementation attempt
+in provider-independent Praetor semantics. M0.6 extends the same port with the
+exact read-only `verification-planning` role. A normalized `ExecutionRequest`
+is tied to the role-appropriate active or retained ProposalWorkspace and
+returns a normalized `ProviderResponse`. The response is untrusted execution
+provenance; Git-derived workspace state and actual verification processes are
+authoritative.
 
 The composition root explicitly registers exactly one adapter, `codex-cli`,
 and resolves the active provider and optional provider-scoped model by exact
@@ -146,11 +148,13 @@ This subset is source/workspace isolation, not process, network, container,
 VM, credential, or hostile-code containment. M0.4 has no provider or AI
 executor. M0.5 adds only the explicitly selected provider adapter operating in
 that workspace; it does not turn the worktree into a security sandbox or a
-generic command runner.
+generic command runner. M0.6 adds a separate, allowlisted direct-process
+verification adapter; this does not strengthen worktree isolation into
+hostile-code containment.
 
 ==== Verification Discovery and Planning
 
-The planned M0.6 discovery component derives candidate deterministic checks
+The executable M0.6 discovery component derives candidate deterministic checks
 from open-ended Repository Intelligence signals such as manifests, build/task
 files, test and analysis configuration, CI declarations, toolchain metadata,
 and repository scripts. It retains whether knowledge was
@@ -159,26 +163,32 @@ user/configured. Explicit repository declarations generally outrank AI
 inference.
 
 When deterministic signals are ambiguous, the provider-independent AI port
-may execute the exact `verification-planning` role. That invocation has a
-fresh context and Praetor attempt identity distinct from `implementation`, and
-its execution boundary forbids canonical and ProposalWorkspace writes. It
-produces structured `VerificationCandidate` values only; it is not the M1.1
-Reviewer or Approver and cannot create deterministic evidence.
+may execute the exact `verification-planning` role. Every invocation has a
+fresh ephemeral context and `ExecutionAttemptId` distinct from
+`implementation`; the `codex-cli` adapter selects its advertised read-only
+sandbox, while before/after patch and canonical-source checks fail closed on
+mutation. It produces structured `VerificationCandidate` values only; it is
+not the M1.1 Reviewer or Approver and cannot create deterministic evidence.
 
-The planner/candidate normalizer constructs a structured `VerificationPlan`.
-The minimum V0 rule gate validates each `VerificationStep` for provenance,
-executable resolution, bounded argument vectors, working-directory scope,
-environment exposure, timeout/cancellation, and output limits. AI-produced
-arbitrary shell text is never passed to a shell as executable authority.
+The planner/candidate normalizer constructs a non-empty structured
+`VerificationPlan`. The minimum V0 rule gate validates each required
+`VerificationStep` for provenance, a small admitted direct-process template,
+executable resolution outside governed source, bounded argument vectors,
+ProposalWorkspace-only working-directory scope, environment exposure,
+timeout/cancellation, and output limits. AI-produced arbitrary shell text is
+never passed to a shell as executable authority.
 
 ==== Verification Engine
 
-Coordinates structured deterministic validators and emits normalized evidence.
-Individual build, test, lint, typecheck, patch-integrity and other
-repository-supported runners are adapters rather than language branches in
-the core. Only their actual execution results can prove deterministic
-outcomes; provider completion and planning/semantic findings remain separate
-provenance.
+Coordinates sequential structured validators and emits normalized evidence.
+Core V0 infers `go test ./...`, reads recognized `package.json` scripts and
+Makefile targets, and keeps additional bounded evidence available to the
+planner. Admitted build, test, lint, typecheck, repository-check, and
+patch-integrity steps are represented independently from language branches.
+Only actual process and integrity results can prove deterministic outcomes;
+provider completion and planning/semantic findings remain separate
+provenance. An empty plan, missing tool, non-zero exit, timeout, cancellation,
+execution error, or integrity failure cannot pass.
 
 M1.8 later broadens this provider/tool-independent evidence architecture with
 advanced quality/security adapters and a Policy Engine-composed Quality Gate.

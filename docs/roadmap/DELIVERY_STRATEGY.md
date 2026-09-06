@@ -16,8 +16,8 @@ When a milestone reaches a deferred or benchmark trigger, the milestone must sto
 
 This rule is part of the delivery gate, not an optional policy note.
 
-Current implementation status: M0.0 through M0.5 are complete. M0.6 is the
-next implementation milestone and remains unimplemented.
+Current implementation status: M0.0 through M0.6 are complete. M0.7 remains
+unimplemented and is the next milestone.
 
 ## Revised delivery order
 

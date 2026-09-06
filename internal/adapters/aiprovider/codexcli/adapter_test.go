@@ -36,7 +36,7 @@ func withSuccessfulPreflight(execution runnerFunction) runnerFunction {
 		case "exec --help":
 			return processResult{standardOutput: []byte(strings.Join([]string{
 				"--model",
-				"--sandbox workspace-write",
+				"--sandbox workspace-write read-only",
 				"--cd",
 				"--ephemeral",
 				"--ignore-user-config",
@@ -146,6 +146,49 @@ func TestAdapterOmitsModelFlagForProviderDefault(t *testing.T) {
 	}
 	if strings.Contains(strings.Join(captured.arguments, " "), "--model") {
 		t.Fatalf("provider-default invocation hard-coded a model: %#v", captured.arguments)
+	}
+}
+
+func TestAdapterShapesReadOnlyVerificationPlanningRequest(t *testing.T) {
+	request, canonicalRoot := adapterPlanningTestRequest(t, "gpt-planner")
+	var captured processInvocation
+	output := strings.Join([]string{
+		`{"type":"thread.started","thread_id":"thread-planner"}`,
+		`{"type":"item.completed","item":{"type":"agent_message","text":"{\"candidates\":[{\"kind\":\"test\",\"executable\":\"go\",\"arguments\":[\"test\",\"./...\"],\"working_directory\":\".\",\"supporting_evidence\":[\"go.mod\"]}]}"}}`,
+		`{"type":"turn.completed"}`,
+	}, "\n") + "\n"
+	adapter, err := newWithRunner(Config{}, withSuccessfulPreflight(runnerFunction(func(_ context.Context, invocation processInvocation) (processResult, error) {
+		captured = invocation
+		return processResult{standardOutput: []byte(output)}, nil
+	})))
+	if err != nil {
+		t.Fatalf("newWithRunner() error = %v", err)
+	}
+	response, err := adapter.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	arguments := strings.Join(captured.arguments, " ")
+	if !strings.Contains(arguments, "--sandbox read-only") || strings.Contains(arguments, "--sandbox workspace-write") {
+		t.Fatalf("verification-planning arguments = %q", captured.arguments)
+	}
+	for _, expected := range []string{
+		"read-only verification-planning agent",
+		"Do not modify any file",
+		"Return exactly one JSON object",
+		"Patch digest:",
+		"Changed paths:\n- service.go",
+		"evidence path=go.mod kind=manifest",
+	} {
+		if !strings.Contains(captured.standardInput, expected) {
+			t.Fatalf("planner request lacks %q:\n%s", expected, captured.standardInput)
+		}
+	}
+	if strings.Contains(captured.standardInput, canonicalRoot) || strings.Contains(arguments, canonicalRoot) {
+		t.Fatalf("planner request leaked canonical source path")
+	}
+	if response.ExternalExecutionId() != "thread-planner" || !strings.HasPrefix(response.Summary(), `{"candidates"`) {
+		t.Fatalf("planner response = %#v", response)
 	}
 }
 
@@ -367,25 +410,35 @@ func TestAdapterPreflightUsesOnlyBoundedLocalProcessProbes(t *testing.T) {
 }
 
 func TestAdapterPropagatesCancellationAndTimeout(t *testing.T) {
-	request, _ := adapterTestRequest(t, "")
-	blockingRunner := runnerFunction(func(ctx context.Context, _ processInvocation) (processResult, error) {
-		<-ctx.Done()
-		return processResult{}, ctx.Err()
-	})
+	for _, test := range []struct {
+		name    string
+		request func(*testing.T, string) (aiprovider.ExecutionRequest, string)
+	}{
+		{name: "implementation", request: adapterTestRequest},
+		{name: "verification-planning", request: adapterPlanningTestRequest},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request, _ := test.request(t, "")
+			blockingRunner := runnerFunction(func(ctx context.Context, _ processInvocation) (processResult, error) {
+				<-ctx.Done()
+				return processResult{}, ctx.Err()
+			})
 
-	cancelledContext, cancel := context.WithCancel(context.Background())
-	cancel()
-	cancelledAdapter, _ := newWithRunner(Config{Timeout: time.Minute}, withSuccessfulPreflight(blockingRunner))
-	_, cancellationError := cancelledAdapter.Execute(cancelledContext, request)
-	var normalized *aiprovider.ExecutionError
-	if !errors.As(cancellationError, &normalized) || normalized.Kind() != aiprovider.FailureCancelled {
-		t.Fatalf("cancellation error = %v", cancellationError)
-	}
+			cancelledContext, cancel := context.WithCancel(context.Background())
+			cancel()
+			cancelledAdapter, _ := newWithRunner(Config{Timeout: time.Minute}, withSuccessfulPreflight(blockingRunner))
+			_, cancellationError := cancelledAdapter.Execute(cancelledContext, request)
+			var normalized *aiprovider.ExecutionError
+			if !errors.As(cancellationError, &normalized) || normalized.Kind() != aiprovider.FailureCancelled {
+				t.Fatalf("cancellation error = %v", cancellationError)
+			}
 
-	timedAdapter, _ := newWithRunner(Config{Timeout: 10 * time.Millisecond}, withSuccessfulPreflight(blockingRunner))
-	_, timeoutError := timedAdapter.Execute(context.Background(), request)
-	if !errors.As(timeoutError, &normalized) || normalized.Kind() != aiprovider.FailureTimeout {
-		t.Fatalf("timeout error = %v", timeoutError)
+			timedAdapter, _ := newWithRunner(Config{Timeout: 10 * time.Millisecond}, withSuccessfulPreflight(blockingRunner))
+			_, timeoutError := timedAdapter.Execute(context.Background(), request)
+			if !errors.As(timeoutError, &normalized) || normalized.Kind() != aiprovider.FailureTimeout {
+				t.Fatalf("timeout error = %v", timeoutError)
+			}
+		})
 	}
 }
 
@@ -398,7 +451,7 @@ if [ "$1" = "--version" ]; then
   exit 0
 fi
 if [ "$1" = "exec" ] && [ "$2" = "--help" ]; then
-  printf '%s\n' '--model --sandbox workspace-write --cd --ephemeral --ignore-user-config --color --json'
+  printf '%s\n' '--model --sandbox workspace-write read-only --cd --ephemeral --ignore-user-config --color --json'
   exit 0
 fi
 printf '%s\n' "$PWD" > process-directory.txt
@@ -457,7 +510,7 @@ if [ "$1" = "--version" ]; then
   exit 0
 fi
 if [ "$1" = "exec" ] && [ "$2" = "--help" ]; then
-  printf '%s\n' '--model --sandbox workspace-write --cd --ephemeral --ignore-user-config --color --json'
+  printf '%s\n' '--model --sandbox workspace-write read-only --cd --ephemeral --ignore-user-config --color --json'
   exit 0
 fi
 printf 'package service\n\nconst Partial = true\n' > service.go
@@ -510,13 +563,23 @@ func (port adapterWorkspacePort) Create(request proposal.WorkspaceRequest) (prop
 }
 func (adapterWorkspacePort) Remove(proposal.ProposalWorkspace) error { return nil }
 
-type adapterPatchPort struct{}
+type adapterPatchPort struct {
+	extracted proposal.ExtractedPatch
+}
 
-func (adapterPatchPort) Extract(proposal.ProposalWorkspace) (proposal.ExtractedPatch, error) {
-	return proposal.ExtractedPatch{}, nil
+func (port *adapterPatchPort) Extract(proposal.ProposalWorkspace) (proposal.ExtractedPatch, error) {
+	return port.extracted, nil
 }
 
 func adapterTestRequest(t *testing.T, model string) (aiprovider.ExecutionRequest, string) {
+	return adapterRequestFixture(t, model, false)
+}
+
+func adapterPlanningTestRequest(t *testing.T, model string) (aiprovider.ExecutionRequest, string) {
+	return adapterRequestFixture(t, model, true)
+}
+
+func adapterRequestFixture(t *testing.T, model string, planning bool) (aiprovider.ExecutionRequest, string) {
 	t.Helper()
 	canonicalRoot := t.TempDir()
 	workspaceRoot := t.TempDir()
@@ -568,9 +631,10 @@ func adapterTestRequest(t *testing.T, model string) (aiprovider.ExecutionRequest
 	if err != nil {
 		t.Fatalf("EstablishApprovedScope() error = %v", err)
 	}
+	patchPort := &adapterPatchPort{}
 	proposalService, err := proposal.New(
 		adapterWorkspacePort{root: workspaceRoot},
-		adapterPatchPort{},
+		patchPort,
 		func(project.ProjectId, string) (source.SourceSnapshot, error) { return snapshot, nil },
 		func(proposal.LifecycleEvent) error { return nil },
 		func() time.Time { return createdAt.Add(3 * time.Second) },
@@ -590,13 +654,40 @@ func adapterTestRequest(t *testing.T, model string) (aiprovider.ExecutionRequest
 	if err != nil {
 		t.Fatalf("NewSelection() error = %v", err)
 	}
-	request, err := aiprovider.NewExecutionRequest(
-		attemptId,
-		currentChange,
-		currentProposal,
-		aiprovider.ImplementationRoleContract(),
-		selection,
-	)
+	var request aiprovider.ExecutionRequest
+	if planning {
+		changedContents := "package service\n\nfunc Greeting() string { return \"hello-praetor\" }\n"
+		if err := os.WriteFile(filepath.Join(workspaceRoot, "service.go"), []byte(changedContents), 0o600); err != nil {
+			t.Fatalf("write planned fixture change: %v", err)
+		}
+		patchPort.extracted = proposal.ExtractedPatch{
+			Content:      []byte("diff --git a/service.go b/service.go\n+hello-praetor\n"),
+			ChangedPaths: []string{"service.go"},
+		}
+		currentProposal, _, err = proposalService.ExtractPatch(currentProposal)
+		if err != nil {
+			t.Fatalf("ExtractPatch() error = %v", err)
+		}
+		evidence, evidenceError := aiprovider.NewPlanningEvidence("go.mod", "manifest", "module fixture\n")
+		if evidenceError != nil {
+			t.Fatalf("NewPlanningEvidence() error = %v", evidenceError)
+		}
+		request, err = aiprovider.NewVerificationPlanningRequest(
+			attemptId,
+			currentChange,
+			currentProposal,
+			selection,
+			[]aiprovider.PlanningEvidence{evidence},
+		)
+	} else {
+		request, err = aiprovider.NewExecutionRequest(
+			attemptId,
+			currentChange,
+			currentProposal,
+			aiprovider.ImplementationRoleContract(),
+			selection,
+		)
+	}
 	if err != nil {
 		t.Fatalf("NewExecutionRequest() error = %v", err)
 	}
