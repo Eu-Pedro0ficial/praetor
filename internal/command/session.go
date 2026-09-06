@@ -12,6 +12,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
+	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
@@ -22,24 +23,26 @@ import (
 // Session retains the active Project context and process-local milestone
 // capabilities for one interactive shell session.
 type Session struct {
-	registration           project.Registration
-	changeWorkflow         *workflow.Service
-	repositoryIntelligence *intelligence.Service
-	proposalLifecycle      *proposal.Service
-	providerExecution      *execution.Service
-	verification           *verification.Service
-	approval               approval.Port
-	providerRegistry       *aiprovider.Registry
-	providerSelection      aiprovider.Selection
-	currentChange          change.Change
-	hasCurrentChange       bool
-	currentProposal        proposal.Proposal
-	hasCurrentProposal     bool
-	lastVerification       verification.Result
-	hasLastVerification    bool
-	lastDecision           approval.HumanDecision
-	hasLastDecision        bool
-	modeStack              []ModeContext
+	registration              project.Registration
+	changeWorkflow            *workflow.Service
+	repositoryIntelligence    *intelligence.Service
+	proposalLifecycle         *proposal.Service
+	providerExecution         *execution.Service
+	verification              *verification.Service
+	approval                  approval.Port
+	canonicalIntegration      *integration.Service
+	providerRegistry          *aiprovider.Registry
+	providerSelection         aiprovider.Selection
+	currentChange             change.Change
+	hasCurrentChange          bool
+	currentProposal           proposal.Proposal
+	hasCurrentProposal        bool
+	lastVerification          verification.Result
+	hasLastVerification       bool
+	lastDecision              approval.HumanDecision
+	hasLastDecision           bool
+	canonicalMutationOccurred bool
+	modeStack                 []ModeContext
 }
 
 // NewSession constructs retained command context from explicitly composed
@@ -52,6 +55,7 @@ func NewSession(
 	providerExecution *execution.Service,
 	verificationService *verification.Service,
 	approvalPort approval.Port,
+	canonicalIntegration *integration.Service,
 	providerRegistry *aiprovider.Registry,
 	providerSelection aiprovider.Selection,
 ) (*Session, error) {
@@ -79,6 +83,9 @@ func NewSession(
 	if approvalPort == nil {
 		return nil, fmt.Errorf("human approval capability is not configured")
 	}
+	if canonicalIntegration == nil {
+		return nil, fmt.Errorf("canonical integration capability is not configured")
+	}
 	if providerRegistry == nil {
 		return nil, fmt.Errorf("AI provider registry is not configured")
 	}
@@ -93,6 +100,7 @@ func NewSession(
 		providerExecution:      providerExecution,
 		verification:           verificationService,
 		approval:               approvalPort,
+		canonicalIntegration:   canonicalIntegration,
 		providerRegistry:       providerRegistry,
 		providerSelection:      providerSelection,
 		modeStack:              []ModeContext{rootModeContext()},
@@ -210,6 +218,14 @@ func (session *Session) setCurrentChange(currentChange change.Change) {
 }
 
 func (session *Session) setCurrentProposal(currentProposal proposal.Proposal) {
+	if !session.hasCurrentProposal ||
+		session.currentProposal.Workspace().WorkspaceId() != currentProposal.Workspace().WorkspaceId() {
+		session.lastVerification = verification.Result{}
+		session.hasLastVerification = false
+		session.lastDecision = approval.HumanDecision{}
+		session.hasLastDecision = false
+		session.canonicalMutationOccurred = false
+	}
 	session.currentProposal = currentProposal
 	session.hasCurrentProposal = true
 }
@@ -224,9 +240,14 @@ func (session *Session) setLastDecision(decision approval.HumanDecision) {
 	session.hasLastDecision = true
 }
 
+func (session *Session) markCanonicalMutation() {
+	session.canonicalMutationOccurred = true
+}
+
 func (session *Session) clearCurrentProposal() {
 	session.currentProposal = proposal.Proposal{}
 	session.hasCurrentProposal = false
+	session.canonicalMutationOccurred = false
 }
 
 // Close cleans any process-owned proposal workspace before the interactive
@@ -242,16 +263,38 @@ func (session *Session) Close() error {
 			session.currentChange.State() != change.StateAuditLocked) {
 		transitionError = session.rejectCurrentChange("interactive session closed with proposal workspace")
 	}
-	cleaned, discardError := session.proposalLifecycle.Discard(
-		session.currentProposal,
-		"interactive session closed",
-	)
+	var cleaned proposal.Proposal
+	var discardError error
+	if session.currentChange.State() == change.StateAuditLocked || session.canonicalMutationOccurred {
+		cleaned, discardError = session.proposalLifecycle.CleanupClosed(
+			session.currentProposal,
+			"interactive session closed after terminal canonical integration",
+		)
+	} else {
+		cleaned, discardError = session.proposalLifecycle.Discard(
+			session.currentProposal,
+			"interactive session closed",
+		)
+	}
 	if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
 		session.clearCurrentProposal()
 	} else {
 		session.setCurrentProposal(cleaned)
 	}
 	return errors.Join(transitionError, discardError)
+}
+
+func (session *Session) cleanupTerminalProposal(reason string) error {
+	if session == nil || !session.hasCurrentProposal {
+		return nil
+	}
+	cleaned, err := session.proposalLifecycle.CleanupClosed(session.currentProposal, reason)
+	if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
+		session.clearCurrentProposal()
+	} else {
+		session.setCurrentProposal(cleaned)
+	}
+	return err
 }
 
 func (session *Session) rejectAndDiscardProposal(reason string) error {

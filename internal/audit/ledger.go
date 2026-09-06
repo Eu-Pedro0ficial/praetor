@@ -47,6 +47,10 @@ const (
 	EventVerificationCompleted         = "VERIFICATION_COMPLETED"
 	EventVerificationFailed            = "VERIFICATION_FAILED"
 	EventHumanDecisionRecorded         = "HUMAN_DECISION_RECORDED"
+	EventCanonicalApplicationStarted   = "CANONICAL_APPLICATION_STARTED"
+	EventCanonicalApplicationCompleted = "CANONICAL_APPLICATION_COMPLETED"
+	EventCanonicalApplicationFailed    = "CANONICAL_APPLICATION_FAILED"
+	EventChangeClosureRecorded         = "CHANGE_CLOSURE_RECORDED"
 )
 
 // Event is one append-oriented local runtime audit record.
@@ -323,7 +327,11 @@ func eventRequiresChangeId(eventType string) bool {
 		EventVerificationStepCompleted,
 		EventVerificationCompleted,
 		EventVerificationFailed,
-		EventHumanDecisionRecorded:
+		EventHumanDecisionRecorded,
+		EventCanonicalApplicationStarted,
+		EventCanonicalApplicationCompleted,
+		EventCanonicalApplicationFailed,
+		EventChangeClosureRecorded:
 		return true
 	default:
 		return false

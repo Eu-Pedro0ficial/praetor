@@ -13,6 +13,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
+	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
@@ -34,7 +35,7 @@ type AuditLoggerFunc func(dataDirectory string, eventType string, projectID stri
 // ChangeAuditLoggerFunc records a Change lifecycle event with top-level audit linkage.
 type ChangeAuditLoggerFunc func(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (audit.Event, error)
 
-// Container assembles only the dependencies required by the current M0.7 runtime scope.
+// Container assembles only the dependencies required by the current M0.8 runtime scope.
 type Container struct {
 	RepositoryDiscovery    RepositoryDiscoveryFunc
 	RepositoryInspection   intelligence.RepositoryInspector
@@ -55,6 +56,8 @@ type Container struct {
 	VerificationAttemptIds verification.AttemptIdGenerator
 	VerificationClock      verification.Clock
 	ApprovalClock          approval.Clock
+	CanonicalSource        integration.CanonicalSourcePort
+	IntegrationClock       integration.Clock
 }
 
 // New creates the explicit composition root for the current runtime boundary.
@@ -98,11 +101,15 @@ func New() Container {
 		ApprovalClock: func() time.Time {
 			return time.Now().UTC()
 		},
+		CanonicalSource: gitProposalAdapter,
+		IntegrationClock: func() time.Time {
+			return time.Now().UTC()
+		},
 	}
 }
 
 // NewInteractiveSession composes one retained shell session around the active
-// Project and the current M0.1-M0.7 application capabilities.
+// Project and the current M0.1-M0.8 application capabilities.
 func (container Container) NewInteractiveSession(path string) (*command.Session, error) {
 	registration, err := container.EnsureProjectRegistration(path)
 	if err != nil {
@@ -147,6 +154,10 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
+	integrationService, err := container.NewIntegrationService(registration, changeWorkflow, proposalLifecycle)
+	if err != nil {
+		return nil, err
+	}
 	session, err := command.NewSession(
 		registration,
 		changeWorkflow,
@@ -155,6 +166,7 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		providerExecution,
 		verificationService,
 		approvalService,
+		integrationService,
 		providerRegistry,
 		providerSelection,
 	)
@@ -184,6 +196,129 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		return nil, err
 	}
 	return session, nil
+}
+
+// NewIntegrationService composes M0.8 canonical application and rejection
+// closure through the existing local Git and append-oriented audit adapters.
+func (container Container) NewIntegrationService(
+	registration project.Registration,
+	changeWorkflow *workflow.Service,
+	proposalLifecycle *proposal.Service,
+) (*integration.Service, error) {
+	if changeWorkflow == nil {
+		return nil, fmt.Errorf("Change workflow dependency is not configured")
+	}
+	if proposalLifecycle == nil {
+		return nil, fmt.Errorf("proposal lifecycle dependency is not configured")
+	}
+	if container.CanonicalSource == nil {
+		return nil, fmt.Errorf("canonical source application dependency is not configured")
+	}
+	if container.RepositoryInspection == nil {
+		return nil, fmt.Errorf("repository inspection dependency is not configured")
+	}
+	if container.ChangeAuditLogger == nil {
+		return nil, fmt.Errorf("Change audit logger dependency is not configured")
+	}
+	if container.IntegrationClock == nil {
+		return nil, fmt.Errorf("canonical integration clock dependency is not configured")
+	}
+	dataDirectory, err := audit.ResolveDataDir()
+	if err != nil {
+		return nil, err
+	}
+	recorder := func(event integration.LifecycleEvent) error {
+		if event.Change.ProjectId() != registration.ProjectId {
+			return fmt.Errorf(
+				"M0.8 event ProjectId %q does not match registered ProjectId %q",
+				event.Change.ProjectId(),
+				registration.ProjectId,
+			)
+		}
+		metadata, metadataError := canonicalIntegrationMetadata(event)
+		if metadataError != nil {
+			return metadataError
+		}
+		_, recordError := container.ChangeAuditLogger(
+			dataDirectory,
+			event.EventType,
+			string(event.Change.ProjectId()),
+			string(event.Change.ChangeId()),
+			registration.RepositoryRoot,
+			metadata,
+		)
+		return recordError
+	}
+	return integration.New(
+		changeWorkflow,
+		proposalLifecycle.VerifyIntegrity,
+		container.CanonicalSource,
+		integration.RepositoryInspector(container.RepositoryInspection),
+		recorder,
+		container.IntegrationClock,
+	)
+}
+
+func canonicalIntegrationMetadata(event integration.LifecycleEvent) (map[string]any, error) {
+	workspace := event.Proposal.Workspace()
+	artifact, hasArtifact := event.Proposal.PatchArtifact()
+	evidence := event.Verification.EvidenceSet()
+	decision := event.Decision
+	if event.OccurredAt.IsZero() || !hasArtifact ||
+		workspace.ProjectId() != event.Change.ProjectId() ||
+		workspace.ChangeId() != event.Change.ChangeId() ||
+		artifact.WorkspaceId() != workspace.WorkspaceId() ||
+		evidence.WorkspaceId() != workspace.WorkspaceId() ||
+		decision.WorkspaceId() != workspace.WorkspaceId() {
+		return nil, fmt.Errorf("M0.8 lifecycle event linkage is inconsistent")
+	}
+	metadata := map[string]any{
+		"workspace_id":                string(workspace.WorkspaceId()),
+		"base_revision":               artifact.BaseRevision(),
+		"source_state_digest":         string(artifact.SourceStateDigest()),
+		"patch_digest":                artifact.PatchDigest(),
+		"changed_paths":               artifact.ChangedPaths(),
+		"changed_path_count":          len(artifact.ChangedPaths()),
+		"verification_attempt_id":     string(evidence.VerificationAttemptId()),
+		"evidence_set_id":             evidence.Id(),
+		"evidence_count":              len(evidence.Evidence()),
+		"human_decision":              string(decision.Kind()),
+		"canonical_mutation_occurred": event.CanonicalMutationOccurred,
+		"event_timestamp":             event.OccurredAt.UTC().Format(time.RFC3339Nano),
+	}
+	switch event.EventType {
+	case integration.EventCanonicalApplicationStarted:
+		metadata["disposition"] = "started"
+	case integration.EventCanonicalApplicationCompleted:
+		result := event.Result
+		if !result.CanonicalMutationOccurred() || !result.CanonicalApplicationProven() ||
+			result.PatchDigest() != artifact.PatchDigest() ||
+			result.EvidenceSetId() != evidence.Id() {
+			return nil, fmt.Errorf("M0.8 canonical completion proof is inconsistent")
+		}
+		metadata["disposition"] = "completed"
+		metadata["resulting_source_state_digest"] = string(result.ResultingSourceStateDigest())
+		metadata["canonical_head"] = result.CanonicalHead()
+		metadata["index_unchanged"] = result.IndexUnchanged()
+		metadata["canonical_result_digest"] = result.ResultDigest()
+	case integration.EventCanonicalApplicationFailed:
+		if event.FailureStage == "" || event.Failure == "" {
+			return nil, fmt.Errorf("M0.8 canonical application failure metadata is incomplete")
+		}
+		metadata["disposition"] = "failed"
+		metadata["failure_stage"] = event.FailureStage
+		metadata["failure"] = event.Failure
+		metadata["canonical_application_proven"] = event.Result.CanonicalApplicationProven()
+	case integration.EventChangeClosureRecorded:
+		if decision.Kind() != approval.DecisionReject || event.CanonicalMutationOccurred {
+			return nil, fmt.Errorf("M0.8 rejection closure metadata is inconsistent")
+		}
+		metadata["disposition"] = "rejected-closure"
+		metadata["canonical_source_unchanged"] = true
+	default:
+		return nil, fmt.Errorf("unknown M0.8 lifecycle event type %q", event.EventType)
+	}
+	return metadata, nil
 }
 
 // NewApprovalService composes the M0.7 explicit local-human decision gate

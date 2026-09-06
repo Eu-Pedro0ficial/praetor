@@ -111,7 +111,7 @@ func newRegistry(definitions []Definition, end Definition) (Registry, error) {
 	return registry, nil
 }
 
-// DefaultRegistry constructs the current M0.1-M0.7 hierarchical shell
+// DefaultRegistry constructs the current M0.1-M0.8 hierarchical shell
 // command surface.
 func DefaultRegistry() (Registry, error) {
 	var registry Registry
@@ -140,7 +140,7 @@ func DefaultRegistry() (Registry, error) {
 		{
 			Name:        "change",
 			Description: "Enter software Change governance mode",
-			Usage:       "change [new|isolate|implement|patch|verify|approve|reject|discard ...]",
+			Usage:       "change [new|isolate|implement|patch|verify|approve|reject|apply|close|discard ...]",
 			Mode:        ModeChange,
 			Children: []Definition{
 				{
@@ -185,6 +185,18 @@ func DefaultRegistry() (Registry, error) {
 					Description: "Explicitly reject the validated proposal",
 					Usage:       "reject [<rationale>]",
 					Handler:     handleChangeReject,
+				},
+				{
+					Name:        "apply",
+					Description: "Apply the explicitly approved PatchArtifact to the canonical working tree",
+					Usage:       "apply",
+					Handler:     handleChangeApply,
+				},
+				{
+					Name:        "close",
+					Description: "Close an explicitly rejected Change with canonical source unchanged",
+					Usage:       "close",
+					Handler:     handleChangeClose,
 				},
 				{
 					Name:        "discard",

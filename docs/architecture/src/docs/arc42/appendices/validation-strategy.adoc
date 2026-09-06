@@ -195,6 +195,19 @@ and rejection smokes cover the local adapter. Lifecycle tests reconstruct the
 V0 path from linked append-oriented events without adding a new persistence
 format or query subsystem.
 
+==== M0.8 Canonical Integration Validation
+
+M0.8 tests prove explicit application remains separate from approval; exact
+Project/Change/workspace/patch/evidence/decision coherence; preflight without
+mutation; default whole-patch Git application through stdin; exact modified,
+deleted, added-proof, and binary diff handling; unchanged HEAD/index; exact
+path/digest/diff post-proof; append-before-mutate and completion-before-terminal
+audit ordering; rejection closure without application; terminal workspace
+cleanup; cancellation and drift rejection; truthful failures before and after
+mutation; and late-failure replay prevention. Deterministic fixture E2E and
+real PTY approval, rejection, help/completion, and session-close checks use
+temporary repositories and temporary XDG data directories.
+
 ==== M1.8 Advanced Quality and Security Evidence Direction
 
 M1.8 broadens replaceable evidence adapters for applicable SAST, SCA, secret,

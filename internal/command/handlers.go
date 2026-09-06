@@ -477,6 +477,83 @@ func handleChangeReject(session *Session, invocation Invocation, output io.Write
 	return handleHumanDecision(session, invocation, output, approval.DecisionReject)
 }
 
+func handleChangeApply(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	currentChange, hasChange := session.CurrentChange()
+	currentProposal, hasProposal := session.CurrentProposal()
+	verificationResult, hasVerification := session.LastVerification()
+	decision, hasDecision := session.LastDecision()
+	if !hasChange || !hasProposal || !hasVerification || !hasDecision {
+		return Result{}, fmt.Errorf("canonical application requires the current approved Change, retained proposal, EvidenceSet, and APPROVE decision")
+	}
+	writeHumanDecisionSummary(output, currentChange, currentProposal, verificationResult)
+	fmt.Fprintln(output, "Canonical application: explicit working-tree-only operation; HEAD and index must remain unchanged")
+	applicationResult, terminal, err := session.canonicalIntegration.Apply(
+		invocation.Context,
+		currentChange,
+		currentProposal,
+		verificationResult,
+		decision,
+	)
+	if applicationResult.CanonicalMutationOccurred() {
+		session.markCanonicalMutation()
+	}
+	if err != nil {
+		if applicationResult.CanonicalMutationOccurred() {
+			fmt.Fprintln(output, "Canonical application: mutation occurred; lifecycle closure is incomplete")
+			if applicationResult.CanonicalApplicationProven() {
+				fmt.Fprintln(output, "Canonical proof: completed")
+			}
+		} else {
+			fmt.Fprintln(output, "Canonical application: not performed")
+		}
+		fmt.Fprintf(output, "Change state: %s\n", currentChange.State())
+		return Result{}, err
+	}
+	session.setCurrentChange(terminal)
+	fmt.Fprintln(output, "Canonical application: completed and deterministically proven")
+	fmt.Fprintf(output, "Canonical result digest: %s\n", applicationResult.ResultDigest())
+	fmt.Fprintf(output, "Canonical HEAD: %s (unchanged)\n", applicationResult.CanonicalHead())
+	fmt.Fprintf(output, "Git index: unchanged=%t\n", applicationResult.IndexUnchanged())
+	fmt.Fprintf(output, "Changed paths: %s\n", formatSuppliedPaths(applicationResult.ChangedPaths()))
+	fmt.Fprintln(output, "Git commit: not created")
+	fmt.Fprintln(output, "Git push: not performed")
+	fmt.Fprintf(output, "Change state: %s\n", terminal.State())
+	cleanupError := session.cleanupTerminalProposal("approved Change reached audit-locked after canonical application")
+	return Result{}, cleanupError
+}
+
+func handleChangeClose(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	currentChange, hasChange := session.CurrentChange()
+	currentProposal, hasProposal := session.CurrentProposal()
+	verificationResult, hasVerification := session.LastVerification()
+	decision, hasDecision := session.LastDecision()
+	if !hasChange || !hasProposal || !hasVerification || !hasDecision {
+		return Result{}, fmt.Errorf("rejection closure requires the current rejected Change, retained proposal, EvidenceSet, and REJECT decision")
+	}
+	terminal, err := session.canonicalIntegration.CloseRejected(
+		invocation.Context,
+		currentChange,
+		currentProposal,
+		verificationResult,
+		decision,
+	)
+	if err != nil {
+		return Result{}, err
+	}
+	session.setCurrentChange(terminal)
+	fmt.Fprintln(output, "Rejected Change closure: canonical source proven unchanged")
+	fmt.Fprintln(output, "Canonical application: not performed")
+	fmt.Fprintf(output, "Change state: %s\n", terminal.State())
+	cleanupError := session.cleanupTerminalProposal("rejected Change reached audit-locked with canonical source unchanged")
+	return Result{}, cleanupError
+}
+
 func handleHumanDecision(
 	session *Session,
 	invocation Invocation,

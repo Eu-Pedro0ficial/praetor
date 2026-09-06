@@ -10,11 +10,10 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
-Current implementation status: M0.0 through M0.7 are complete. M0.7 records an
-explicit local-human decision and advances a coherent validated proposal only
-to `approved` or `rejected`; it does not apply canonical source or
-automatically enter `audit-locked`. M0.8 remains unimplemented and is the Core
-V0 release gate.
+Current implementation status: M0.0 through M0.8 are complete. M0.8 preserves
+M0.7's authorization-only decision step, then requires separate explicit
+canonical application or rejection closure before the applicable disposition
+can reach `audit-locked`. The Core V0 release gate has passed.
 
 ## Mandatory architecture decision closure rule
 
@@ -121,7 +120,7 @@ An implementation convenience is NOT an architecture decision.
 #### M0.8 — Governed Change End-to-End
 - Capability: Core V0 release gate
   - Sub-capability: end-to-end proof of the thesis
-  - Implementation tasks: complete the full loop from change request to isolated patch to deterministic verification to explicit human approval or rejection with full append-only audit
+  - Implementation tasks: complete the full loop from change request to isolated patch to deterministic verification to explicit human approval or rejection, exact working-tree-only canonical application or unchanged-source rejection closure, terminal audit lock, and full append-only audit
 
 ### Phase 1 — post-V0 maturity and expansion
 
@@ -189,7 +188,9 @@ An implementation convenience is NOT an architecture decision.
 
 ## Core V0 release gate
 
-Core V0 is complete only after M0.8 passes its Definition of Done.
+Core V0 is complete: M0.8 passed its Definition of Done with deterministic
+fixture E2E, focused failure/replay tests, and real PTY approval and rejection
+proof against temporary Git repositories.
 
 The V0 release gate is not a single giant milestone. It is the cumulative result of a sequence of independently testable milestones that prove the governed change loop progressively.
 
@@ -232,12 +233,9 @@ This is the minimal path proving the Praetor thesis without depending on mature 
 
 ## Implementation sequence status
 
-The first milestone to implement is M0.0 — Baseline Verification.
-
-It is objective, executable, and low-risk. It verifies the repo is ready for implementation without constructing product logic.
-
-M0.0 through M0.7 are implemented. The next milestone is M0.8 — Governed
-Change End-to-End.
+M0.0 through M0.8 are implemented. Core V0 is complete. Post-V0 milestones
+remain governed by their own dependencies and decision gates; this status does
+not begin M1.0.
 
 ## Minimum necessary architecture before V0
 

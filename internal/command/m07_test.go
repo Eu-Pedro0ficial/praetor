@@ -295,13 +295,13 @@ func TestMalformedExistingAuditPreventsHumanDecision(t *testing.T) {
 
 func TestHumanDecisionCommandsShareCentralMetadataHelpAndCompletion(t *testing.T) {
 	_, _, session, registry, _ := prepareValidatedDecisionCommandTest(t, nil)
-	assertSuggestions(t, registry.Complete(session, "change app"), []string{"approve"})
+	assertSuggestions(t, registry.Complete(session, "change app"), []string{"approve", "apply"})
 	assertSuggestions(t, registry.ContextualHelp(session, "change rej"), []string{"reject"})
 	if _, err := registry.Dispatch(session, "change", io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	assertMetadataNames(t, registry.ContextCommands(session), []string{
-		"new", "isolate", "implement", "patch", "verify", "approve", "reject", "discard", "help", "?", "end",
+		"new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard", "help", "?", "end",
 	})
 	var output bytes.Buffer
 	if _, err := registry.Dispatch(session, "?", &output); err != nil {
@@ -312,7 +312,7 @@ func TestHumanDecisionCommandsShareCentralMetadataHelpAndCompletion(t *testing.T
 			t.Fatalf("Change contextual help %q lacks %q", output.String(), expected)
 		}
 	}
-	for _, forbidden := range []string{"apply", "merge", "commit", "audit-lock"} {
+	for _, forbidden := range []string{"merge", "commit", "audit-lock"} {
 		for _, metadata := range registry.Commands() {
 			if metadata.Name == forbidden {
 				t.Fatalf("M0.8 command %q leaked into M0.7", forbidden)

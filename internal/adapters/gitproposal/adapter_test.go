@@ -8,11 +8,14 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 )
 
@@ -241,6 +244,230 @@ func TestAdapterReportsPatchExtractionFailure(t *testing.T) {
 		t.Fatalf("Remove() after missing worktree error = %v", err)
 	}
 	assertCleanCanonical(t, repositoryRoot, baseRevision)
+}
+
+func TestAdapterAppliesExactRetainedPatchWorkingTreeOnly(t *testing.T) {
+	tests := []struct {
+		name       string
+		prepare    func(*testing.T, string)
+		mutate     func(*testing.T, string)
+		paths      []string
+		wantStatus string
+	}{
+		{
+			name: "modified file",
+			mutate: func(t *testing.T, root string) {
+				writeFile(t, root, "alpha.txt", "alpha changed\n")
+			},
+			paths:      []string{"alpha.txt"},
+			wantStatus: " M alpha.txt\n",
+		},
+		{
+			name: "deleted file",
+			mutate: func(t *testing.T, root string) {
+				if err := os.Remove(filepath.Join(root, "beta.txt")); err != nil {
+					t.Fatal(err)
+				}
+			},
+			paths:      []string{"beta.txt"},
+			wantStatus: " D beta.txt\n",
+		},
+		{
+			name: "modified binary file",
+			prepare: func(t *testing.T, root string) {
+				if err := os.WriteFile(filepath.Join(root, "asset.bin"), []byte{0x00, 0x01, 0x02}, 0o600); err != nil {
+					t.Fatal(err)
+				}
+				runGit(t, root, "add", "asset.bin")
+				runGit(t, root, "-c", "user.name=Praetor Test", "-c", "user.email=praetor@example.invalid", "commit", "--quiet", "-m", "binary baseline")
+			},
+			mutate: func(t *testing.T, root string) {
+				if err := os.WriteFile(filepath.Join(root, "asset.bin"), []byte{0x00, 0xff, 0x02, 0x03}, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			paths:      []string{"asset.bin"},
+			wantStatus: " M asset.bin\n",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			adapter, currentProposal, repositoryRoot, baseRevision := retainedApplicationProposal(
+				t,
+				test.prepare,
+				test.mutate,
+				test.paths,
+			)
+			request := integration.ApplicationRequest{Proposal: currentProposal}
+			beforeStatus := runGit(t, repositoryRoot, "status", "--porcelain=v1")
+			if err := adapter.Preflight(request); err != nil {
+				t.Fatalf("Preflight() error = %v", err)
+			}
+			if afterPreflight := runGit(t, repositoryRoot, "status", "--porcelain=v1"); !bytes.Equal(afterPreflight, beforeStatus) {
+				t.Fatalf("preflight mutated canonical source: %q", afterPreflight)
+			}
+
+			proof, mutated, err := adapter.Apply(request)
+			if err != nil {
+				t.Fatalf("Apply() error = %v", err)
+			}
+			artifact, _ := currentProposal.PatchArtifact()
+			if !mutated || proof.HeadRevision() != baseRevision || !proof.IndexUnchanged() ||
+				proof.PatchDigest() != artifact.PatchDigest() || !reflect.DeepEqual(proof.ChangedPaths(), test.paths) {
+				t.Fatalf("canonical proof = %#v, mutated=%t", proof, mutated)
+			}
+			if head := strings.TrimSpace(string(runGit(t, repositoryRoot, "rev-parse", "HEAD"))); head != baseRevision {
+				t.Fatalf("HEAD = %q, want %q", head, baseRevision)
+			}
+			if staged := runGit(t, repositoryRoot, "diff", "--cached", "--quiet", "HEAD", "--"); len(staged) != 0 {
+				t.Fatalf("unexpected staged output: %q", staged)
+			}
+			if status := string(runGit(t, repositoryRoot, "status", "--porcelain=v1")); status != test.wantStatus {
+				t.Fatalf("canonical status = %q, want %q", status, test.wantStatus)
+			}
+			canonicalPatch := runGit(t, repositoryRoot,
+				"-c", "core.quotePath=true", "diff", "--binary", "--full-index", "--no-color",
+				"--no-ext-diff", "--no-renames", "--no-textconv", "--diff-algorithm=myers", baseRevision, "--",
+			)
+			if !bytes.Equal(canonicalPatch, artifact.Content()) {
+				t.Fatal("canonical diff does not exactly equal retained PatchArtifact")
+			}
+			if commits := strings.TrimSpace(string(runGit(t, repositoryRoot, "rev-list", "--count", "HEAD"))); commits != "1" && test.prepare == nil {
+				t.Fatalf("canonical application created a commit: count=%s", commits)
+			}
+			if _, err := os.Stat(filepath.Join(repositoryRoot, ".praetor")); !os.IsNotExist(err) {
+				t.Fatalf("Praetor metadata appeared in canonical source: %v", err)
+			}
+			if matches, err := filepath.Glob(filepath.Join(repositoryRoot, "*.patch")); err != nil || len(matches) != 0 {
+				t.Fatalf("patch tempfile appeared in canonical source: %v/%v", matches, err)
+			}
+		})
+	}
+}
+
+func TestAdapterPreflightRejectsCanonicalAndProposalDriftWithoutMutation(t *testing.T) {
+	tests := []struct {
+		name   string
+		drift  func(*testing.T, string, proposal.Proposal)
+		needle string
+	}{
+		{
+			name: "dirty tracked canonical",
+			drift: func(t *testing.T, root string, _ proposal.Proposal) {
+				writeFile(t, root, "beta.txt", "developer change\n")
+			},
+			needle: "working tree or index changed",
+		},
+		{
+			name: "untracked canonical",
+			drift: func(t *testing.T, root string, _ proposal.Proposal) {
+				writeFile(t, root, "unexpected.txt", "developer file\n")
+			},
+			needle: "working tree or index changed",
+		},
+		{
+			name: "staged canonical",
+			drift: func(t *testing.T, root string, _ proposal.Proposal) {
+				writeFile(t, root, "beta.txt", "staged\n")
+				runGit(t, root, "add", "beta.txt")
+			},
+			needle: "working tree or index changed",
+		},
+		{
+			name: "HEAD drift",
+			drift: func(t *testing.T, root string, _ proposal.Proposal) {
+				writeFile(t, root, "beta.txt", "new commit\n")
+				runGit(t, root, "add", "beta.txt")
+				runGit(t, root, "-c", "user.name=Praetor Test", "-c", "user.email=praetor@example.invalid", "commit", "--quiet", "-m", "drift")
+			},
+			needle: "HEAD changed",
+		},
+		{
+			name: "proposal workspace drift",
+			drift: func(t *testing.T, _ string, currentProposal proposal.Proposal) {
+				writeFile(t, currentProposal.Workspace().Root(), "alpha.txt", "substituted\n")
+			},
+			needle: "retained proposal changed",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			adapter, currentProposal, repositoryRoot, _ := retainedApplicationProposal(t, nil, func(t *testing.T, root string) {
+				writeFile(t, root, "alpha.txt", "approved\n")
+			}, []string{"alpha.txt"})
+			test.drift(t, repositoryRoot, currentProposal)
+			statusBefore := runGit(t, repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all")
+			err := adapter.Preflight(integration.ApplicationRequest{Proposal: currentProposal})
+			if err == nil || !strings.Contains(err.Error(), test.needle) {
+				t.Fatalf("Preflight() error = %v, want containing %q", err, test.needle)
+			}
+			statusAfter := runGit(t, repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all")
+			if !bytes.Equal(statusAfter, statusBefore) {
+				t.Fatalf("rejected preflight mutated canonical state: before=%q after=%q", statusBefore, statusAfter)
+			}
+		})
+	}
+}
+
+func retainedApplicationProposal(
+	t *testing.T,
+	prepare func(*testing.T, string),
+	mutate func(*testing.T, string),
+	paths []string,
+) (*gitproposal.Adapter, proposal.Proposal, string, string) {
+	t.Helper()
+	repositoryRoot, _ := prepareGitRepository(t)
+	if prepare != nil {
+		prepare(t, repositoryRoot)
+	}
+	snapshot, err := repository.Inspect(testProjectId, repositoryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseRevision := snapshot.HeadRevision()
+	now := time.Date(2026, time.September, 6, 10, 0, 0, 0, time.UTC)
+	currentChange, err := change.New("change-application", testProjectId, "apply exact patch", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := currentChange.Transition(change.StatePlanned, now.Add(time.Second), "planned"); err != nil {
+		t.Fatal(err)
+	}
+	analysis, err := source.AnalyzeImpact(currentChange, snapshot, source.ScopeRequest{Expected: paths})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope, err := source.EstablishApprovedScope(analysis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := gitproposal.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposalService, err := proposal.New(
+		adapter,
+		adapter,
+		repository.Inspect,
+		func(proposal.LifecycleEvent) error { return nil },
+		func() time.Time { return now.Add(2 * time.Second) },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentProposal, err := proposalService.CreateWorkspace(currentChange, snapshot, scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = adapter.Remove(currentProposal.Workspace()) })
+	mutate(t, currentProposal.Workspace().Root())
+	currentProposal, validation, err := proposalService.ExtractPatch(currentProposal)
+	if err != nil || !validation.Allowed() {
+		t.Fatalf("ExtractPatch() = allowed %t, error %v", validation.Allowed(), err)
+	}
+	return adapter, currentProposal, repositoryRoot, baseRevision
 }
 
 func prepareGitRepository(t *testing.T) (string, string) {

@@ -52,7 +52,7 @@ func TestDefaultRegistryHasUniqueCompleteHierarchicalMetadata(t *testing.T) {
 		t.Fatal("registry lacks change new")
 	}
 	for _, commandPath := range []string{
-		"change isolate", "change implement", "change patch", "change verify", "change approve", "change reject", "change discard",
+		"change isolate", "change implement", "change patch", "change verify", "change approve", "change reject", "change apply", "change close", "change discard",
 		"provider list", "provider show", "provider select", "provider model", "configure project",
 	} {
 		if _, exists := seen[commandPath]; !exists {
@@ -588,7 +588,7 @@ func TestRegistryDispatchErrorsExitAndCompletion(t *testing.T) {
 	assertSuggestions(t, registry.Complete(session, "ana"), []string{"analysis"})
 	assertSuggestions(t, registry.Complete(session, "analysis "), []string{"impact"})
 	assertSuggestions(t, registry.Complete(session, "analysis im"), []string{"impact"})
-	assertSuggestions(t, registry.Complete(session, "change "), []string{"new", "isolate", "implement", "patch", "verify", "approve", "reject", "discard"})
+	assertSuggestions(t, registry.Complete(session, "change "), []string{"new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard"})
 	assertSuggestions(t, registry.Complete(session, "change i"), []string{"isolate", "implement"})
 	if _, err := registry.Dispatch(session, "/status", io.Discard); err != nil {
 		t.Fatalf("small leading-slash compatibility alias failed: %v", err)

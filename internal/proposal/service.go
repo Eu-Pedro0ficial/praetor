@@ -519,3 +519,44 @@ func (service *Service) Discard(
 	postCleanupGuardError := guard.Verify()
 	return cleanedProposal, errors.Join(preCleanupGuardError, recordError, postCleanupGuardError)
 }
+
+// CleanupClosed removes only the adapter-owned workspace after terminal
+// closure or a truthfully reported canonical mutation. Unlike Discard, it does
+// not require the original clean canonical snapshot because an M0.8
+// application may intentionally have made the canonical working tree dirty.
+func (service *Service) CleanupClosed(
+	currentProposal Proposal,
+	reason string,
+) (Proposal, error) {
+	cleanupReason := strings.TrimSpace(reason)
+	if cleanupReason == "" {
+		return currentProposal, fmt.Errorf("closed proposal cleanup reason is required")
+	}
+	if currentProposal.workspace.State() == WorkspaceCleaned {
+		return currentProposal, fmt.Errorf("proposal workspace %q is already cleaned", currentProposal.workspace.WorkspaceId())
+	}
+	if currentProposal.workspace.State() != WorkspaceRetained &&
+		currentProposal.workspace.State() != WorkspaceRejected {
+		return currentProposal, fmt.Errorf(
+			"proposal workspace %q must be retained or rejected for terminal cleanup",
+			currentProposal.workspace.WorkspaceId(),
+		)
+	}
+	if err := service.workspaces.Remove(currentProposal.workspace); err != nil {
+		return currentProposal, fmt.Errorf("remove closed proposal workspace: %w", err)
+	}
+	cleanedWorkspace, err := currentProposal.workspace.transition(WorkspaceCleaned)
+	if err != nil {
+		return currentProposal, err
+	}
+	cleanedProposal := currentProposal.withWorkspace(cleanedWorkspace)
+	if err := service.recorder(LifecycleEvent{
+		EventType:   EventProposalWorkspaceDiscarded,
+		Workspace:   cleanedWorkspace,
+		Disposition: string(WorkspaceCleaned),
+		Reason:      cleanupReason,
+	}); err != nil {
+		return cleanedProposal, fmt.Errorf("record closed proposal workspace cleanup: %w", err)
+	}
+	return cleanedProposal, nil
+}

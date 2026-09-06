@@ -34,9 +34,12 @@
 
 === Known Architectural Debt at Baseline
 
-With implementation complete through M0.7 and M0.8 still unimplemented, the
-principal debt remains **decision debt**, not code debt. The most important
-deferred items are
+With Core V0 implementation complete through M0.8, the principal remaining
+debt is **decision debt**, not an unimplemented V0 loop. Canonical application
+is deliberately local and working-tree-only. Its adapter lock coordinates one
+process; concurrent external Git writers are detected by repeated preflight or
+post-application proof but are not claimed to be prevented by a repository-wide
+multi-process lock. The most important deferred items are
 the canonical memory serialization benchmark, hosted organization memory,
 semantic conflict detection, M1.3 provider routing/trust enforcement,
 multi-provider maturity, stronger sandboxing beyond the approved worktree

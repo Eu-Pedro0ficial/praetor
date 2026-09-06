@@ -16,8 +16,8 @@ When a milestone reaches a deferred or benchmark trigger, the milestone must sto
 
 This rule is part of the delivery gate, not an optional policy note.
 
-Current implementation status: M0.0 through M0.7 are complete. M0.8 remains
-unimplemented and is the next milestone and Core V0 release gate.
+Current implementation status: M0.0 through M0.8 are complete. The Core V0
+release gate has passed; no post-V0 milestone is implied to have started.
 
 ## Revised delivery order
 
@@ -83,7 +83,14 @@ identity.
 
 ### Step 9 — M0.8 V0 release gate
 
-This is the actual proof of Praetor: a real change request, provider-independent AI execution, isolated patching, deterministic evidence, explicit human approval or rejection, and full audit representation.
+This is the completed Core V0 proof: a real change request,
+provider-independent AI execution, isolated patching, deterministic evidence,
+explicit human approval or rejection, and full audit representation. Approval
+does not apply source automatically. A separate explicit operation performs
+working-tree-only application after preflight and records start before
+mutation; exact post-application proof and completion audit precede
+`audit-locked`. Rejection uses a separate unchanged-source closure path.
+Neither path commits, pushes, merges, creates a branch, or creates a PR.
 
 ### Step 10 — M1.0 policy maturity
 

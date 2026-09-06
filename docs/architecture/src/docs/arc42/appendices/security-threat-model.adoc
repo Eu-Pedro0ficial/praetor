@@ -166,6 +166,27 @@ Decision append and workflow transition are separate append-oriented writes:
 failure of the first preserves `validated`, while failure of the second may
 leave a truthful attempted decision without a state transition.
 
+==== M0.8 Canonical Application Boundary
+
+Only an exact coherent `APPROVE` HumanDecision permits explicit canonical
+application. The retained patch is re-extracted, hashed, surface-checked, and
+preflighted against clean canonical HEAD, index, tracked inventory, working
+tree, and untracked status. The adapter passes patch bytes on stdin, uses `--`
+path separation where paths are arguments, does not persist a patch file, and
+does not enable unsafe, reject, three-way, cached, or index application modes.
+Post-application proof compares exact diff bytes, paths and digest, checks
+reverse applicability, and proves HEAD/index/inventory unchanged. Protected or
+unexpected paths cannot bypass the existing ApprovedScope gate.
+
+The in-process adapter lock closes same-process preflight/application races;
+external concurrent writers are detected rather than prevented. A detected
+late failure is reported with truthful mutation state and no destructive
+rollback. Replays fail source-integrity/preflight checks. Audit contains only
+bounded linkage and sanitized failures, never raw patch/source, prompts,
+credentials, arbitrary environment, provider output, or workspace paths.
+`REJECT` uses a non-application closure path and requires canonical source to
+remain unchanged.
+
 ==== M1.8 External Quality/Security Tool Boundary
 
 Advanced scanners may introduce heavyweight services/images, network and

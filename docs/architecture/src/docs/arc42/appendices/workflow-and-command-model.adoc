@@ -214,8 +214,26 @@ state remains unchanged; M0.7 does not claim transactionality.
 
 This workflow is authorization-only. It retains the proposal during the
 active session, does not mutate canonical source, and does not automatically
-perform `approved/rejected -> audit-locked`. Existing session cleanup owns the
-temporary workspace; M0.8 owns canonical application and release proof.
+perform `approved/rejected -> audit-locked`.
+
+==== M0.8 Canonical Application and Rejection Closure Workflow
+
+M0.8 adds direct `change apply` and `change close`, plus contextual `apply` and
+`close`, through the same ADR-029 command metadata. `apply` requires the exact
+retained `APPROVE` chain and remains a separate developer operation. It runs
+preflight, durably records start, rechecks before mutation, performs
+working-tree-only application, proves the exact result, durably records
+completion, and only then requests `approved -> audit-locked`. `close`
+requires the exact `REJECT` chain, proves canonical source unchanged, records
+closure, and only then requests `rejected -> audit-locked`; it cannot call the
+canonical application port.
+
+If mutation occurs before a later failure, the Change remains `approved`, the
+caller receives mutation/proof state, session cleanup removes only its owned
+workspace, and replay cannot apply the patch again. No automatic execution is
+attached to approval, rejection, verification, provider completion, help,
+completion, empty input, or session close. Both successful terminal paths use
+the existing session-owned workspace cleanup and preserve audit history.
 
 ==== Predefined Workloads
 

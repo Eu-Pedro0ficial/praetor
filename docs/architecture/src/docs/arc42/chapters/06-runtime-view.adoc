@@ -195,9 +195,41 @@ decision append leaves state `validated`; a later transition failure may leave
 the attempted decision in truthful append-oriented history while state stays
 unchanged. No transactionality or authenticated actor identity is claimed.
 Neither disposition is automatically audit-locked, and no patch is applied to
-canonical source. The process-local decision/proposal context remains available
-during the session; existing session cleanup removes the owned workspace.
-M0.8 owns canonical integration.
+canonical source by M0.7. The process-local decision/proposal context remains
+available for the separate M0.8 operation.
+
+==== M0.8 Canonical Integration and Closure
+
+The M0.8 approved sequence is:
+
+. receive explicit `change apply` or contextual `apply` for an `approved`
+  Change;
+. validate exact Change, Project, ProposalWorkspace, PatchArtifact, source,
+  VerificationAttempt, passing EvidenceSet, and `APPROVE` linkage;
+. verify proposal/canonical integrity and run `git apply --check`;
+. append `CANONICAL_APPLICATION_STARTED`, then repeat integrity and preflight
+  under the adapter lock before mutation;
+. apply the retained patch bytes through stdin to the canonical working tree;
+. prove exact canonical diff, path inventory and patch digest while HEAD and
+  the Git index remain unchanged;
+. inspect the intentionally dirty resulting SourceSnapshot and append
+  `CANONICAL_APPLICATION_COMPLETED`;
+. transition `approved -> audit-locked`, then remove the owned proposal
+  workspace.
+
+The rejected sequence uses explicit `change close` or contextual `close`.
+It validates the exact `REJECT` linkage, proves canonical source remains the
+approved clean base, appends `CHANGE_CLOSURE_RECORDED`, rechecks integrity,
+transitions `rejected -> audit-locked`, and removes the workspace. It never
+invokes canonical application.
+
+Default `git apply` whole-patch behavior is used without `--reject`, `--3way`,
+`--index`, `--cached`, or `--unsafe-paths`. No commit, push, merge, branch, or
+PR is created. If mutation succeeds but later proof or audit fails, the Change
+is not falsely audit-locked, the error/result reports mutation, and no rollback
+is claimed. A repeat attempt fails closed because canonical source no longer
+matches the approved base. Empty input, help, completion, provider completion,
+verification, approval alone, and session close never apply source.
 
 === Scenario 5 — Memory Candidate Promotion
 

@@ -4,7 +4,9 @@
 package gitproposal
 
 import (
+	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -15,6 +17,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 )
 
@@ -163,6 +166,10 @@ func (adapter *Adapter) Extract(workspace proposal.ProposalWorkspace) (proposal.
 	if _, err := adapter.validateOwned(workspace); err != nil {
 		return proposal.ExtractedPatch{}, err
 	}
+	return extractPatch(workspace)
+}
+
+func extractPatch(workspace proposal.ProposalWorkspace) (proposal.ExtractedPatch, error) {
 
 	untrackedOutput, err := runGit(
 		workspace.Root(),
@@ -212,6 +219,275 @@ func (adapter *Adapter) Extract(workspace proposal.ProposalWorkspace) (proposal.
 		Content:      append([]byte(nil), patchContent...),
 		ChangedPaths: append([]string(nil), changedPaths...),
 	}, nil
+}
+
+// Preflight proves that canonical source is still the exact clean approved
+// base, the index is unchanged, the retained workspace still yields the exact
+// artifact, and Git can apply the whole patch without mutation.
+func (adapter *Adapter) Preflight(request integration.ApplicationRequest) error {
+	if adapter == nil {
+		return fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	return adapter.preflightLocked(request)
+}
+
+// Apply repeats preflight under the adapter lock, invokes default atomic
+// working-tree-only git apply, and proves the exact resulting canonical diff.
+// It never passes --index, --cached, --3way, --reject, or --unsafe-paths.
+func (adapter *Adapter) Apply(request integration.ApplicationRequest) (integration.CanonicalProof, bool, error) {
+	if adapter == nil {
+		return integration.CanonicalProof{}, false, fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	if err := adapter.preflightLocked(request); err != nil {
+		return integration.CanonicalProof{}, false, err
+	}
+	artifact, _ := request.Proposal.PatchArtifact()
+	canonicalRoot := request.Proposal.Workspace().CanonicalRoot()
+	if _, err := runGitInput(
+		canonicalRoot,
+		artifact.Content(),
+		"apply", "--binary", "--whitespace=nowarn", "-",
+	); err != nil {
+		// Git apply is whole-patch atomic unless --reject is used. This adapter
+		// never uses --reject, so command failure means no adapter mutation.
+		return integration.CanonicalProof{}, false, fmt.Errorf("atomically apply canonical patch: %w", err)
+	}
+	proof, err := adapter.verifyAppliedLocked(request)
+	if err != nil {
+		return integration.CanonicalProof{}, true, err
+	}
+	return proof, true, nil
+}
+
+func (adapter *Adapter) preflightLocked(request integration.ApplicationRequest) error {
+	currentProposal := request.Proposal
+	workspace := currentProposal.Workspace()
+	artifact, hasArtifact := currentProposal.PatchArtifact()
+	if workspace.State() != proposal.WorkspaceRetained || !hasArtifact {
+		return fmt.Errorf("canonical application requires a retained Proposal and PatchArtifact")
+	}
+	if _, err := adapter.validateOwned(workspace); err != nil {
+		return err
+	}
+	extracted, err := extractPatch(workspace)
+	if err != nil {
+		return fmt.Errorf("re-extract retained PatchArtifact: %w", err)
+	}
+	if !bytes.Equal(extracted.Content, artifact.Content()) ||
+		!equalPathLists(extracted.ChangedPaths, artifact.ChangedPaths()) {
+		return fmt.Errorf("retained proposal changed after PatchArtifact approval")
+	}
+	digest := sha256.Sum256(extracted.Content)
+	if fmt.Sprintf("sha256:%x", digest[:]) != artifact.PatchDigest() {
+		return fmt.Errorf("retained PatchArtifact digest is inconsistent")
+	}
+	if err := verifyCanonicalBase(currentProposal); err != nil {
+		return err
+	}
+	if _, err := runGitInput(
+		workspace.CanonicalRoot(),
+		artifact.Content(),
+		"apply", "--check", "--binary", "--whitespace=nowarn", "-",
+	); err != nil {
+		return fmt.Errorf("check canonical patch applicability: %w", err)
+	}
+	return nil
+}
+
+func verifyCanonicalBase(currentProposal proposal.Proposal) error {
+	workspace := currentProposal.Workspace()
+	expected := currentProposal.CanonicalSource()
+	canonicalRoot, err := resolveExistingDirectory(workspace.CanonicalRoot(), "canonical repository root")
+	if err != nil {
+		return err
+	}
+	if canonicalRoot != expected.RepositoryRoot() {
+		return fmt.Errorf("canonical repository root linkage changed")
+	}
+	head, err := runGit(canonicalRoot, "rev-parse", "--verify", "HEAD")
+	if err != nil {
+		return fmt.Errorf("inspect canonical HEAD: %w", err)
+	}
+	if strings.TrimSpace(string(head)) != workspace.BaseRevision() {
+		return fmt.Errorf("canonical HEAD changed after approval")
+	}
+	status, err := runGit(canonicalRoot, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames")
+	if err != nil {
+		return fmt.Errorf("inspect canonical working tree: %w", err)
+	}
+	if len(status) != 0 {
+		return fmt.Errorf("canonical working tree or index changed after approval")
+	}
+	if _, err := runGit(canonicalRoot, "diff", "--cached", "--quiet", "HEAD", "--"); err != nil {
+		return fmt.Errorf("canonical Git index changed after approval: %w", err)
+	}
+	tracked, err := runGit(canonicalRoot, "ls-files", "--cached", "-z")
+	if err != nil {
+		return fmt.Errorf("inspect canonical tracked inventory: %w", err)
+	}
+	expectedPaths := make([]string, len(expected.TrackedPaths()))
+	for index, repositoryPath := range expected.TrackedPaths() {
+		expectedPaths[index] = string(repositoryPath)
+	}
+	if !equalPathLists(splitNullTerminated(tracked), expectedPaths) {
+		return fmt.Errorf("canonical tracked inventory changed after approval")
+	}
+	return nil
+}
+
+func (adapter *Adapter) verifyAppliedLocked(request integration.ApplicationRequest) (integration.CanonicalProof, error) {
+	currentProposal := request.Proposal
+	workspace := currentProposal.Workspace()
+	artifact, _ := currentProposal.PatchArtifact()
+	canonicalRoot := workspace.CanonicalRoot()
+	head, err := runGit(canonicalRoot, "rev-parse", "--verify", "HEAD")
+	if err != nil {
+		return integration.CanonicalProof{}, fmt.Errorf("prove canonical HEAD: %w", err)
+	}
+	headRevision := strings.TrimSpace(string(head))
+	if headRevision != workspace.BaseRevision() {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical application unexpectedly changed HEAD")
+	}
+	if _, err := runGit(canonicalRoot, "diff", "--cached", "--quiet", "HEAD", "--"); err != nil {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical application changed Git index: %w", err)
+	}
+	tracked, err := runGit(canonicalRoot, "ls-files", "--cached", "-z")
+	if err != nil {
+		return integration.CanonicalProof{}, fmt.Errorf("prove canonical tracked inventory: %w", err)
+	}
+	expectedTracked := currentProposal.CanonicalSource().TrackedPaths()
+	expectedPaths := make([]string, len(expectedTracked))
+	for index, repositoryPath := range expectedTracked {
+		expectedPaths[index] = string(repositoryPath)
+	}
+	if !equalPathLists(splitNullTerminated(tracked), expectedPaths) {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical application changed tracked inventory")
+	}
+	status, err := runGit(canonicalRoot, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames")
+	if err != nil {
+		return integration.CanonicalProof{}, fmt.Errorf("prove canonical changed paths: %w", err)
+	}
+	changedPaths, err := porcelainPaths(status)
+	if err != nil {
+		return integration.CanonicalProof{}, err
+	}
+	if !equalPathLists(changedPaths, artifact.ChangedPaths()) {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical changed paths do not equal approved PatchArtifact paths")
+	}
+	canonicalPatch, err := extractCanonicalPatch(
+		adapter.temporaryRoot,
+		canonicalRoot,
+		workspace.BaseRevision(),
+		artifact.ChangedPaths(),
+	)
+	if err != nil {
+		return integration.CanonicalProof{}, err
+	}
+	if !bytes.Equal(canonicalPatch, artifact.Content()) {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical diff does not equal approved PatchArtifact")
+	}
+	if _, err := runGitInput(
+		canonicalRoot,
+		artifact.Content(),
+		"apply", "--reverse", "--check", "--binary", "--whitespace=nowarn", "-",
+	); err != nil {
+		return integration.CanonicalProof{}, fmt.Errorf("prove canonical patch reversibility: %w", err)
+	}
+	retainedPatch, err := extractPatch(workspace)
+	if err != nil {
+		return integration.CanonicalProof{}, fmt.Errorf("re-extract proposal after canonical application: %w", err)
+	}
+	if !bytes.Equal(retainedPatch.Content, artifact.Content()) ||
+		!equalPathLists(retainedPatch.ChangedPaths, artifact.ChangedPaths()) {
+		return integration.CanonicalProof{}, fmt.Errorf("retained proposal changed during canonical application")
+	}
+	digest := sha256.Sum256(canonicalPatch)
+	return integration.NewCanonicalProof(
+		headRevision,
+		fmt.Sprintf("sha256:%x", digest[:]),
+		changedPaths,
+		true,
+	)
+}
+
+func extractCanonicalPatch(
+	temporaryRoot string,
+	canonicalRoot string,
+	baseRevision string,
+	changedPaths []string,
+) ([]byte, error) {
+	ownerRoot, err := os.MkdirTemp(temporaryRoot, "praetor-proof-index-")
+	if err != nil {
+		return nil, fmt.Errorf("create canonical proof index directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(ownerRoot) }()
+	indexPath := filepath.Join(ownerRoot, "index")
+	if _, err := runGitWithIndex(canonicalRoot, indexPath, nil, "read-tree", baseRevision); err != nil {
+		return nil, fmt.Errorf("prepare canonical proof index: %w", err)
+	}
+	trackedOutput, err := runGit(canonicalRoot, "ls-tree", "-r", "--name-only", "-z", baseRevision, "--")
+	if err != nil {
+		return nil, fmt.Errorf("inspect base paths for canonical proof: %w", err)
+	}
+	tracked := make(map[string]struct{})
+	for _, repositoryPath := range splitNullTerminated(trackedOutput) {
+		tracked[repositoryPath] = struct{}{}
+	}
+	addedPaths := make([]string, 0)
+	for _, repositoryPath := range changedPaths {
+		if _, existed := tracked[repositoryPath]; !existed {
+			addedPaths = append(addedPaths, repositoryPath)
+		}
+	}
+	if len(addedPaths) > 0 {
+		arguments := []string{"add", "--intent-to-add", "--"}
+		arguments = append(arguments, addedPaths...)
+		if _, err := runGitWithIndex(canonicalRoot, indexPath, nil, arguments...); err != nil {
+			return nil, fmt.Errorf("prepare added paths in canonical proof index: %w", err)
+		}
+	}
+	patch, err := runGitWithIndex(
+		canonicalRoot,
+		indexPath,
+		nil,
+		"-c", "core.quotePath=true",
+		"diff", "--binary", "--full-index", "--no-color", "--no-ext-diff",
+		"--no-renames", "--no-textconv", "--diff-algorithm=myers",
+		baseRevision, "--",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("extract canonical application diff: %w", err)
+	}
+	return patch, nil
+}
+
+func porcelainPaths(output []byte) ([]string, error) {
+	entries := splitNullTerminated(output)
+	paths := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if len(entry) < 4 || entry[2] != ' ' {
+			return nil, fmt.Errorf("canonical Git status contained malformed entry")
+		}
+		paths = append(paths, entry[3:])
+	}
+	sort.Strings(paths)
+	return paths, nil
+}
+
+func equalPathLists(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 // Remove deletes only a worktree recorded as owned by this adapter instance.
@@ -294,8 +570,28 @@ func splitNullTerminated(output []byte) []string {
 }
 
 func runGit(repositoryRoot string, arguments ...string) ([]byte, error) {
+	return runGitInput(repositoryRoot, nil, arguments...)
+}
+
+func runGitInput(repositoryRoot string, input []byte, arguments ...string) ([]byte, error) {
+	return runGitWithIndex(repositoryRoot, "", input, arguments...)
+}
+
+func runGitWithIndex(repositoryRoot string, indexPath string, input []byte, arguments ...string) ([]byte, error) {
 	commandArguments := append([]string{"-C", repositoryRoot}, arguments...)
 	command := exec.Command("git", commandArguments...)
+	if indexPath != "" {
+		environment := make([]string, 0, len(os.Environ())+1)
+		for _, value := range os.Environ() {
+			if !strings.HasPrefix(value, "GIT_INDEX_FILE=") {
+				environment = append(environment, value)
+			}
+		}
+		command.Env = append(environment, "GIT_INDEX_FILE="+indexPath)
+	}
+	if input != nil {
+		command.Stdin = bytes.NewReader(input)
+	}
 	output, err := command.Output()
 	if err == nil {
 		return output, nil

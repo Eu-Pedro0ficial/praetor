@@ -206,10 +206,15 @@ is optional, trimmed, valid UTF-8, single-line, control-free, and limited to
 A HumanDecision can be created only for a `validated` Change with a retained
 PatchArtifact, coherent passing deterministic evidence, and unchanged
 proposal/canonical integrity. `APPROVE` requests `approved`; `REJECT` requests
-`rejected`. M0.7 does not apply the patch and does not automatically advance
-either disposition to `audit-locked`. The proposal remains session-owned for
-inspection until the existing cleanup path runs; M0.8 owns canonical
-integration.
+`rejected`. M0.7 does not apply the patch or automatically advance either
+disposition. M0.8 introduces a bounded canonical application Result linked to
+the same Project, Change, workspace, base/source/patch digests,
+VerificationAttempt, EvidenceSet, and HumanDecision. An approved Result proves
+the exact canonical diff and changed paths, unchanged HEAD/index, a changed
+dirty SourceSnapshot digest, and completion time/result digest before
+`audit-locked`. Rejected closure has no application Result and instead proves
+canonical source unchanged. Both terminal paths then clean the session-owned
+workspace.
 
 Potential value objects/entities:
 
@@ -233,6 +238,7 @@ Potential value objects/entities:
 |VerificationPlan |Validated structured verification steps selected for a source/patch context
 |VerificationStep |One bounded executable/tool invocation with arguments, working-directory scope, origin and supporting evidence
 |EvidenceSet |Normalized evidence produced by validators/reviewers
+|CanonicalApplicationResult |Bounded proof that one exact approved PatchArtifact is present in the canonical working tree while HEAD and index remain unchanged
 |Review |Reviewer role, findings, confidence/evidence and disposition
 |Approval |Explicit actor decision permitting a disposition transition without itself applying canonical source
 |Exception |Explicit bounded departure from a policy

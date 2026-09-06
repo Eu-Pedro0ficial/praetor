@@ -247,7 +247,7 @@ func TestChangeImplementDirectAndContextualUseProviderPipeline(t *testing.T) {
 					t.Fatalf("enter change mode: %v", err)
 				}
 				assertSuggestions(t, registry.ContextualHelp(session, ""), []string{
-					"new", "isolate", "implement", "patch", "verify", "approve", "reject", "discard", "help", "?", "end",
+					"new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard", "help", "?", "end",
 				})
 			}
 

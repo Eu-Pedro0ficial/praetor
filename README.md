@@ -43,12 +43,12 @@ See:
 
 ## Status
 
-Implementation in progress.
+Core V0 complete.
 
-M0.0 through M0.7 are complete. M0.7 adds explicit local-human approval and
-rejection over retained, deterministically validated proposals, with bounded
-decision provenance in append-oriented audit history. M0.8 — Governed Change
-End-to-End remains unimplemented and is the Core V0 release gate.
+M0.0 through M0.8 are complete. The local governed-change loop now connects
+Project identity, bounded source scope, isolated proposal production,
+deterministic verification, explicit local-human disposition, canonical
+application or rejection closure, and append-oriented audit history.
 
 The primary developer interface is the retained-context interactive shell.
 Run `praetor` inside a Git repository, then use plain commands such as `status`,
@@ -102,8 +102,23 @@ coherent passing EvidenceSet, recheck proposal and canonical-source integrity,
 and record `HUMAN_DECISION_RECORDED` before the existing audited state
 transition. The actor provenance is exactly `local-interactive-human`; it
 describes local process interaction, not authenticated personal identity.
-M0.7 is authorization-only: it stops at `approved` or `rejected`, keeps the
-proposal for the active session, does not automatically enter `audit-locked`,
-and never applies the patch to canonical source. Session-local decision state
-is not resumable; the existing durable audit remains outside the governed
-repository. M0.8 owns canonical integration and the end-to-end release proof.
+M0.7 remains authorization-only: it stops at `approved` or `rejected`, keeps
+the proposal for the active session, and never applies the patch by itself.
+Session-local decision state is not resumable; durable audit remains outside
+the governed repository.
+
+M0.8 adds explicit `change apply` for `APPROVE` and `change close` for
+`REJECT`. Application first rechecks exact Change, Project, workspace,
+PatchArtifact, source, VerificationAttempt, EvidenceSet, and HumanDecision
+linkage; verifies the retained proposal; runs `git apply --check`; appends a
+start event; repeats preflight under the adapter lock; and applies the exact
+patch through stdin with default whole-patch `git apply` behavior. It changes
+only the canonical working tree: HEAD and the Git index remain unchanged, and
+Praetor creates no commit, branch, merge, PR, or push. Exact post-application
+diff/path/digest proof and a completion audit precede `approved ->
+audit-locked`. Rejection closure proves canonical source unchanged, never
+invokes application, records closure, and then performs `rejected ->
+audit-locked`. Late failures report whether mutation occurred and never claim
+rollback; replay then fails closed against canonical drift. Temporary proposal
+workspaces are cleaned after terminal closure without placing `.praetor` or
+patch files in governed source.

@@ -225,6 +225,20 @@ the existing audited workflow transition. The local interactive command
 adapter is the sole M0.7 caller. It does not depend on an AI provider, mutate
 canonical source, or enter `audit-locked`.
 
+==== Canonical Integration Gate
+
+The M0.8 application service consumes the retained Proposal, passing
+EvidenceSet, and exact HumanDecision through a provider-independent application
+boundary. `APPROVE` permits only a separate explicit working-tree application;
+`REJECT` permits only unchanged-source closure. The Git adapter checks the
+exact retained patch and canonical base, runs `git apply --check`, records a
+durable start before mutation, and applies patch bytes through stdin using
+default whole-patch behavior. It then proves exact canonical diff and changed
+paths, unchanged HEAD and index, and the retained patch digest. Completion
+audit precedes `approved -> audit-locked`; rejection closure audit precedes
+`rejected -> audit-locked`. The component has no commit, push, merge, branch,
+PR, remote-SCM, or provider-execution capability.
+
 ==== Project Registry
 
 Associates a project identity with its source repository, memory repository and local configuration without requiring the source repository itself to contain a Git submodule or vendor-specific metadata.
@@ -255,4 +269,5 @@ The initial architectural port catalog includes:
 |Telemetry Port |Emit metrics/traces/logs under policy
 |Identity Port |Resolve actor and authority
 |Approval Port |Record/retrieve human approvals and exceptions
+|Canonical Source Port |Preflight and apply one exact approved PatchArtifact to the canonical working tree without changing HEAD or index
 |===

@@ -6,8 +6,8 @@ The roadmap must not treat memory, routing sophistication, or organizational lea
 
 The project must prove a governed change loop first, then expand capability after V0.
 
-Current implementation status: M0.0 through M0.7 are complete. M0.8 remains
-unimplemented and is the Core V0 release gate.
+Current implementation status: M0.0 through M0.8 are complete. The Core V0
+release gate has passed; M1.0 has not begun.
 
 ## Mandatory decision closure rule
 
@@ -764,6 +764,7 @@ This is the first executable proof that Praetor is meaningfully different from s
 - Verification Port
 - Approval Port
 - Audit Port
+- Canonical Source Port
 
 #### Required adapters
 - local Git repository adapter
@@ -783,6 +784,7 @@ This is the first executable proof that Praetor is meaningfully different from s
 - deterministic verification evidence
 - explicit accept/reject decision
 - complete append-only audit record
+- exact canonical application proof or unchanged-source rejection closure
 
 #### Dependencies
 - M0.0, M0.1, M0.2, M0.3, M0.4, M0.5, M0.6, M0.7
@@ -794,6 +796,9 @@ This is the first executable proof that Praetor is meaningfully different from s
 #### Implementation boundaries
 - V0 is intentionally minimal and local
 - no organization memory or advanced review stack yet
+- canonical application is an explicit working-tree-only `git apply` after
+  approval; HEAD and index remain unchanged and no commit or push is performed
+- rejected changes use a separate closure path that never invokes application
 
 #### Explicit non-goals
 - mature Policy Engine
@@ -808,11 +813,16 @@ This is the first executable proof that Praetor is meaningfully different from s
 - patch integrity tests
 - evidence-before-approval tests
 - audit completeness tests
+- canonical preflight, exact-diff proof, late-failure and replay tests
+- real PTY approval, rejection, help/completion, and session-close tests
 
 #### Validation
 - human approval is required before any canonical-source mutation
 - verification evidence is captured and auditable
 - append-only audit history records the lifecycle
+- application start is durable before mutation, completion is durable before
+  `approved -> audit-locked`, and failure reports mutation truthfully
+- `rejected -> audit-locked` requires unchanged canonical source
 
 #### Documentation changes
 - V0 release gate docs and acceptance summary
@@ -822,11 +832,15 @@ This is the first executable proof that Praetor is meaningfully different from s
 - weak change-surface rules
 
 #### Acceptance criteria
-- a developer can submit a change request, isolate implementation, validate it, explicitly accept or reject it, and record the lifecycle in audit history
+- a developer can submit a change request, isolate implementation, validate it,
+  explicitly accept or reject it, explicitly apply an approved patch or close
+  a rejected change, and record the lifecycle in audit history
 - no accepted patch reaches canonical source without evidence and approval
+- canonical application creates no commit or push and leaves HEAD/index unchanged
 
 #### Definition of Done
-Praetor V0 is complete when the full change lifecycle is proven in a real repository and the release gate criteria are satisfied.
+Complete. The full local change lifecycle is proven in temporary real Git
+repositories and the Core V0 release-gate criteria are satisfied.
 
 ---
 
