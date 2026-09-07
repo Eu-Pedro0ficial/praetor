@@ -42,6 +42,8 @@ type consoleRenderer struct {
 	session    *command.Session
 	dimensions dimensionProvider
 	color      bool
+	fullScreen bool
+	history    *consoleHistory
 }
 
 type consoleRow struct {
@@ -65,12 +67,245 @@ type consoleSegment struct {
 }
 
 func newConsoleRenderer(session *command.Session, dimensions dimensionProvider, color bool) *consoleRenderer {
-	return &consoleRenderer{session: session, dimensions: dimensions, color: color}
+	return &consoleRenderer{
+		session:    session,
+		dimensions: dimensions,
+		color:      color,
+		history:    newConsoleHistory(),
+	}
+}
+
+func (renderer *consoleRenderer) setFullScreen(enabled bool) {
+	renderer.fullScreen = enabled
+}
+
+func (renderer *consoleRenderer) viewportHeight() int {
+	height := renderer.dimensions().Height - 8
+	if height < 4 {
+		return 4
+	}
+	return height
+}
+
+func (renderer *consoleRenderer) AppendCommand(commandLine string) {
+	if renderer == nil || renderer.history == nil {
+		return
+	}
+	renderer.history.appendCommand(renderer.session.Prompt(), commandLine)
+}
+
+func (renderer *consoleRenderer) AppendOutput(value string) {
+	if renderer == nil || renderer.history == nil {
+		return
+	}
+	renderer.history.appendOutput(value)
+}
+
+func (renderer *consoleRenderer) ScrollOlder() {
+	if renderer == nil || renderer.history == nil {
+		return
+	}
+	renderer.history.scrollOlder(renderer.viewportHeight())
+}
+
+func (renderer *consoleRenderer) ScrollNewer() {
+	if renderer == nil || renderer.history == nil {
+		return
+	}
+	renderer.history.scrollNewer(renderer.viewportHeight())
+}
+
+// terminalDefaultBackground returns an OSC 11 sequence that temporarily makes
+// the configured Praetor presentation background the terminal's default
+// background. This is required in fullscreen mode because readline legitimately
+// emits SGR resets while editing; after a reset the terminal falls back to its
+// default background rather than the previously active SGR background.
+func terminalDefaultBackground(color preferences.Color) string {
+	value := map[preferences.Color]string{
+		preferences.ColorBlack:   "#000000",
+		preferences.ColorWhite:   "#ffffff",
+		preferences.ColorGray:    "#808080",
+		preferences.ColorCyan:    "#00ffff",
+		preferences.ColorBlue:    "#0000aa",
+		preferences.ColorGreen:   "#00aa00",
+		preferences.ColorYellow:  "#aaaa00",
+		preferences.ColorRed:     "#aa0000",
+		preferences.ColorMagenta: "#aa00aa",
+	}[color]
+
+	if value == "" {
+		return ""
+	}
+
+	// OSC 11 changes the terminal's default background color.
+	return "\x1b]11;" + value + "\x07"
+}
+
+// resetTerminalDefaultBackground resets an OSC 11 override back to the terminal
+// profile's original/default background.
+func resetTerminalDefaultBackground() string {
+	// OSC 111 resets the default background color.
+	return "\x1b]111\x07"
+}
+
+func (renderer *consoleRenderer) screenSurfaceStyle() string {
+	if renderer == nil || !renderer.color {
+		return ""
+	}
+
+	layout := renderer.session.LayoutPreferences()
+	return backgroundCode(layout.Colors.Background) +
+		foregroundCode(layout.Colors.Text)
+}
+
+func (renderer *consoleRenderer) EnterScreen() string {
+	if renderer == nil || !renderer.fullScreen {
+		return ""
+	}
+
+	layout := renderer.session.LayoutPreferences()
+
+	// Enter the alternate screen first, then temporarily make Praetor's
+	// configured background the terminal default. This also covers cells
+	// exposed by readline SGR resets and any unused terminal rows.
+	return "\x1b[?1049h" +
+		terminalDefaultBackground(layout.Colors.Background) +
+		renderer.screenSurfaceStyle() +
+		"\x1b[H\x1b[2J"
+}
+
+func (renderer *consoleRenderer) LeaveScreen() string {
+	if renderer == nil || !renderer.fullScreen {
+		return ""
+	}
+
+	// Restore both SGR state and the terminal profile's default background
+	// before leaving Praetor's alternate screen.
+	return "\x1b[0m" +
+		resetTerminalDefaultBackground() +
+		"\x1b[?1049l"
+}
+
+func (renderer *consoleRenderer) Redraw() string {
+	if renderer == nil {
+		return ""
+	}
+	if !renderer.fullScreen {
+		return renderer.Render()
+	}
+
+	// Re-apply the surface background before every clear because individual
+	// rendered rows intentionally reset ANSI attributes.
+	return renderer.screenSurfaceStyle() +
+		"\x1b[H\x1b[2J" +
+		renderer.Render()
+}
+
+func (renderer *consoleRenderer) RenderContextualHelp(value string) string {
+	if renderer == nil {
+		return ""
+	}
+
+	renderer.history.appendCommand(renderer.session.Prompt(), "?")
+	renderer.history.appendOutput(strings.TrimSuffix(value, "\n"))
+	return renderer.Redraw()
 }
 
 // Render draws the console through the workspace/input boundary. Readline
 // supplies Prompt on the next row; ClosePrompt then finishes the footer/frame.
 func (renderer *consoleRenderer) Render() string {
+	if renderer.fullScreen {
+		return renderer.renderViewport()
+	}
+	return renderer.renderLegacy()
+}
+
+func (renderer *consoleRenderer) renderViewport() string {
+	dimensions := renderer.dimensions()
+
+	width := dimensions.Width
+	if width < minimumConsoleWidth {
+		width = minimumConsoleWidth
+	}
+
+	layout := renderer.session.LayoutPreferences()
+	status := renderer.session.StatusSnapshot()
+	showSidebar := layout.Sidebar.Visible && dimensions.Width >= minimumSidebarWidth
+	bodyHeight := renderer.viewportHeight()
+	body := renderer.history.visible(bodyHeight)
+
+	lines := []string{
+		renderer.horizontal("┌", "┐", width, layout),
+		renderer.fullLine(
+			"◈  P R A E T O R   │   GOVERNED AI ENGINEERING",
+			width,
+			layout,
+			layout.Colors.Accent,
+		),
+	}
+
+	if showSidebar {
+		sidebarWidth := sidebarWidthFor(width)
+		leftWidth := width - sidebarWidth - 3
+		sidebar := sidebarRows(layout, status)
+		scrollbarThumb := renderer.history.scrollbarThumb(bodyHeight)
+
+		lines = append(lines, renderer.splitRule(leftWidth, sidebarWidth, layout))
+
+		for index := 0; index < bodyHeight; index++ {
+			var left consoleRow
+			var right sidebarRow
+
+			if index < len(body) {
+				left = body[index]
+			}
+			if index < len(sidebar) {
+				right = sidebar[index]
+			}
+
+			divider := "│"
+			if index == scrollbarThumb {
+				divider = "┃"
+			}
+
+			lines = append(
+				lines,
+				renderer.splitLineWithDivider(
+					left,
+					right,
+					leftWidth,
+					sidebarWidth,
+					divider,
+					layout,
+				),
+			)
+		}
+	} else {
+		lines = append(lines, renderer.horizontal("├", "┤", width, layout))
+
+		for index := 0; index < bodyHeight; index++ {
+			var row consoleRow
+			if index < len(body) {
+				row = body[index]
+			}
+
+			lines = append(
+				lines,
+				renderer.fullLine(
+					row.text,
+					width,
+					layout,
+					rowColor(row.color, layout.Colors.Text),
+				),
+			)
+		}
+	}
+
+	lines = append(lines, renderer.horizontal("├", "┤", width, layout))
+	return strings.Join(lines, "\n") + "\n"
+}
+
+func (renderer *consoleRenderer) renderLegacy() string {
 	dimensions := renderer.dimensions()
 	width := dimensions.Width
 	if width < minimumConsoleWidth {
@@ -124,6 +359,28 @@ func (renderer *consoleRenderer) Render() string {
 // Prompt returns the styled readline-owned input prompt. Erasing the row with
 // the active background keeps the terminal emulator color from showing through
 // while leaving editing, redisplay, history, and completion to readline.
+// PrepareInputRow paints the complete readline row with Praetor's configured
+// presentation background before readline begins editing it. Readline may reset
+// SGR attributes while redisplaying input, but already-painted terminal cells
+// retain the intended surface background.
+func (renderer *consoleRenderer) PrepareInputRow() string {
+	if renderer == nil || !renderer.fullScreen || !renderer.color {
+		return ""
+	}
+
+	width := renderer.dimensions().Width
+	if width < minimumConsoleWidth {
+		width = minimumConsoleWidth
+	}
+
+	layout := renderer.session.LayoutPreferences()
+
+	return backgroundCode(layout.Colors.Background) +
+		foregroundCode(layout.Colors.Text) +
+		strings.Repeat(" ", width) +
+		"\r"
+}
+
 func (renderer *consoleRenderer) Prompt() string {
 	dimensions := renderer.dimensions()
 	width := dimensions.Width
@@ -135,6 +392,13 @@ func (renderer *consoleRenderer) Prompt() string {
 	if !renderer.color {
 		return "│ " + prompt
 	}
+
+	if renderer.fullScreen {
+		return backgroundCode(layout.Colors.Background) +
+			foregroundCode(layout.Colors.Border) + "│ " +
+			foregroundCode(layout.Colors.Accent) + prompt
+	}
+
 	return backgroundCode(layout.Colors.Background) + "\x1b[2K\r" +
 		foregroundCode(layout.Colors.Border) + "│ " +
 		foregroundCode(layout.Colors.Accent) + prompt
@@ -176,10 +440,19 @@ func (renderer *consoleRenderer) ClosePrompt() string {
 	}
 	result := separator + "\n" +
 		renderer.footer(width, layout) + "\n" +
-		renderer.horizontal("└", "┘", width, layout) + "\n"
+		renderer.horizontal("└", "┘", width, layout)
+
+	if !renderer.fullScreen {
+		result += "\n"
+	}
+
 	if renderer.color {
+		if renderer.fullScreen {
+			return renderer.screenSurfaceStyle() + result
+		}
 		return "\x1b[0m" + result
 	}
+
 	return result
 }
 
@@ -285,15 +558,36 @@ func (renderer *consoleRenderer) fullLine(value string, width int, layout prefer
 }
 
 func (renderer *consoleRenderer) splitLine(left consoleRow, right sidebarRow, leftWidth, sidebarWidth int, layout preferences.Layout) string {
+	return renderer.splitLineWithDivider(
+		left,
+		right,
+		leftWidth,
+		sidebarWidth,
+		"│",
+		layout,
+	)
+}
+
+func (renderer *consoleRenderer) splitLineWithDivider(
+	left consoleRow,
+	right sidebarRow,
+	leftWidth int,
+	sidebarWidth int,
+	divider string,
+	layout preferences.Layout,
+) string {
 	leftContent := fitTerminalText(left.text, leftWidth-2)
 	leftMiddle := " " + leftContent + strings.Repeat(" ", leftWidth-2-displayWidth(leftContent)) + " "
+
 	segments := []consoleSegment{
 		{value: "│", color: layout.Colors.Border},
 		{value: leftMiddle, color: rowColor(left.color, layout.Colors.Text)},
-		{value: "│", color: layout.Colors.Border},
+		{value: divider, color: layout.Colors.Accent},
 	}
+
 	segments = append(segments, sidebarSegments(right, sidebarWidth, layout)...)
 	segments = append(segments, consoleSegment{value: "│", color: layout.Colors.Border})
+
 	return renderer.segmentedLine(layout, segments...)
 }
 
@@ -332,6 +626,9 @@ func sidebarSegments(row sidebarRow, width int, layout preferences.Layout) []con
 func (renderer *consoleRenderer) footer(width int, layout preferences.Layout) string {
 	contentWidth := width - 4
 	left := "? Help    ↑↓ History    Tab Complete    Ctrl+C Cancel"
+	if renderer.fullScreen {
+		left = "? Help    ↑↓ History    PgUp/PgDn Scroll    Tab Complete    Ctrl+C Cancel"
+	}
 	right := "• Ready"
 	if width < 80 {
 		left = "? Help    Tab Complete    Ctrl+C Cancel"
@@ -433,6 +730,16 @@ func backgroundCode(color preferences.Color) string {
 		preferences.ColorMagenta: "\x1b[45m", preferences.ColorCyan: "\x1b[46m",
 		preferences.ColorWhite: "\x1b[47m", preferences.ColorGray: "\x1b[100m",
 	}[color]
+}
+
+func terminalIsInteractive(output io.Writer) bool {
+	file, ok := output.(interface{ Fd() uintptr })
+	if !ok {
+		return false
+	}
+
+	_, terminalError := unix.IoctlGetTermios(int(file.Fd()), unix.TCGETS)
+	return terminalError == nil && os.Getenv("TERM") != "dumb"
 }
 
 func terminalCapabilities(output io.Writer) (dimensionProvider, bool) {

@@ -10,10 +10,12 @@ import (
 )
 
 type readlineEditor struct {
-	shell      *readline.Shell
-	registry   command.Registry
-	session    *command.Session
-	renderHelp func(string)
+	shell       *readline.Shell
+	registry    command.Registry
+	session     *command.Session
+	renderHelp  func(string)
+	scrollOlder func() string
+	scrollNewer func() string
 }
 
 func newReadlineEditor(registry command.Registry, session *command.Session) (*readlineEditor, error) {
@@ -49,10 +51,18 @@ func newReadlineEditor(registry command.Registry, session *command.Session) (*re
 	}
 	terminalShell.Keymap.Register(map[string]func(){
 		"praetor-contextual-help": editor.showContextualHelp,
+		"praetor-scroll-older":    editor.scrollViewportOlder,
+		"praetor-scroll-newer":    editor.scrollViewportNewer,
 	})
 	for _, keymap := range []string{"emacs", "vi-insert"} {
 		if err := terminalShell.Config.Bind(keymap, "?", "praetor-contextual-help", false); err != nil {
 			return nil, fmt.Errorf("bind contextual help in %s mode: %w", keymap, err)
+		}
+		if err := terminalShell.Config.Bind(keymap, "\x1b[5~", "praetor-scroll-older", false); err != nil {
+			return nil, fmt.Errorf("bind viewport PageUp in %s mode: %w", keymap, err)
+		}
+		if err := terminalShell.Config.Bind(keymap, "\x1b[6~", "praetor-scroll-newer", false); err != nil {
+			return nil, fmt.Errorf("bind viewport PageDown in %s mode: %w", keymap, err)
 		}
 	}
 	return editor, nil
@@ -72,6 +82,20 @@ func (editor *readlineEditor) showContextualHelp() {
 	}
 	suggestions := editor.registry.ContextualHelp(editor.session, string(line[:cursor]))
 	editor.renderHelp(formatContextualSuggestions(suggestions))
+}
+
+func (editor *readlineEditor) scrollViewportOlder() {
+	if editor == nil || editor.shell == nil || editor.scrollOlder == nil {
+		return
+	}
+	_, _ = editor.shell.Printf("%s", editor.scrollOlder())
+}
+
+func (editor *readlineEditor) scrollViewportNewer() {
+	if editor == nil || editor.shell == nil || editor.scrollNewer == nil {
+		return
+	}
+	_, _ = editor.shell.Printf("%s", editor.scrollNewer())
 }
 
 func formatContextualSuggestions(suggestions []command.Suggestion) string {
@@ -97,6 +121,28 @@ func (editor *readlineEditor) Readline() (string, error) {
 		return line, errInterrupted
 	}
 	return line, err
+}
+
+func (editor *readlineEditor) setHelpRenderer(render func(string) string) {
+	if editor == nil || editor.shell == nil || render == nil {
+		return
+	}
+
+	editor.renderHelp = func(helpText string) {
+		_, _ = editor.shell.Printf("%s", render(helpText))
+	}
+}
+
+func (editor *readlineEditor) setViewportHandlers(
+	scrollOlder func() string,
+	scrollNewer func() string,
+) {
+	if editor == nil {
+		return
+	}
+
+	editor.scrollOlder = scrollOlder
+	editor.scrollNewer = scrollNewer
 }
 
 func (editor *readlineEditor) setPrompt(prompt func() string) {

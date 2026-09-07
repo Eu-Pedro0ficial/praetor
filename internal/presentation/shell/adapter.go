@@ -20,11 +20,12 @@ type lineEditor interface {
 
 // Adapter runs one retained-context interactive Praetor shell.
 type Adapter struct {
-	registry command.Registry
-	session  *command.Session
-	output   io.Writer
-	editor   lineEditor
-	renderer *consoleRenderer
+	registry          command.Registry
+	session           *command.Session
+	output            io.Writer
+	editor            lineEditor
+	renderer          *consoleRenderer
+	interactiveScreen bool
 }
 
 // New constructs the approved readline-backed presentation adapter.
@@ -39,9 +40,27 @@ func New(registry command.Registry, session *command.Session, output io.Writer) 
 	}
 	dimensions, color := terminalCapabilities(output)
 	adapter.renderer = newConsoleRenderer(session, dimensions, color)
+	adapter.interactiveScreen = terminalIsInteractive(output)
+	adapter.renderer.setFullScreen(adapter.interactiveScreen)
+
 	editor.setPrompt(adapter.renderer.Prompt)
 	editor.setRightPrompt(adapter.renderer.RightPrompt)
 	editor.setFooter(adapter.renderer.ClosePrompt)
+
+	if adapter.interactiveScreen {
+		editor.setHelpRenderer(adapter.renderer.RenderContextualHelp)
+		editor.setViewportHandlers(
+			func() string {
+				adapter.renderer.ScrollOlder()
+				return adapter.renderer.Redraw()
+			},
+			func() string {
+				adapter.renderer.ScrollNewer()
+				return adapter.renderer.Redraw()
+			},
+		)
+	}
+
 	return adapter, nil
 }
 
@@ -87,35 +106,130 @@ func (adapter *Adapter) RunContext(ctx context.Context) error {
 	if ctx == nil {
 		return fmt.Errorf("shell execution context is required")
 	}
+
+	if adapter.interactiveScreen {
+		return adapter.runFullScreenContext(ctx)
+	}
+
+	return adapter.runScrollbackContext(ctx)
+}
+
+func (adapter *Adapter) runScrollbackContext(ctx context.Context) error {
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+
 		if _, err := fmt.Fprint(adapter.output, adapter.renderer.Render()); err != nil {
 			return err
 		}
+
 		line, err := adapter.editor.Readline()
+
 		if _, closeError := fmt.Fprint(adapter.output, adapter.renderer.ClosePrompt()); closeError != nil {
 			return closeError
 		}
+
 		switch {
 		case errors.Is(err, io.EOF):
 			return nil
+
 		case errors.Is(err, errInterrupted):
 			continue
+
 		case err != nil:
 			return fmt.Errorf("read interactive command: %w", err)
 		}
+
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		result, dispatchError := adapter.registry.DispatchContext(ctx, adapter.session, line, adapter.output)
+
+		result, dispatchError := adapter.registry.DispatchContext(
+			ctx,
+			adapter.session,
+			line,
+			adapter.output,
+		)
 		if dispatchError != nil {
-			if _, writeError := fmt.Fprintf(adapter.output, "praetor: %v\n", dispatchError); writeError != nil {
+			if _, writeError := fmt.Fprintf(
+				adapter.output,
+				"praetor: %v\n",
+				dispatchError,
+			); writeError != nil {
 				return writeError
 			}
 			continue
 		}
+
+		if result.Exit {
+			return nil
+		}
+	}
+}
+
+func (adapter *Adapter) runFullScreenContext(ctx context.Context) (runError error) {
+	if _, err := fmt.Fprint(adapter.output, adapter.renderer.EnterScreen()); err != nil {
+		return err
+	}
+
+	defer func() {
+		_, leaveError := fmt.Fprint(adapter.output, adapter.renderer.LeaveScreen())
+		runError = errors.Join(runError, leaveError)
+	}()
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		if _, err := fmt.Fprint(adapter.output, adapter.renderer.Redraw()); err != nil {
+			return err
+		}
+
+		if _, err := fmt.Fprint(adapter.output, adapter.renderer.PrepareInputRow()); err != nil {
+			return err
+		}
+
+		line, err := adapter.editor.Readline()
+
+		switch {
+		case errors.Is(err, io.EOF):
+			return nil
+
+		case errors.Is(err, errInterrupted):
+			continue
+
+		case err != nil:
+			return fmt.Errorf("read interactive command: %w", err)
+		}
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		adapter.renderer.AppendCommand(line)
+
+		commandOutput := newConsoleHistoryWriter(adapter.renderer)
+
+		result, dispatchError := adapter.registry.DispatchContext(
+			ctx,
+			adapter.session,
+			line,
+			commandOutput,
+		)
+
+		if dispatchError != nil {
+			_, _ = fmt.Fprintf(commandOutput, "praetor: %v\n", dispatchError)
+		}
+
+		commandOutput.Flush()
+
+		if dispatchError != nil {
+			continue
+		}
+
 		if result.Exit {
 			return nil
 		}
