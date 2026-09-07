@@ -143,7 +143,7 @@ func TestConsoleBoundedColorAndReadableFallback(t *testing.T) {
 	dimensions := func() terminalDimensions { return terminalDimensions{Width: 100, Height: 30} }
 	renderer := newConsoleRenderer(session, dimensions, true)
 	colored := renderer.Render() + renderer.Prompt() + renderer.ClosePrompt()
-	for _, sequence := range []string{"\x1b[35m", "\x1b[36m", "\x1b[40m", "\x1b[37m", "\x1b[0m"} {
+	for _, sequence := range []string{"\x1b[35m", "\x1b[36m", "\x1b[48;2;23;20;33m", "\x1b[37m", "\x1b[0m"} {
 		if !strings.Contains(colored, sequence) {
 			t.Fatalf("colored console lacks %q", sequence)
 		}

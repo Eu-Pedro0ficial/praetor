@@ -122,7 +122,7 @@ func (renderer *consoleRenderer) ScrollNewer() {
 // default background rather than the previously active SGR background.
 func terminalDefaultBackground(color preferences.Color) string {
 	value := map[preferences.Color]string{
-		preferences.ColorBlack:   "#000000",
+		preferences.ColorBlack:   "#171421",
 		preferences.ColorWhite:   "#ffffff",
 		preferences.ColorGray:    "#808080",
 		preferences.ColorCyan:    "#00ffff",
@@ -724,7 +724,7 @@ func foregroundCode(color preferences.Color) string {
 
 func backgroundCode(color preferences.Color) string {
 	return map[preferences.Color]string{
-		preferences.ColorTerminal: "", preferences.ColorBlack: "\x1b[40m",
+		preferences.ColorTerminal: "", preferences.ColorBlack: "\x1b[48;2;23;20;33m",
 		preferences.ColorRed: "\x1b[41m", preferences.ColorGreen: "\x1b[42m",
 		preferences.ColorYellow: "\x1b[43m", preferences.ColorBlue: "\x1b[44m",
 		preferences.ColorMagenta: "\x1b[45m", preferences.ColorCyan: "\x1b[46m",
