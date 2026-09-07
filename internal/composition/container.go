@@ -7,6 +7,7 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/aiprovider/codexcli"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
+	projectpolicy "github.com/Eu-Pedro0ficial/praetor/internal/adapters/policy/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/verification/localexec"
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
@@ -15,6 +16,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
+	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
@@ -39,7 +41,7 @@ type ChangeAuditLoggerFunc func(dataDirectory string, eventType string, projectI
 // PresentationPreferencesFunc loads user-local rendering preferences.
 type PresentationPreferencesFunc func() (*preferences.Service, error)
 
-// Container assembles only the dependencies required by the current M0.9 runtime scope.
+// Container assembles only the dependencies required by the current M1.0 runtime scope.
 type Container struct {
 	RepositoryDiscovery     RepositoryDiscoveryFunc
 	RepositoryInspection    intelligence.RepositoryInspector
@@ -59,6 +61,8 @@ type Container struct {
 	VerificationRunner      verification.StepRunner
 	VerificationAttemptIds  verification.AttemptIdGenerator
 	VerificationClock       verification.Clock
+	PolicySource            policy.SourcePort
+	PolicyClock             policy.Clock
 	ApprovalClock           approval.Clock
 	CanonicalSource         integration.CanonicalSourcePort
 	IntegrationClock        integration.Clock
@@ -103,6 +107,8 @@ func New() Container {
 		VerificationClock: func() time.Time {
 			return time.Now().UTC()
 		},
+		PolicySource: projectpolicy.New(),
+		PolicyClock:  func() time.Time { return time.Now().UTC() },
 		ApprovalClock: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -115,7 +121,7 @@ func New() Container {
 }
 
 // NewInteractiveSession composes one retained shell session around the active
-// Project and the current M0.1-M0.9 application and presentation capabilities.
+// Project and the current M0.1-M1.0 application and presentation capabilities.
 func (container Container) NewInteractiveSession(path string) (*command.Session, error) {
 	registration, err := container.EnsureProjectRegistration(path)
 	if err != nil {
@@ -156,6 +162,10 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
+	policyService, err := container.NewPolicyService(registration)
+	if err != nil {
+		return nil, err
+	}
 	approvalService, err := container.NewApprovalService(registration, changeWorkflow, proposalLifecycle)
 	if err != nil {
 		return nil, err
@@ -178,6 +188,7 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		proposalLifecycle,
 		providerExecution,
 		verificationService,
+		policyService,
 		approvalService,
 		integrationService,
 		presentationPreferences,
@@ -210,6 +221,67 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		return nil, err
 	}
 	return session, nil
+}
+
+// NewPolicyService composes project-governance YAML loading, generic evaluation and bounded audit.
+func (container Container) NewPolicyService(registration project.Registration) (*policy.Service, error) {
+	if container.PolicySource == nil || container.PolicyClock == nil || container.ChangeAuditLogger == nil {
+		return nil, fmt.Errorf("policy dependencies are not configured")
+	}
+	dataDirectory, err := audit.ResolveDataDir()
+	if err != nil {
+		return nil, err
+	}
+	recorder := func(event policy.LifecycleEvent) error {
+		decision := event.Decision
+		if decision.ProjectId() != registration.ProjectId {
+			return fmt.Errorf("policy event ProjectId does not match registered ProjectId")
+		}
+		individual := make([]map[string]any, 0, len(decision.Decisions()))
+		for _, item := range decision.Decisions() {
+			individual = append(individual, map[string]any{
+				"policy_id":      string(item.Policy().Id()),
+				"policy_version": string(item.Policy().Version()),
+				"family":         string(item.Policy().Family()),
+				"severity":       string(item.Policy().Severity()),
+				"outcome":        string(item.Outcome()),
+				"evidence_count": len(item.EvidenceIds()),
+				"reason":         item.Reason(),
+			})
+		}
+		metadata := map[string]any{
+			"policy_evaluation_id":    decision.Id(),
+			"policy_bundle_id":        string(decision.Bundle().Id()),
+			"policy_bundle_version":   string(decision.Bundle().Version()),
+			"policy_bundle_digest":    decision.Bundle().Digest(),
+			"workspace_id":            string(decision.WorkspaceId()),
+			"verification_attempt_id": string(decision.VerificationAttemptId()),
+			"evidence_set_id":         decision.EvidenceSetId(),
+			"patch_digest":            decision.PatchDigest(),
+			"source_state_digest":     string(decision.SourceStateDigest()),
+			"policy_count":            len(decision.Decisions()),
+			"denied":                  decision.Aggregate().Denied,
+			"requires_review":         decision.Aggregate().RequiresReview,
+			"requires_approval":       decision.Aggregate().RequiresApproval,
+			"policy_decisions":        individual,
+		}
+		if event.EventType == policy.EventPolicyExceptionCandidateRecorded {
+			candidate := event.Candidate
+			metadata["exception_candidate_id"] = candidate.Id()
+			metadata["policy_id"] = string(candidate.PolicyId())
+			metadata["requested_scope"] = candidate.Scope()
+			metadata["requested_authority"] = candidate.RequestedAuthority()
+			metadata["reason"] = candidate.Reason()
+			if expiry, ok := candidate.ExpiresAt(); ok {
+				metadata["expires_at"] = expiry.Format(time.RFC3339Nano)
+			}
+		} else if event.EventType != policy.EventPolicyDecisionRecorded {
+			return fmt.Errorf("unknown M1.0 policy lifecycle event type %q", event.EventType)
+		}
+		_, recordError := container.ChangeAuditLogger(dataDirectory, event.EventType, string(decision.ProjectId()), string(decision.ChangeId()), registration.RepositoryRoot, metadata)
+		return recordError
+	}
+	return policy.New(container.PolicySource, policy.NewEngine(), recorder, container.PolicyClock)
 }
 
 // NewIntegrationService composes M0.8 canonical application and rejection
@@ -297,6 +369,8 @@ func canonicalIntegrationMetadata(event integration.LifecycleEvent) (map[string]
 		"evidence_set_id":             evidence.Id(),
 		"evidence_count":              len(evidence.Evidence()),
 		"human_decision":              string(decision.Kind()),
+		"policy_evaluation_id":        decision.PolicyEvaluationId(),
+		"policy_bundle_digest":        decision.PolicyBundleDigest(),
 		"canonical_mutation_occurred": event.CanonicalMutationOccurred,
 		"event_timestamp":             event.OccurredAt.UTC().Format(time.RFC3339Nano),
 	}
@@ -401,24 +475,30 @@ func humanDecisionMetadata(event approval.LifecycleEvent) (map[string]any, error
 		decision.WorkspaceId() == "" || decision.PatchDigest() == "" ||
 		decision.SourceStateDigest() == "" || decision.VerificationAttemptId() == "" ||
 		decision.EvidenceSetId() == "" || decision.EvidenceCount() <= 0 ||
-		decision.ChangedPathCount() <= 0 {
+		decision.ChangedPathCount() <= 0 || decision.PolicyEvaluationId() == "" ||
+		decision.PolicyBundleDigest() == "" {
 		return nil, fmt.Errorf("M0.7 decision event linkage is incomplete")
 	}
 	metadata := map[string]any{
-		"decision":                string(decision.Kind()),
-		"decision_timestamp":      decision.OccurredAt().Format(time.RFC3339Nano),
-		"actor_type":              "human",
-		"actor_provenance":        string(decision.Actor()),
-		"identity_assurance":      "local-process-interaction-only",
-		"requested_state":         string(decision.RequestedState()),
-		"workspace_id":            string(decision.WorkspaceId()),
-		"base_revision":           decision.BaseRevision(),
-		"source_state_digest":     string(decision.SourceStateDigest()),
-		"patch_digest":            decision.PatchDigest(),
-		"verification_attempt_id": string(decision.VerificationAttemptId()),
-		"evidence_set_id":         decision.EvidenceSetId(),
-		"evidence_count":          decision.EvidenceCount(),
-		"changed_path_count":      decision.ChangedPathCount(),
+		"decision":                 string(decision.Kind()),
+		"decision_timestamp":       decision.OccurredAt().Format(time.RFC3339Nano),
+		"actor_type":               "human",
+		"actor_provenance":         string(decision.Actor()),
+		"identity_assurance":       "local-process-interaction-only",
+		"requested_state":          string(decision.RequestedState()),
+		"workspace_id":             string(decision.WorkspaceId()),
+		"base_revision":            decision.BaseRevision(),
+		"source_state_digest":      string(decision.SourceStateDigest()),
+		"patch_digest":             decision.PatchDigest(),
+		"verification_attempt_id":  string(decision.VerificationAttemptId()),
+		"evidence_set_id":          decision.EvidenceSetId(),
+		"evidence_count":           decision.EvidenceCount(),
+		"changed_path_count":       decision.ChangedPathCount(),
+		"policy_evaluation_id":     decision.PolicyEvaluationId(),
+		"policy_bundle_digest":     decision.PolicyBundleDigest(),
+		"policy_denied":            decision.PolicyDenied(),
+		"policy_requires_review":   decision.PolicyRequiresReview(),
+		"policy_requires_approval": decision.PolicyRequiresApproval(),
 	}
 	if decision.Rationale() != "" {
 		metadata["rationale"] = string(decision.Rationale())

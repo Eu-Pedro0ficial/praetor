@@ -6,9 +6,9 @@ The roadmap must not treat memory, routing sophistication, or organizational lea
 
 The project must prove a governed change loop first, then expand capability after V0.
 
-Current implementation status: M0.0 through M0.9 are complete. The Core V0
-release gate and the bounded post-V0 presentation milestone have passed; M1.0
-has not begun.
+Current implementation status: M0.0 through M1.0 are complete. The Core V0
+release gate, bounded post-V0 presentation milestone, and local Policy Engine
+milestone have passed; M1.1 has not begun.
 
 ## Mandatory decision closure rule
 
@@ -974,7 +974,11 @@ Once the governed change loop is proven, a broader policy model becomes valuable
 - policy enforcement is first-class and evidence-linked
 
 #### Definition of Done
-A mature local Policy Engine exists without being a prerequisite for the V0 release gate.
+Complete. A mature local Policy Engine exists with strict Project Policy
+Manifest V1 loading, normalized severity, deterministic conjunctive bundle
+requirements, evidence-linked decisions, candidate-only exceptions,
+append-oriented audit, and existing approval/application enforcement. It does
+not alter the completed V0 release gate or begin M1.1.
 
 ---
 

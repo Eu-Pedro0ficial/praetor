@@ -15,6 +15,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
+	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
@@ -37,6 +38,7 @@ type integrationFixture struct {
 	currentChange     change.Change
 	currentProposal   proposal.Proposal
 	verification      verification.Result
+	policyDecision    policy.BundleDecision
 	decision          approval.HumanDecision
 	events            *[]string
 	failAuditLock     *bool
@@ -110,6 +112,7 @@ func TestIntegrationServiceApprovedAndRejectedTerminalPaths(t *testing.T) {
 			fixture.currentChange,
 			fixture.currentProposal,
 			fixture.verification,
+			fixture.policyDecision,
 			fixture.decision,
 		)
 		if err != nil {
@@ -154,6 +157,7 @@ func TestIntegrationServiceApprovedAndRejectedTerminalPaths(t *testing.T) {
 			fixture.currentChange,
 			fixture.currentProposal,
 			fixture.verification,
+			fixture.policyDecision,
 			fixture.decision,
 		)
 		if err != nil {
@@ -187,23 +191,23 @@ func TestIntegrationServiceRejectsMissingOrInvalidAuthorizationBeforeMutation(t 
 	for _, state := range states {
 		t.Run(string(state), func(t *testing.T) {
 			candidate := changeAtState(t, state)
-			if _, _, err := service.Apply(context.Background(), candidate, fixture.currentProposal, fixture.verification, fixture.decision); err == nil {
+			if _, _, err := service.Apply(context.Background(), candidate, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision); err == nil {
 				t.Fatalf("Apply() accepted %q Change", state)
 			}
 		})
 	}
-	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, approval.HumanDecision{}); err == nil {
+	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, approval.HumanDecision{}); err == nil {
 		t.Fatal("Apply() accepted missing HumanDecision")
 	}
-	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, verification.Result{}, fixture.decision); err == nil {
+	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, verification.Result{}, fixture.policyDecision, fixture.decision); err == nil {
 		t.Fatal("Apply() accepted missing EvidenceSet")
 	}
-	if _, err := service.CloseRejected(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.decision); err == nil {
+	if _, err := service.CloseRejected(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision); err == nil {
 		t.Fatal("CloseRejected() accepted approved Change")
 	}
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, _, err := service.Apply(cancelled, fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.decision); !errors.Is(err, context.Canceled) {
+	if _, _, err := service.Apply(cancelled, fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled Apply() error = %v", err)
 	}
 	if *fixture.canonicalApplyOps != 0 {
@@ -217,19 +221,34 @@ func TestIntegrationServiceRejectsMissingOrInvalidAuthorizationBeforeMutation(t 
 		events:     rejected.events,
 		applyCalls: rejected.canonicalApplyOps,
 	}, repository.Inspect, "")
-	if _, _, err := rejectedService.Apply(context.Background(), rejected.currentChange, rejected.currentProposal, rejected.verification, rejected.decision); err == nil {
+	if _, _, err := rejectedService.Apply(context.Background(), rejected.currentChange, rejected.currentProposal, rejected.verification, rejected.policyDecision, rejected.decision); err == nil {
 		t.Fatal("Apply() accepted rejected Change")
 	}
 	assertCleanIntegrationCanonical(t, rejected)
 
-	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, rejected.decision); err == nil {
+	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, rejected.decision); err == nil {
 		t.Fatal("Apply() accepted opposite HumanDecision")
 	}
-	if _, _, err := service.Apply(context.Background(), fixture.currentChange, rejected.currentProposal, rejected.verification, fixture.decision); err == nil {
+	if _, _, err := service.Apply(context.Background(), fixture.currentChange, rejected.currentProposal, rejected.verification, rejected.policyDecision, fixture.decision); err == nil {
 		t.Fatal("Apply() accepted substituted ProposalWorkspace/PatchArtifact")
 	}
-	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, rejected.verification, fixture.decision); err == nil {
+	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, rejected.verification, rejected.policyDecision, fixture.decision); err == nil {
 		t.Fatal("Apply() accepted substituted EvidenceSet/VerificationAttempt")
+	}
+	replacementRule, err := policy.NewPolicy("replacement-policy", "1.0", policy.FamilyTesting, "Replacement policy authority.", policy.SeverityHigh, policy.OutcomeApproval, verification.KindTest, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementBundle, err := policy.NewBundle("replacement-bundle", "1.0", strings.Repeat("b", 64), []policy.Policy{replacementRule})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementPolicyDecision, err := policy.NewEngine().Evaluate(integrationProjectId, fixture.currentChange.ChangeId(), fixture.verification.EvidenceSet(), replacementBundle, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, replacementPolicyDecision, fixture.decision); err == nil {
+		t.Fatal("Apply() accepted a substituted policy bundle")
 	}
 	foreignChange := customChangeAtState(
 		t,
@@ -237,7 +256,7 @@ func TestIntegrationServiceRejectsMissingOrInvalidAuthorizationBeforeMutation(t 
 		project.ProjectId("01890f47-9f20-7cc1-98c8-fedcba987654"),
 		change.StateApproved,
 	)
-	if _, _, err := service.Apply(context.Background(), foreignChange, fixture.currentProposal, fixture.verification, fixture.decision); err == nil {
+	if _, _, err := service.Apply(context.Background(), foreignChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision); err == nil {
 		t.Fatal("Apply() accepted mismatched ChangeId/ProjectId")
 	}
 
@@ -245,7 +264,7 @@ func TestIntegrationServiceRejectsMissingOrInvalidAuthorizationBeforeMutation(t 
 	if failedVerification.Passed() {
 		t.Fatal("failed verification fixture unexpectedly passed")
 	}
-	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, failedVerification, fixture.decision); err == nil ||
+	if _, _, err := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, failedVerification, fixture.policyDecision, fixture.decision); err == nil ||
 		!strings.Contains(err.Error(), "passing deterministic EvidenceSet") {
 		t.Fatalf("Apply() failed-evidence error = %v", err)
 	}
@@ -338,7 +357,7 @@ func TestIntegrationServiceFailureOrderingAndReplaySafety(t *testing.T) {
 			}
 			service := fixture.newService(t, test.canonical(&fixture), inspector, test.failEvent)
 			result, terminal, err := service.Apply(
-				context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.decision,
+				context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision,
 			)
 			if err == nil {
 				t.Fatal("Apply() unexpectedly succeeded")
@@ -384,7 +403,7 @@ func TestIntegrationServiceJoinsPrimaryAndFailureAuditErrors(t *testing.T) {
 	}
 
 	result, terminal, err := service.Apply(
-		context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.decision,
+		context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision,
 	)
 	if !errors.Is(err, primaryFailure) || !errors.Is(err, failureAuditFailure) {
 		t.Fatalf("Apply() error = %v, want joined primary and failure-audit errors", err)
@@ -421,7 +440,7 @@ func TestIntegrationServiceCancellationAfterStartAndLateFailureReplay(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		result, _, err := service.Apply(ctx, fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.decision)
+		result, _, err := service.Apply(ctx, fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision)
 		if !errors.Is(err, context.Canceled) || result.CanonicalMutationOccurred() || *fixture.canonicalApplyOps != 0 {
 			t.Fatalf("cancelled Apply() = result %#v, calls %d, error %v", result, *fixture.canonicalApplyOps, err)
 		}
@@ -431,11 +450,11 @@ func TestIntegrationServiceCancellationAfterStartAndLateFailureReplay(t *testing
 	t.Run("completion audit failure cannot double apply", func(t *testing.T) {
 		fixture := newIntegrationFixture(t, approval.DecisionApprove)
 		service := fixture.newService(t, fixture.recordingCanonical(), repository.Inspect, integration.EventCanonicalApplicationCompleted)
-		first, _, firstError := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.decision)
+		first, _, firstError := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision)
 		if firstError == nil || !first.CanonicalMutationOccurred() || *fixture.canonicalApplyOps != 1 {
 			t.Fatalf("first Apply() = %#v, calls %d, error %v", first, *fixture.canonicalApplyOps, firstError)
 		}
-		second, _, secondError := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.decision)
+		second, _, secondError := service.Apply(context.Background(), fixture.currentChange, fixture.currentProposal, fixture.verification, fixture.policyDecision, fixture.decision)
 		if secondError == nil || second.CanonicalMutationOccurred() || *fixture.canonicalApplyOps != 1 {
 			t.Fatalf("replay Apply() = %#v, calls %d, error %v", second, *fixture.canonicalApplyOps, secondError)
 		}
@@ -595,6 +614,18 @@ func newIntegrationFixture(t *testing.T, decisionKind approval.DecisionKind) int
 	if err != nil {
 		t.Fatal(err)
 	}
+	rule, err := policy.NewPolicy("integration-policy", "1.0", policy.FamilyTesting, "Require verified integration evidence.", policy.SeverityHigh, policy.OutcomeApproval, verification.KindTest, true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := policy.NewBundle("integration-bundle", "1.0", strings.Repeat("a", 64), []policy.Policy{rule})
+	if err != nil {
+		t.Fatal(err)
+	}
+	policyDecision, err := policy.NewEngine().Evaluate(integrationProjectId, currentChange.ChangeId(), verificationResult.EvidenceSet(), bundle, clock())
+	if err != nil {
+		t.Fatal(err)
+	}
 	approvalService, err := approval.New(
 		changeWorkflow,
 		proposalService.VerifyIntegrity,
@@ -605,7 +636,7 @@ func newIntegrationFixture(t *testing.T, decisionKind approval.DecisionKind) int
 		t.Fatal(err)
 	}
 	decision, currentChange, err := approvalService.Decide(
-		context.Background(), currentChange, currentProposal, verificationResult, decisionKind, "fixture decision",
+		context.Background(), currentChange, currentProposal, verificationResult, policyDecision, decisionKind, "fixture decision",
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -621,6 +652,7 @@ func newIntegrationFixture(t *testing.T, decisionKind approval.DecisionKind) int
 		currentChange:     currentChange,
 		currentProposal:   currentProposal,
 		verification:      verificationResult,
+		policyDecision:    policyDecision,
 		decision:          decision,
 		events:            &events,
 		failAuditLock:     &failAuditLock,

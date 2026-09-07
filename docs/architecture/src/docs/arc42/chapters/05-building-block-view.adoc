@@ -81,6 +81,13 @@ Evaluates executable engineering invariants. It must support deterministic check
 
 Policy families include clean code, testing, architecture, security, dependency management, change surface, backward compatibility, performance, observability, error handling, API contracts and database changes.
 
+The M1.0 implementation is a representation-independent `internal/policy`
+domain/application component. A project adapter owns strict Manifest V1 YAML
+loading, a severity adapter normalizes tool vocabulary, and the composition
+root supplies both with append-oriented audit. The generic engine never invokes
+providers, terminal facilities, Git, filesystem operations, or arbitrary
+policy-defined commands.
+
 ==== Repository Intelligence
 
 Builds and incrementally updates the repository model. It is responsible for discovery, symbol/dependency relationships, test topology, history-derived context, impact evidence and knowledge-gap detection.

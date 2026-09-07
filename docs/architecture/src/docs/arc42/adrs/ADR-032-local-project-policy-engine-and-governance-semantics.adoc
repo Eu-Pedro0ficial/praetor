@@ -1,0 +1,31 @@
+== ADR-032: Local Project Policy Engine and Governance Semantics
+
+*Status:* DECIDED
+
+=== Context
+
+M1.0 matures Core V0's embedded deterministic rules into explicit local governance without weakening verification, human approval, or canonical-source safety.
+
+=== Decision
+
+The initial version-controlled Project Policy Manifest is `engineering/policies/praetor.yaml`. It is governance-as-code, not runtime persistence. Runtime audit, registry, cache, locks, and operational state remain outside governed source under existing XDG boundaries.
+
+Normalized severity is exactly `INFO`, `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`. Severity is distinct from tool-native labels and from the exact enforcement outcomes `AUTO`, `REVIEW`, `APPROVAL`, and `FORBIDDEN`.
+
+Bundle aggregation accumulates independent boolean requirements: denied, review required, and approval required. `REVIEW` and `APPROVAL` can coexist; their combination is not a fifth outcome. `FORBIDDEN` prevents continuation without erasing other findings.
+
+Policy evaluates a successful deterministic EvidenceSet after `isolated -> validated` and before positive human disposition. It does not mutate Change state. `AUTO` never bypasses Core V0 acceptance; `APPROVAL` uses the existing local human decision; unsatisfied `REVIEW` and `FORBIDDEN` block positive disposition and application; rejection remains available.
+
+Every evaluation is linked to the exact Project, Change, ProposalWorkspace, EvidenceSet, VerificationAttempt, patch digest, source-state digest, and SHA-256 digest of the loaded policy manifest. Human approval and canonical application retain that immutable authority chain and do not re-read a replacement bundle.
+
+M1.0 may create an auditable `PolicyExceptionCandidate`, but cannot grant, approve, or consume an exception. The original decision remains effective.
+
+The project-policy adapter uses `go.yaml.in/yaml/v3` version 3.0.5. Manifest V1 requires `schema_version: 1` and a Praetor-owned validation contract: one document, strict fields and node types, duplicate-key rejection, bounded size/nesting, rejected aliases/anchors, required fields, exact enums, identities, versions, and cross-field validation. No separate JSON Schema dependency or executable policy payload is introduced.
+
+=== Consequences
+
+Policy decisions become explicit, inspectable, evidence-linked, and append-audited. Project policy changes affect future evaluations only. M1.0 adds no Change states, reviewer, exception-grant authority, organization inheritance, provider routing, remote registry, custom DSL, or policy execution framework.
+
+=== Reopen / Review Trigger
+
+Changing the manifest location, severity vocabulary, aggregation lattice, enforcement point, snapshot authority, exception authority, parser, schema technology, or local-project boundary requires architecture review.

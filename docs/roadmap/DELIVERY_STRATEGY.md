@@ -16,9 +16,9 @@ When a milestone reaches a deferred or benchmark trigger, the milestone must sto
 
 This rule is part of the delivery gate, not an optional policy note.
 
-Current implementation status: M0.0 through M0.9 are complete. The Core V0
+Current implementation status: M0.0 through M1.0 are complete. The Core V0
 release gate has passed, and the bounded post-V0 presentation milestone is
-complete. M1.0 has not started.
+complete. The local M1.0 Policy Engine is complete; M1.1 has not started.
 
 ## Revised delivery order
 
@@ -103,6 +103,10 @@ governance configuration precedence, execution, evidence, or audit authority.
 ### Step 11 — M1.0 policy maturity
 
 Only after the core loop exists does the runtime add explicit policy semantics, exceptions, and evidence weighting.
+
+Complete. Project governance is loaded from the strict versioned manifest,
+evaluated against deterministic evidence, retained by exact bundle digest, and
+enforced through the existing human-decision and canonical-application gates.
 
 ### Step 12 — M1.1 review engine and maker-checker enforcement
 

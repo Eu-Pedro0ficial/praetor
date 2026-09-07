@@ -21,36 +21,38 @@ const (
 	lockTimeout       = 5 * time.Second
 	lockRetryInterval = 10 * time.Millisecond
 
-	EventInitialization                = "INITIALIZATION"
-	EventProjectAttach                 = "PROJECT_ATTACH"
-	EventConfiguration                 = "CONFIGURATION"
-	EventChangeCreated                 = "CHANGE_CREATED"
-	EventChangeTransition              = "CHANGE_TRANSITION"
-	EventSourceSnapshotCaptured        = "SOURCE_SNAPSHOT_CAPTURED"
-	EventImpactAnalysisProduced        = "IMPACT_ANALYSIS_PRODUCED"
-	EventChangeSurfaceEstablished      = "CHANGE_SURFACE_ESTABLISHED"
-	EventChangeSurfaceValidated        = "CHANGE_SURFACE_VALIDATED"
-	EventChangeSurfaceViolation        = "CHANGE_SURFACE_VIOLATION"
-	EventProposalWorkspaceCreated      = "PROPOSAL_WORKSPACE_CREATED"
-	EventPatchExtracted                = "PATCH_EXTRACTED"
-	EventPatchSurfaceValidated         = "PATCH_SURFACE_VALIDATED"
-	EventPatchRejected                 = "PATCH_REJECTED"
-	EventProposalWorkspaceDiscarded    = "PROPOSAL_WORKSPACE_DISCARDED"
-	EventProviderExecutionStarted      = "PROVIDER_EXECUTION_STARTED"
-	EventProviderExecutionCompleted    = "PROVIDER_EXECUTION_COMPLETED"
-	EventProviderExecutionFailed       = "PROVIDER_EXECUTION_FAILED"
-	EventVerificationPlanningStarted   = "VERIFICATION_PLANNING_STARTED"
-	EventVerificationPlanningCompleted = "VERIFICATION_PLANNING_COMPLETED"
-	EventVerificationPlanningFailed    = "VERIFICATION_PLANNING_FAILED"
-	EventVerificationStarted           = "VERIFICATION_STARTED"
-	EventVerificationStepCompleted     = "VERIFICATION_STEP_COMPLETED"
-	EventVerificationCompleted         = "VERIFICATION_COMPLETED"
-	EventVerificationFailed            = "VERIFICATION_FAILED"
-	EventHumanDecisionRecorded         = "HUMAN_DECISION_RECORDED"
-	EventCanonicalApplicationStarted   = "CANONICAL_APPLICATION_STARTED"
-	EventCanonicalApplicationCompleted = "CANONICAL_APPLICATION_COMPLETED"
-	EventCanonicalApplicationFailed    = "CANONICAL_APPLICATION_FAILED"
-	EventChangeClosureRecorded         = "CHANGE_CLOSURE_RECORDED"
+	EventInitialization                   = "INITIALIZATION"
+	EventProjectAttach                    = "PROJECT_ATTACH"
+	EventConfiguration                    = "CONFIGURATION"
+	EventChangeCreated                    = "CHANGE_CREATED"
+	EventChangeTransition                 = "CHANGE_TRANSITION"
+	EventSourceSnapshotCaptured           = "SOURCE_SNAPSHOT_CAPTURED"
+	EventImpactAnalysisProduced           = "IMPACT_ANALYSIS_PRODUCED"
+	EventChangeSurfaceEstablished         = "CHANGE_SURFACE_ESTABLISHED"
+	EventChangeSurfaceValidated           = "CHANGE_SURFACE_VALIDATED"
+	EventChangeSurfaceViolation           = "CHANGE_SURFACE_VIOLATION"
+	EventProposalWorkspaceCreated         = "PROPOSAL_WORKSPACE_CREATED"
+	EventPatchExtracted                   = "PATCH_EXTRACTED"
+	EventPatchSurfaceValidated            = "PATCH_SURFACE_VALIDATED"
+	EventPatchRejected                    = "PATCH_REJECTED"
+	EventProposalWorkspaceDiscarded       = "PROPOSAL_WORKSPACE_DISCARDED"
+	EventProviderExecutionStarted         = "PROVIDER_EXECUTION_STARTED"
+	EventProviderExecutionCompleted       = "PROVIDER_EXECUTION_COMPLETED"
+	EventProviderExecutionFailed          = "PROVIDER_EXECUTION_FAILED"
+	EventVerificationPlanningStarted      = "VERIFICATION_PLANNING_STARTED"
+	EventVerificationPlanningCompleted    = "VERIFICATION_PLANNING_COMPLETED"
+	EventVerificationPlanningFailed       = "VERIFICATION_PLANNING_FAILED"
+	EventVerificationStarted              = "VERIFICATION_STARTED"
+	EventVerificationStepCompleted        = "VERIFICATION_STEP_COMPLETED"
+	EventVerificationCompleted            = "VERIFICATION_COMPLETED"
+	EventVerificationFailed               = "VERIFICATION_FAILED"
+	EventHumanDecisionRecorded            = "HUMAN_DECISION_RECORDED"
+	EventCanonicalApplicationStarted      = "CANONICAL_APPLICATION_STARTED"
+	EventCanonicalApplicationCompleted    = "CANONICAL_APPLICATION_COMPLETED"
+	EventCanonicalApplicationFailed       = "CANONICAL_APPLICATION_FAILED"
+	EventChangeClosureRecorded            = "CHANGE_CLOSURE_RECORDED"
+	EventPolicyDecisionRecorded           = "POLICY_DECISION_RECORDED"
+	EventPolicyExceptionCandidateRecorded = "POLICY_EXCEPTION_CANDIDATE_RECORDED"
 )
 
 // Event is one append-oriented local runtime audit record.
@@ -331,7 +333,9 @@ func eventRequiresChangeId(eventType string) bool {
 		EventCanonicalApplicationStarted,
 		EventCanonicalApplicationCompleted,
 		EventCanonicalApplicationFailed,
-		EventChangeClosureRecorded:
+		EventChangeClosureRecorded,
+		EventPolicyDecisionRecorded,
+		EventPolicyExceptionCandidateRecorded:
 		return true
 	default:
 		return false

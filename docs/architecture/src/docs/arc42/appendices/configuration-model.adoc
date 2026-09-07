@@ -17,6 +17,11 @@ The system must distinguish between:
 
 Configuration precedence explains the effective value. Governance authority explains whether a value is allowed to be effective at all.
 
+M1.0 enforces this distinction when composing policy bundles: later
+configuration may replace an overridable policy, while an attempted change to
+a non-overridable authoritative policy fails closed. Organization inheritance
+is not implemented.
+
 Provider credentials are not normal project configuration and must not be stored in canonical memory/source configuration.
 
 ==== M0.5 Runtime Provider Selection

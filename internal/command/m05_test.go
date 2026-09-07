@@ -369,12 +369,13 @@ func prepareProviderCommandTestWithContainer(
 	repositoryRoot := t.TempDir()
 	runCommandGit(t, repositoryRoot, "init", "--quiet")
 	files := map[string]string{
-		"cmd/app/main.go":                  "package main\n",
-		"internal/service/service.go":      "package service\n\nfunc Greeting() string { return \"hello\" }\n",
-		"internal/service/service_test.go": "package service_test\n",
-		"go.mod":                           "module example.invalid/fixture\n\ngo 1.25.1\n",
-		"pyproject.toml":                   "[tool.pytest.ini_options]\n",
-		"README.md":                        "# Fixture\n",
+		"cmd/app/main.go":                   "package main\n",
+		"internal/service/service.go":       "package service\n\nfunc Greeting() string { return \"hello\" }\n",
+		"internal/service/service_test.go":  "package service_test\n",
+		"go.mod":                            "module example.invalid/fixture\n\ngo 1.25.1\n",
+		"pyproject.toml":                    "[tool.pytest.ini_options]\n",
+		"README.md":                         "# Fixture\n",
+		"engineering/policies/praetor.yaml": "schema_version: 1\nbundle:\n  id: fixture-policy\n  version: \"1.0\"\n  policies:\n    - id: test-required\n      version: \"1.0\"\n      family: testing\n      description: Require passing tests.\n      severity: HIGH\n      outcome: APPROVAL\n      required_evidence: test\n      non_overridable: true\n      exception_candidate_allowed: true\n    - id: patch-integrity\n      version: \"1.0\"\n      family: change-surface\n      description: Require patch integrity.\n      severity: CRITICAL\n      outcome: AUTO\n      required_evidence: patch-integrity\n      non_overridable: true\n      exception_candidate_allowed: false\n",
 	}
 	for relativePath, contents := range files {
 		writeCommandFile(t, repositoryRoot, relativePath, contents)

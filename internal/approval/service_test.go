@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
@@ -62,7 +63,7 @@ func TestDecideRejectsCancellationInvalidStateAndInvalidDecisionBeforeAudit(t *t
 	}
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, _, err := service.Decide(cancelled, created, proposal.Proposal{}, verification.Result{}, DecisionApprove, ""); err == nil || !errors.Is(err, context.Canceled) {
+	if _, _, err := service.Decide(cancelled, created, proposal.Proposal{}, verification.Result{}, policy.BundleDecision{}, DecisionApprove, ""); err == nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled Decide() error = %v", err)
 	}
 	prevalidated := []change.Change{created}
@@ -77,12 +78,12 @@ func TestDecideRejectsCancellationInvalidStateAndInvalidDecisionBeforeAudit(t *t
 	}
 	prevalidated = append(prevalidated, isolated)
 	for _, candidate := range prevalidated {
-		if _, _, err := service.Decide(context.Background(), candidate, proposal.Proposal{}, verification.Result{}, DecisionApprove, ""); err == nil || !strings.Contains(err.Error(), "must be validated") {
+		if _, _, err := service.Decide(context.Background(), candidate, proposal.Proposal{}, verification.Result{}, policy.BundleDecision{}, DecisionApprove, ""); err == nil || !strings.Contains(err.Error(), "must be validated") {
 			t.Fatalf("Decide() from %q error = %v", candidate.State(), err)
 		}
 	}
 	validated, transitionTime := approvalChangeInValidatedState(t)
-	if _, _, err := service.Decide(context.Background(), validated, proposal.Proposal{}, verification.Result{}, "", ""); err == nil || !strings.Contains(err.Error(), "unknown human decision") {
+	if _, _, err := service.Decide(context.Background(), validated, proposal.Proposal{}, verification.Result{}, policy.BundleDecision{}, "", ""); err == nil || !strings.Contains(err.Error(), "unknown human decision") {
 		t.Fatalf("invalid-kind Decide() error = %v", err)
 	}
 	if len(events) != 0 {

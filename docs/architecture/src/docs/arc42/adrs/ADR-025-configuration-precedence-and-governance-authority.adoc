@@ -1,0 +1,19 @@
+== ADR-025: Configuration Precedence and Governance Authority
+
+*Status:* DECIDED
+
+=== Context
+
+Praetor combines configuration from several scopes, but precedence alone cannot decide whether a weaker authority may override a mandatory governance rule.
+
+=== Decision
+
+Configuration precedence is `built-in defaults < user configuration < project configuration < workflow configuration < Change-specific configuration`. Governance authority is evaluated separately. A lower-authority configuration cannot weaken a higher-authority non-overridable policy even when it has later configuration precedence.
+
+=== Consequences
+
+Effective configuration must retain provenance and override authority. Implementations must reject forbidden weakening rather than silently selecting the later value. M1.0 remains local-project scope and does not introduce organization inheritance.
+
+=== Reopen / Review Trigger
+
+Any change to precedence, authority, or override behavior requires architecture review.

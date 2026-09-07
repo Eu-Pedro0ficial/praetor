@@ -12,6 +12,7 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
@@ -514,6 +515,12 @@ func handleChangeVerify(session *Session, invocation Invocation, output io.Write
 	}
 	session.setCurrentChange(validatedChange)
 	fmt.Fprintf(output, "Change state: %s\n", validatedChange.State())
+	policyDecision, err := session.policy.Evaluate(session.registration.RepositoryRoot, validatedChange.ProjectId(), validatedChange.ChangeId(), verificationResult.EvidenceSet())
+	if err != nil {
+		return Result{}, fmt.Errorf("evaluate Project Policy: %w", err)
+	}
+	session.setLastPolicyDecision(policyDecision)
+	writePolicyDecision(output, policyDecision)
 	return Result{}, nil
 }
 
@@ -572,7 +579,8 @@ func handleChangeApply(session *Session, invocation Invocation, output io.Writer
 	currentProposal, hasProposal := session.CurrentProposal()
 	verificationResult, hasVerification := session.LastVerification()
 	decision, hasDecision := session.LastDecision()
-	if !hasChange || !hasProposal || !hasVerification || !hasDecision {
+	policyDecision, hasPolicyDecision := session.LastPolicyDecision()
+	if !hasChange || !hasProposal || !hasVerification || !hasDecision || !hasPolicyDecision {
 		return Result{}, fmt.Errorf("canonical application requires the current approved Change, retained proposal, EvidenceSet, and APPROVE decision")
 	}
 	writeHumanDecisionSummary(output, currentChange, currentProposal, verificationResult)
@@ -582,6 +590,7 @@ func handleChangeApply(session *Session, invocation Invocation, output io.Writer
 		currentChange,
 		currentProposal,
 		verificationResult,
+		policyDecision,
 		decision,
 	)
 	if applicationResult.CanonicalMutationOccurred() {
@@ -620,7 +629,8 @@ func handleChangeClose(session *Session, invocation Invocation, output io.Writer
 	currentProposal, hasProposal := session.CurrentProposal()
 	verificationResult, hasVerification := session.LastVerification()
 	decision, hasDecision := session.LastDecision()
-	if !hasChange || !hasProposal || !hasVerification || !hasDecision {
+	policyDecision, hasPolicyDecision := session.LastPolicyDecision()
+	if !hasChange || !hasProposal || !hasVerification || !hasDecision || !hasPolicyDecision {
 		return Result{}, fmt.Errorf("rejection closure requires the current rejected Change, retained proposal, EvidenceSet, and REJECT decision")
 	}
 	terminal, err := session.canonicalIntegration.CloseRejected(
@@ -628,6 +638,7 @@ func handleChangeClose(session *Session, invocation Invocation, output io.Writer
 		currentChange,
 		currentProposal,
 		verificationResult,
+		policyDecision,
 		decision,
 	)
 	if err != nil {
@@ -662,6 +673,10 @@ func handleHumanDecision(
 	if !hasVerification {
 		return Result{}, fmt.Errorf("no deterministic EvidenceSet for human decision")
 	}
+	policyDecision, hasPolicyDecision := session.LastPolicyDecision()
+	if !hasPolicyDecision {
+		return Result{}, fmt.Errorf("no retained PolicyDecision for human decision")
+	}
 	rationale := ""
 	if len(invocation.Arguments) == 1 {
 		rationale = invocation.Arguments[0]
@@ -672,6 +687,7 @@ func handleHumanDecision(
 		currentChange,
 		currentProposal,
 		verificationResult,
+		policyDecision,
 		kind,
 		rationale,
 	)
@@ -694,6 +710,91 @@ func handleHumanDecision(
 	fmt.Fprintf(output, "Change state: %s\n", transitioned.State())
 	fmt.Fprintln(output, "Canonical source: unchanged; decision authorizes or rejects later application")
 	return Result{}, nil
+}
+
+func handlePolicyShow(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	bundle, err := session.policy.Load(session.registration.RepositoryRoot)
+	if err != nil {
+		return Result{}, err
+	}
+	fmt.Fprintf(output, "Project Policy Manifest: engineering/policies/praetor.yaml\nBundle: %s version=%s digest=%s\nPolicies: %d\n", bundle.Id(), bundle.Version(), bundle.Digest(), len(bundle.Policies()))
+	if decision, ok := session.LastPolicyDecision(); ok {
+		fmt.Fprintln(output, "Latest retained policy evaluation:")
+		writePolicyDecision(output, decision)
+	}
+	if currentChange, ok := session.CurrentChange(); ok {
+		if candidate, found := session.policy.Candidate(currentChange.ChangeId()); found {
+			writePolicyCandidate(output, candidate)
+		}
+	}
+	return Result{}, nil
+}
+
+func handlePolicyList(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	bundle, err := session.policy.Load(session.registration.RepositoryRoot)
+	if err != nil {
+		return Result{}, err
+	}
+	for _, rule := range bundle.Policies() {
+		fmt.Fprintf(output, "%s@%s family=%s severity=%s outcome=%s evidence=%s non-overridable=%t exception-candidate=%t\n", rule.Id(), rule.Version(), rule.Family(), rule.Severity(), rule.Outcome(), rule.RequiredEvidenceKind(), rule.NonOverridable(), rule.ExceptionCandidateAllowed())
+	}
+	return Result{}, nil
+}
+
+func handlePolicyEvaluate(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	currentChange, ok := session.CurrentChange()
+	if !ok || currentChange.State() != change.StateValidated {
+		return Result{}, fmt.Errorf("current Change must be validated before policy evaluation")
+	}
+	verificationResult, ok := session.LastVerification()
+	if !ok {
+		return Result{}, fmt.Errorf("policy evaluation requires deterministic EvidenceSet")
+	}
+	decision, err := session.policy.Evaluate(session.registration.RepositoryRoot, currentChange.ProjectId(), currentChange.ChangeId(), verificationResult.EvidenceSet())
+	if err != nil {
+		return Result{}, err
+	}
+	session.setLastPolicyDecision(decision)
+	writePolicyDecision(output, decision)
+	return Result{}, nil
+}
+
+func handlePolicyException(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 4 {
+		return Result{}, errInvalidArguments
+	}
+	decision, ok := session.LastPolicyDecision()
+	if !ok {
+		return Result{}, fmt.Errorf("exception candidate requires a retained PolicyDecision")
+	}
+	candidate, err := session.policy.CreateExceptionCandidate(decision, policy.PolicyId(invocation.Arguments[0]), invocation.Arguments[3], invocation.Arguments[1], invocation.Arguments[2], nil)
+	if err != nil {
+		return Result{}, err
+	}
+	writePolicyCandidate(output, candidate)
+	return Result{}, nil
+}
+
+func writePolicyCandidate(output io.Writer, candidate policy.PolicyExceptionCandidate) {
+	fmt.Fprintf(output, "Exception candidate: %s policy=%s evaluation=%s scope=%s authority=%s\nOriginal outcome unchanged; no exception was granted or consumed.\n", candidate.Id(), candidate.PolicyId(), candidate.EvaluationId(), candidate.Scope(), candidate.RequestedAuthority())
+}
+
+func writePolicyDecision(output io.Writer, decision policy.BundleDecision) {
+	aggregate := decision.Aggregate()
+	fmt.Fprintf(output, "Policy evaluation: %s bundle=%s@%s digest=%s\n", decision.Id(), decision.Bundle().Id(), decision.Bundle().Version(), decision.Bundle().Digest())
+	for _, item := range decision.Decisions() {
+		fmt.Fprintf(output, "Policy: %s severity=%s outcome=%s reason=%s\n", item.Policy().Id(), item.Policy().Severity(), item.Outcome(), item.Reason())
+	}
+	fmt.Fprintf(output, "Policy requirements: denied=%t review=%t approval=%t\n", aggregate.Denied, aggregate.RequiresReview, aggregate.RequiresApproval)
 }
 
 func writeHumanDecisionSummary(

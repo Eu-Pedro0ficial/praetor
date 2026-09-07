@@ -247,6 +247,24 @@ verification, approval alone, and session close never apply source.
   alter Project, Change, provider, verification, decision, audit, or source
   state.
 
+==== M1.0 Local Policy Evaluation
+
+. After successful deterministic verification and the existing transition to
+  `validated`, load the fixed Project Policy Manifest V1.
+. Validate its bounded YAML schema and compute the exact manifest digest.
+. Evaluate each generic rule against the retained EvidenceSet, preserving
+  individual outcomes and accumulating denial, review, and approval
+  requirements.
+. Append `POLICY_DECISION_RECORDED` before retaining the decision.
+. Require the exact policy/evidence authority chain for positive human
+  disposition and canonical application. `AUTO` retains Core V0 human
+  acceptance; `REVIEW` and `FORBIDDEN` block positive disposition; rejection
+  remains available.
+. An optional `POLICY_EXCEPTION_CANDIDATE_RECORDED` never changes the original
+  outcome and grants no exception.
+
+Policy evaluation performs no Change transition and no source mutation.
+
 === Scenario 5 — Memory Candidate Promotion
 
 [plantuml, "{plantUMLDir}dynamic-memory-promotion", png]

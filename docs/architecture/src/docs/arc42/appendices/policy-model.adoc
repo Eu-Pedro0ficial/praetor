@@ -48,3 +48,26 @@ policies:
 ----
 
 This example conveys intent only; the YAML schema remains the authoritative representation.
+
+==== M1.0 Executable Local Policy Model
+
+M1.0 loads `engineering/policies/praetor.yaml` as version-controlled
+governance-as-code. The bounded Manifest V1 adapter requires one document with
+`schema_version: 1`, bundle identity/version, and policies containing
+identity/version, family, description, normalized severity, enforcement
+outcome, required evidence kind, non-overridable status, and
+exception-candidate permission. Invalid structure, fields, enums, identities,
+aliases/anchors, size, nesting, duplicates, symlinks, and executable payloads
+fail closed.
+
+Normalized severity is exactly `INFO`, `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`.
+Bundle aggregation independently accumulates denied, review-required, and
+approval-required flags while preserving every individual decision.
+`REVIEW + APPROVAL` is not a fifth enforcement outcome.
+
+Evaluation follows successful deterministic verification and links the exact
+Project, Change, ProposalWorkspace, VerificationAttempt, EvidenceSet, patch digest, source-state
+digest, and policy-bundle digest. `AUTO` retains Core V0 human acceptance;
+unsatisfied `REVIEW` and `FORBIDDEN` block positive disposition; existing
+human `APPROVE` satisfies `APPROVAL`. M1.0 exception candidates are auditable
+but cannot be granted or consumed.

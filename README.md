@@ -45,14 +45,14 @@ See:
 
 Core V0 complete.
 
-M0.0 through M0.9 are complete. The local governed-change loop now connects
+M0.0 through M1.0 are complete. The local governed-change loop now connects
 Project identity, bounded source scope, isolated proposal production,
 deterministic verification, explicit local-human disposition, canonical
 application or rejection closure, and append-oriented audit history.
 
 The primary developer interface is the retained-context interactive shell.
 Run `praetor` inside a Git repository, then use plain commands such as `status`,
-`analysis`, `change`, `provider`, `help`, and `?`. Commands are organized in
+`analysis`, `change`, `policy`, `provider`, `help`, and `?`. Commands are organized in
 contextual modes: `analysis` followed by `impact ...` is equivalent to direct
 `analysis impact ...`; `end` returns one mode and `exit` terminates only at
 root. Interactive `?` shows context-sensitive commands or options without
@@ -135,3 +135,18 @@ suppressed below 84 columns without changing the saved preference. Colors use
 a bounded ANSI palette and degrade to readable plain text when color is
 unavailable. No `.praetor` directory or presentation state is written to the
 governed repository.
+
+M1.0 adds a representation-independent Policy Engine and the version-controlled
+Project Policy Manifest `engineering/policies/praetor.yaml`. Manifest V1 uses
+strict, bounded YAML schema validation and normalized severities `INFO`, `LOW`,
+`MEDIUM`, `HIGH`, and `CRITICAL`. After deterministic verification passes,
+policies produce immutable evidence-linked `AUTO`, `REVIEW`, `APPROVAL`, or
+`FORBIDDEN` decisions. Bundle aggregation retains independent review and
+approval requirements. Positive disposition and canonical application consume
+the retained policy/evidence digest chain; `AUTO` never bypasses Core V0 human
+acceptance, while `REVIEW` remains unsatisfied until M1.1.
+
+`policy show`, `policy list`, `policy evaluate`, and `policy exception` expose
+bounded inspection. Exceptions are auditable candidates only and never grant,
+consume, or bypass policy. Runtime audit and locks remain under existing XDG
+boundaries. M1.1 has not started.

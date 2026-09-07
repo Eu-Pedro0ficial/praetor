@@ -21,7 +21,7 @@ import (
 func TestDefaultRegistryHasUniqueCompleteHierarchicalMetadata(t *testing.T) {
 	registry := newTestRegistry(t)
 	commands := registry.Commands()
-	wantTopLevel := []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"}
+	wantTopLevel := []string{"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit"}
 	if len(commands) != len(wantTopLevel) {
 		t.Fatalf("Commands() = %#v", commands)
 	}
@@ -102,7 +102,7 @@ func TestRegistryHelpStatusAndActiveProjectContextReuse(t *testing.T) {
 	if _, err := registry.Dispatch(session, "help", &output); err != nil {
 		t.Fatalf("help error = %v", err)
 	}
-	for _, expected := range []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"} {
+	for _, expected := range []string{"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("/help output %q lacks %q", output.String(), expected)
 		}
@@ -179,7 +179,7 @@ func TestRegistryAnalysisImpactAllowsExpectedAndPossiblePaths(t *testing.T) {
 	for _, expected := range []string{
 		"Change ID: change-analysis\n",
 		"Working tree: clean\n",
-		"Tracked paths: 5\n",
+		"Tracked paths: 6\n",
 		"Expected: internal/service/service.go\n",
 		"Possible: internal/service/service_test.go\n",
 		"Protected: go.mod\n",
@@ -588,7 +588,7 @@ func TestRegistryDispatchErrorsExitAndCompletion(t *testing.T) {
 		t.Fatalf("/exit result = %#v, error = %v", result, err)
 	}
 
-	assertSuggestions(t, registry.Complete(session, ""), []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"})
+	assertSuggestions(t, registry.Complete(session, ""), []string{"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit"})
 	assertSuggestions(t, registry.Complete(session, "ana"), []string{"analysis"})
 	assertSuggestions(t, registry.Complete(session, "analysis "), []string{"impact"})
 	assertSuggestions(t, registry.Complete(session, "analysis im"), []string{"impact"})
@@ -611,7 +611,7 @@ func TestRegistryContextModesNavigateWithoutDomainMutation(t *testing.T) {
 	}
 
 	assertMetadataNames(t, registry.ContextCommands(session), []string{
-		"status", "analysis", "change", "provider", "configure", "help", "?", "exit",
+		"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit",
 	})
 	if _, err := registry.Dispatch(session, "analysis", io.Discard); err != nil {
 		t.Fatalf("enter analysis: %v", err)
@@ -719,7 +719,7 @@ func TestRegistryContextualHelpIsDeterministicAndNonMutating(t *testing.T) {
 	_, _, session, registry := prepareCommittedCommandTest(t)
 	registration := session.Registration()
 	root := registry.ContextualHelp(session, "")
-	assertSuggestions(t, root, []string{"status", "analysis", "change", "provider", "configure", "help", "?", "exit"})
+	assertSuggestions(t, root, []string{"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit"})
 	assertSuggestions(t, registry.ContextualHelp(session, "a"), []string{"analysis"})
 	assertSuggestions(t, registry.ContextualHelp(session, "analysis "), []string{"impact"})
 	assertSuggestions(t, registry.ContextualHelp(session, "analysis i"), []string{"impact"})
@@ -796,11 +796,12 @@ func prepareCommittedCommandTest(t *testing.T) (string, string, *command.Session
 	repositoryRoot := t.TempDir()
 	runCommandGit(t, repositoryRoot, "init", "--quiet")
 	files := map[string]string{
-		"cmd/app/main.go":                  "package main\n",
-		"internal/service/service.go":      "package service\n",
-		"internal/service/service_test.go": "package service_test\n",
-		"go.mod":                           "module example.invalid/fixture\n\ngo 1.25.1\n",
-		"README.md":                        "# Fixture\n",
+		"cmd/app/main.go":                   "package main\n",
+		"internal/service/service.go":       "package service\n",
+		"internal/service/service_test.go":  "package service_test\n",
+		"go.mod":                            "module example.invalid/fixture\n\ngo 1.25.1\n",
+		"README.md":                         "# Fixture\n",
+		"engineering/policies/praetor.yaml": "schema_version: 1\nbundle:\n  id: fixture-policy\n  version: \"1.0\"\n  policies:\n    - id: test-required\n      version: \"1.0\"\n      family: testing\n      description: Require passing tests.\n      severity: HIGH\n      outcome: APPROVAL\n      required_evidence: test\n      non_overridable: true\n      exception_candidate_allowed: true\n    - id: patch-integrity\n      version: \"1.0\"\n      family: change-surface\n      description: Require patch integrity.\n      severity: CRITICAL\n      outcome: AUTO\n      required_evidence: patch-integrity\n      non_overridable: true\n      exception_candidate_allowed: false\n",
 	}
 	for relativePath, contents := range files {
 		absolutePath := filepath.Join(repositoryRoot, filepath.FromSlash(relativePath))

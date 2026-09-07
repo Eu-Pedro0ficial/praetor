@@ -14,6 +14,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
+	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
@@ -30,6 +31,7 @@ type Session struct {
 	proposalLifecycle         *proposal.Service
 	providerExecution         *execution.Service
 	verification              *verification.Service
+	policy                    *policy.Service
 	approval                  approval.Port
 	canonicalIntegration      *integration.Service
 	presentationPreferences   *preferences.Service
@@ -41,6 +43,8 @@ type Session struct {
 	hasCurrentProposal        bool
 	lastVerification          verification.Result
 	hasLastVerification       bool
+	lastPolicyDecision        policy.BundleDecision
+	hasLastPolicyDecision     bool
 	lastDecision              approval.HumanDecision
 	hasLastDecision           bool
 	canonicalMutationOccurred bool
@@ -56,6 +60,7 @@ func NewSession(
 	proposalLifecycle *proposal.Service,
 	providerExecution *execution.Service,
 	verificationService *verification.Service,
+	policyService *policy.Service,
 	approvalPort approval.Port,
 	canonicalIntegration *integration.Service,
 	presentationPreferences *preferences.Service,
@@ -83,6 +88,9 @@ func NewSession(
 	if verificationService == nil {
 		return nil, fmt.Errorf("verification capability is not configured")
 	}
+	if policyService == nil {
+		return nil, fmt.Errorf("policy capability is not configured")
+	}
 	if approvalPort == nil {
 		return nil, fmt.Errorf("human approval capability is not configured")
 	}
@@ -105,6 +113,7 @@ func NewSession(
 		proposalLifecycle:       proposalLifecycle,
 		providerExecution:       providerExecution,
 		verification:            verificationService,
+		policy:                  policyService,
 		approval:                approvalPort,
 		canonicalIntegration:    canonicalIntegration,
 		presentationPreferences: presentationPreferences,
@@ -234,6 +243,13 @@ func (session *Session) LastVerification() (verification.Result, bool) {
 	return session.lastVerification, true
 }
 
+func (session *Session) LastPolicyDecision() (policy.BundleDecision, bool) {
+	if session == nil || !session.hasLastPolicyDecision {
+		return policy.BundleDecision{}, false
+	}
+	return session.lastPolicyDecision, true
+}
+
 // LastDecision returns the successful explicit M0.7 human disposition in
 // this process-local session, when one exists.
 func (session *Session) LastDecision() (approval.HumanDecision, bool) {
@@ -253,6 +269,8 @@ func (session *Session) setCurrentProposal(currentProposal proposal.Proposal) {
 		session.currentProposal.Workspace().WorkspaceId() != currentProposal.Workspace().WorkspaceId() {
 		session.lastVerification = verification.Result{}
 		session.hasLastVerification = false
+		session.lastPolicyDecision = policy.BundleDecision{}
+		session.hasLastPolicyDecision = false
 		session.lastDecision = approval.HumanDecision{}
 		session.hasLastDecision = false
 		session.canonicalMutationOccurred = false
@@ -264,6 +282,11 @@ func (session *Session) setCurrentProposal(currentProposal proposal.Proposal) {
 func (session *Session) setLastVerification(result verification.Result) {
 	session.lastVerification = result
 	session.hasLastVerification = true
+}
+
+func (session *Session) setLastPolicyDecision(decision policy.BundleDecision) {
+	session.lastPolicyDecision = decision
+	session.hasLastPolicyDecision = true
 }
 
 func (session *Session) setLastDecision(decision approval.HumanDecision) {

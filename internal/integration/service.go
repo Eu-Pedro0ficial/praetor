@@ -10,6 +10,7 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
@@ -114,6 +115,7 @@ func (service *Service) Apply(
 	currentChange change.Change,
 	currentProposal proposal.Proposal,
 	verificationResult verification.Result,
+	policyDecision policy.BundleDecision,
 	decision approval.HumanDecision,
 ) (Result, change.Change, error) {
 	var result Result
@@ -129,7 +131,7 @@ func (service *Service) Apply(
 	if currentChange.State() != change.StateApproved {
 		return result, currentChange, fmt.Errorf("Change %q must be approved before canonical application", currentChange.ChangeId())
 	}
-	if err := validateDisposition(currentChange, currentProposal, verificationResult, decision, approval.DecisionApprove); err != nil {
+	if err := validateDisposition(currentChange, currentProposal, verificationResult, policyDecision, decision, approval.DecisionApprove); err != nil {
 		return result, currentChange, err
 	}
 	request := ApplicationRequest{Proposal: currentProposal}
@@ -173,7 +175,7 @@ func (service *Service) Apply(
 		return result, currentChange, errors.Join(primary, recordError)
 	}
 
-	if err := validateDisposition(currentChange, currentProposal, verificationResult, decision, approval.DecisionApprove); err != nil {
+	if err := validateDisposition(currentChange, currentProposal, verificationResult, policyDecision, decision, approval.DecisionApprove); err != nil {
 		return fail("coherence-recheck", err, false)
 	}
 	if err := service.integrity(currentProposal); err != nil {
@@ -232,6 +234,7 @@ func (service *Service) CloseRejected(
 	currentChange change.Change,
 	currentProposal proposal.Proposal,
 	verificationResult verification.Result,
+	policyDecision policy.BundleDecision,
 	decision approval.HumanDecision,
 ) (change.Change, error) {
 	if service == nil {
@@ -246,7 +249,7 @@ func (service *Service) CloseRejected(
 	if currentChange.State() != change.StateRejected {
 		return currentChange, fmt.Errorf("Change %q must be rejected before rejection closure", currentChange.ChangeId())
 	}
-	if err := validateDisposition(currentChange, currentProposal, verificationResult, decision, approval.DecisionReject); err != nil {
+	if err := validateDisposition(currentChange, currentProposal, verificationResult, policyDecision, decision, approval.DecisionReject); err != nil {
 		return currentChange, err
 	}
 	if err := service.integrity(currentProposal); err != nil {
@@ -284,6 +287,7 @@ func validateDisposition(
 	currentChange change.Change,
 	currentProposal proposal.Proposal,
 	verificationResult verification.Result,
+	policyDecision policy.BundleDecision,
 	decision approval.HumanDecision,
 	expected approval.DecisionKind,
 ) error {
@@ -292,6 +296,18 @@ func validateDisposition(
 	}
 	artifact, _ := currentProposal.PatchArtifact()
 	evidence := verificationResult.EvidenceSet()
+	if err := policy.ValidateLinkage(policyDecision, currentChange.ProjectId(), currentChange.ChangeId(), evidence); err != nil {
+		return fmt.Errorf("canonical integration policy coherence failed: %w", err)
+	}
+	if decision.PolicyEvaluationId() != policyDecision.Id() || decision.PolicyBundleDigest() != policyDecision.Bundle().Digest() {
+		return fmt.Errorf("human decision policy authority does not match retained policy decision")
+	}
+	if expected == approval.DecisionApprove {
+		requirements := policyDecision.Aggregate()
+		if requirements.Denied || requirements.RequiresReview {
+			return fmt.Errorf("retained policy decision does not permit canonical application")
+		}
+	}
 	if decision.Kind() != expected || decision.RequestedState() != currentChange.State() {
 		return fmt.Errorf("human decision does not authorize current Change disposition")
 	}

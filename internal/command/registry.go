@@ -113,7 +113,7 @@ func newRegistry(definitions []Definition, end Definition) (Registry, error) {
 	return registry, nil
 }
 
-// DefaultRegistry constructs the current M0.1-M0.9 hierarchical shell
+// DefaultRegistry constructs the current M0.1-M1.0 hierarchical shell
 // command surface.
 func DefaultRegistry() (Registry, error) {
 	var registry Registry
@@ -206,6 +206,15 @@ func DefaultRegistry() (Registry, error) {
 					Usage:       "discard",
 					Handler:     handleChangeDiscard,
 				},
+			},
+		},
+		{
+			Name: "policy", Description: "Enter Project Policy inspection and evaluation mode", Usage: "policy [show|list|evaluate|exception ...]", Mode: ModePolicy,
+			Children: []Definition{
+				{Name: "show", Description: "Show the Project Policy Manifest and bundle identity", Usage: "show", Handler: handlePolicyShow},
+				{Name: "list", Description: "List policies in the effective project bundle", Usage: "list", Handler: handlePolicyList},
+				{Name: "evaluate", Description: "Evaluate the retained deterministic EvidenceSet", Usage: "evaluate", Handler: handlePolicyEvaluate},
+				{Name: "exception", Description: "Create an auditable exception candidate without granting it", Usage: "exception <policy-id> <scope> <authority> <reason>", Handler: handlePolicyException},
 			},
 		},
 		{

@@ -5,5 +5,6 @@ go 1.25.1
 require (
 	github.com/reeflective/readline v1.3.0
 	github.com/rivo/uniseg v0.4.7
+	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/sys v0.45.0
 )

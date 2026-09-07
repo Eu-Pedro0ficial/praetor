@@ -1,0 +1,19 @@
+== ADR-020: Declarative Policy Representation
+
+*Status:* DECIDED
+
+=== Context
+
+Policy is executable governance and must be inspectable, versioned, validated, and independent from provider prompts. A custom policy language would add unnecessary parser and ecosystem complexity before concrete needs justify it.
+
+=== Decision
+
+Policy definitions use declarative, versioned YAML with schema validation. The domain Policy model remains representation-independent. YAML belongs to an adapter and must not introduce arbitrary executable commands or scripts. A custom DSL requires demonstrated need and a separately approved ADR.
+
+=== Consequences
+
+Project policy can be reviewed as governance-as-code and rejected safely when malformed. Adapters must enforce a strict versioned schema and defensive YAML limits. Representation changes do not alter the domain contract.
+
+=== Reopen / Review Trigger
+
+Reopen only when concrete policy requirements cannot be represented safely or maintainably by the accepted declarative model.

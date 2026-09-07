@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
@@ -54,27 +55,33 @@ func NewRationale(value string) (Rationale, error) {
 // HumanDecision is immutable M0.7 authorization provenance. It contains only
 // bounded linkage and never embeds patch, source, provider, or process output.
 type HumanDecision struct {
-	projectId             project.ProjectId
-	changeId              change.ChangeId
-	workspaceId           proposal.WorkspaceId
-	kind                  DecisionKind
-	occurredAt            time.Time
-	rationale             Rationale
-	actor                 ActorProvenance
-	requestedState        change.ChangeState
-	baseRevision          string
-	sourceStateDigest     source.SourceStateDigest
-	patchDigest           string
-	verificationAttemptId verification.VerificationAttemptId
-	evidenceSetId         string
-	evidenceCount         int
-	changedPathCount      int
+	projectId              project.ProjectId
+	changeId               change.ChangeId
+	workspaceId            proposal.WorkspaceId
+	kind                   DecisionKind
+	occurredAt             time.Time
+	rationale              Rationale
+	actor                  ActorProvenance
+	requestedState         change.ChangeState
+	baseRevision           string
+	sourceStateDigest      source.SourceStateDigest
+	patchDigest            string
+	verificationAttemptId  verification.VerificationAttemptId
+	evidenceSetId          string
+	evidenceCount          int
+	changedPathCount       int
+	policyEvaluationId     string
+	policyBundleDigest     string
+	policyDenied           bool
+	policyRequiresReview   bool
+	policyRequiresApproval bool
 }
 
 func newHumanDecision(
 	currentChange change.Change,
 	currentProposal proposal.Proposal,
 	verificationResult verification.Result,
+	policyDecision policy.BundleDecision,
 	kind DecisionKind,
 	rationale Rationale,
 	occurredAt time.Time,
@@ -94,22 +101,39 @@ func newHumanDecision(
 		return HumanDecision{}, fmt.Errorf("human decision requires a retained PatchArtifact")
 	}
 	evidenceSet := verificationResult.EvidenceSet()
+	if err := policy.ValidateLinkage(policyDecision, currentChange.ProjectId(), currentChange.ChangeId(), evidenceSet); err != nil {
+		return HumanDecision{}, err
+	}
+	if kind == DecisionApprove {
+		requirements := policyDecision.Aggregate()
+		if requirements.Denied {
+			return HumanDecision{}, fmt.Errorf("positive human disposition is forbidden by policy")
+		}
+		if requirements.RequiresReview {
+			return HumanDecision{}, fmt.Errorf("positive human disposition requires independent review unavailable before M1.1")
+		}
+	}
 	return HumanDecision{
-		projectId:             currentChange.ProjectId(),
-		changeId:              currentChange.ChangeId(),
-		workspaceId:           currentProposal.Workspace().WorkspaceId(),
-		kind:                  kind,
-		occurredAt:            occurredAt.UTC(),
-		rationale:             rationale,
-		actor:                 ActorLocalInteractiveHuman,
-		requestedState:        requestedState,
-		baseRevision:          artifact.BaseRevision(),
-		sourceStateDigest:     artifact.SourceStateDigest(),
-		patchDigest:           artifact.PatchDigest(),
-		verificationAttemptId: evidenceSet.VerificationAttemptId(),
-		evidenceSetId:         evidenceSet.Id(),
-		evidenceCount:         len(evidenceSet.Evidence()),
-		changedPathCount:      len(artifact.ChangedPaths()),
+		projectId:              currentChange.ProjectId(),
+		changeId:               currentChange.ChangeId(),
+		workspaceId:            currentProposal.Workspace().WorkspaceId(),
+		kind:                   kind,
+		occurredAt:             occurredAt.UTC(),
+		rationale:              rationale,
+		actor:                  ActorLocalInteractiveHuman,
+		requestedState:         requestedState,
+		baseRevision:           artifact.BaseRevision(),
+		sourceStateDigest:      artifact.SourceStateDigest(),
+		patchDigest:            artifact.PatchDigest(),
+		verificationAttemptId:  evidenceSet.VerificationAttemptId(),
+		evidenceSetId:          evidenceSet.Id(),
+		evidenceCount:          len(evidenceSet.Evidence()),
+		changedPathCount:       len(artifact.ChangedPaths()),
+		policyEvaluationId:     policyDecision.Id(),
+		policyBundleDigest:     policyDecision.Bundle().Digest(),
+		policyDenied:           policyDecision.Aggregate().Denied,
+		policyRequiresReview:   policyDecision.Aggregate().RequiresReview,
+		policyRequiresApproval: policyDecision.Aggregate().RequiresApproval,
 	}, nil
 }
 
@@ -142,6 +166,11 @@ func (decision HumanDecision) PatchDigest() string { return decision.patchDigest
 func (decision HumanDecision) VerificationAttemptId() verification.VerificationAttemptId {
 	return decision.verificationAttemptId
 }
-func (decision HumanDecision) EvidenceSetId() string { return decision.evidenceSetId }
-func (decision HumanDecision) EvidenceCount() int    { return decision.evidenceCount }
-func (decision HumanDecision) ChangedPathCount() int { return decision.changedPathCount }
+func (decision HumanDecision) EvidenceSetId() string        { return decision.evidenceSetId }
+func (decision HumanDecision) EvidenceCount() int           { return decision.evidenceCount }
+func (decision HumanDecision) ChangedPathCount() int        { return decision.changedPathCount }
+func (decision HumanDecision) PolicyEvaluationId() string   { return decision.policyEvaluationId }
+func (decision HumanDecision) PolicyBundleDigest() string   { return decision.policyBundleDigest }
+func (decision HumanDecision) PolicyDenied() bool           { return decision.policyDenied }
+func (decision HumanDecision) PolicyRequiresReview() bool   { return decision.policyRequiresReview }
+func (decision HumanDecision) PolicyRequiresApproval() bool { return decision.policyRequiresApproval }

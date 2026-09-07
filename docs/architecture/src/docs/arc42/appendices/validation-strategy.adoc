@@ -18,6 +18,12 @@ Verification is a first-class product capability, not a final “lint step.” T
 
 Tools themselves should not decide whether a warning blocks a Change. Adapters normalize findings; Policy Engine maps them to project/organization severity and gate outcome.
 
+M1.0 normalizes tool labels separately into `INFO`, `LOW`, `MEDIUM`, `HIGH`,
+or `CRITICAL`. Policy evaluation consumes the exact deterministic EvidenceSet
+and accumulates independent denial, review, and approval requirements. Missing,
+mismatched, substituted, or failed required evidence fails closed; provider
+completion cannot substitute for evidence.
+
 ==== Test Selection
 
 The system should prefer targeted tests derived from impacted symbols/modules

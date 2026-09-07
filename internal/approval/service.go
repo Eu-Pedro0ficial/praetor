@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
@@ -21,6 +22,7 @@ type Port interface {
 		change.Change,
 		proposal.Proposal,
 		verification.Result,
+		policy.BundleDecision,
 		DecisionKind,
 		string,
 	) (HumanDecision, change.Change, error)
@@ -88,6 +90,7 @@ func (service *Service) Decide(
 	currentChange change.Change,
 	currentProposal proposal.Proposal,
 	verificationResult verification.Result,
+	policyDecision policy.BundleDecision,
 	kind DecisionKind,
 	rationaleValue string,
 ) (HumanDecision, change.Change, error) {
@@ -126,6 +129,7 @@ func (service *Service) Decide(
 		currentChange,
 		currentProposal,
 		verificationResult,
+		policyDecision,
 		kind,
 		rationale,
 		service.clock(),

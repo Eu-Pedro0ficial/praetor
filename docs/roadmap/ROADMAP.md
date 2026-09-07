@@ -10,11 +10,12 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
-Current implementation status: M0.0 through M0.9 are complete. M0.8 preserves
+Current implementation status: M0.0 through M1.0 are complete. M0.8 preserves
 M0.7's authorization-only decision step, then requires separate explicit
 canonical application or rejection closure before the applicable disposition
 can reach `audit-locked`. The Core V0 release gate has passed. M0.9 adds
-presentation-only post-V0 console polish; M1.0 has not begun.
+presentation-only post-V0 console polish. M1.0 adds the local evidence-linked
+Policy Engine and Project Policy Manifest; M1.1 has not begun.
 
 ## Mandatory architecture decision closure rule
 
@@ -135,6 +136,7 @@ An implementation convenience is NOT an architecture decision.
 - Capability: policy engine maturity
   - Sub-capability: severity, exceptions, policy bundles, and rule packages
   - Implementation tasks: evolve from minimum deterministic V0 rules to a generic Policy Engine with explicit policy metadata and governance sequencing
+  - Status: complete; local Manifest V1, conjunctive bundle evaluation, candidate-only exceptions, immutable evidence/policy linkage, audit, and approval/application enforcement are implemented
 
 #### M1.1 — Review Engine + Maker-Checker Enforcement
 - Capability: review engine
@@ -240,8 +242,9 @@ This is the minimal path proving the Praetor thesis without depending on mature 
 
 ## Implementation sequence status
 
-M0.0 through M0.9 are implemented. Core V0 remains complete. M0.9 is
-presentation-only post-V0 polish; this status does not begin M1.0.
+M0.0 through M1.0 are implemented. Core V0 remains complete. M0.9 is
+presentation-only post-V0 polish; M1.0 is the completed first governance
+maturity milestone. M1.1 has not started.
 
 ## Minimum necessary architecture before V0
 

@@ -1,0 +1,23 @@
+schema_version: 1
+bundle:
+  id: praetor-project
+  version: "1.0"
+  policies:
+    - id: patch-integrity
+      version: "1.0"
+      family: change-surface
+      description: Require deterministic proof that the retained patch remains unchanged.
+      severity: CRITICAL
+      outcome: AUTO
+      required_evidence: patch-integrity
+      non_overridable: true
+      exception_candidate_allowed: false
+    - id: tests-require-approval
+      version: "1.0"
+      family: testing
+      description: Require passing tests and retain explicit Core V0 human approval.
+      severity: HIGH
+      outcome: APPROVAL
+      required_evidence: test
+      non_overridable: true
+      exception_candidate_allowed: true

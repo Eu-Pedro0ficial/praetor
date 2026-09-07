@@ -16,6 +16,7 @@ const (
 	ModeAnalysis         ModeIdentity = "analysis"
 	ModeChange           ModeIdentity = "change"
 	ModeProvider         ModeIdentity = "provider"
+	ModePolicy           ModeIdentity = "policy"
 	ModeConfigure        ModeIdentity = "configure"
 	ModeConfigureProject ModeIdentity = "configure-project"
 	ModeConfigureLayout  ModeIdentity = "configure-layout"

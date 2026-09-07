@@ -298,6 +298,12 @@ The separation between a record's *statement* and its *status* is important. A r
 
 Policy is a governance rule, not merely instructions appended to an LLM prompt. A Policy may have deterministic checks, advisory semantic checks, applicability selectors, severity, enforcement disposition, evidence requirements, authority requirements and exception rules.
 
+The M1.0 executable model includes immutable `Policy`, `PolicyBundle`,
+individual `PolicyDecision`, conjunctive `AggregateRequirements`, and
+`PolicyExceptionCandidate`. A bundle decision retains exact evidence and
+manifest-digest linkage. It neither changes `ChangeState` nor grants an
+exception.
+
 ==== Audit Event Model
 
 An AuditEvent should be immutable after append in the logical model. Candidate fields:

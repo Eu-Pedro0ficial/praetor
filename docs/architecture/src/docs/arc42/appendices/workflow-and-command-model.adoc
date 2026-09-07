@@ -33,10 +33,14 @@ options without executing or clearing the partially typed input. The readline
 adapter redisplays the preserved buffer and cursor; semantic help remains
 terminal-independent in the command registry.
 
-Future Project, Memory, Policy, Audit, and SCM families remain
-roadmap capabilities and are not registered as empty placeholder commands.
-When added, unavailable operations should explain their governing state or
-policy rather than return a generic error.
+Future Project, Memory, Audit, and SCM families remain roadmap capabilities and
+are not registered as empty placeholder commands. M1.0 registers `policy show`,
+`policy list`, `policy evaluate`, and `policy exception` through the same
+immutable tree. Direct and contextual forms share dispatch, help, completion,
+and contextual `?`. Successful verification records policy after the existing
+transition to `validated`; policy itself performs no transition. Positive
+approval requires a coherent retained decision, while rejection remains
+available.
 
 ==== M0.2 Executable Shell Proof
 
