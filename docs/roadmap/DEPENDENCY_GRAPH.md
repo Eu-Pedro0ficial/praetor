@@ -1,99 +1,116 @@
-# Dependency Graph
+# Roadmap V2 Dependency Graph
 
-## Summary
+## Authority
 
-This dependency graph reflects the corrected roadmap order: V0 is a gated end-to-end proof, not a single monolithic milestone, and the AI provider abstraction sits before the release gate.
+This graph defines actual milestone dependencies. Phase grouping communicates
+product purpose and does not create an implicit dependency on every milestone
+in an earlier-numbered phase.
+
+Phase 0 and M1.0 are complete historical facts.
 
 ```mermaid
 flowchart TD
-    A[M0.0 Baseline Verification] --> B[M0.1 Runtime Shell + Project Identity]
-    B --> C[M0.2 Change Domain + State Machine]
-    C --> D[M0.3 Repository Intelligence + Change Surface]
-    D --> E[M0.4 Sandbox + Patch Lifecycle]
-    E --> F[M0.5 AI Provider Port + First Adapter]
-    F --> G[M0.6 Deterministic Verification + Evidence]
-    G --> H[M0.7 Human Approval + Change Audit]
-    H --> I[M0.8 Governed Change End-to-End]
+    H[Phase 0 + M1.0 complete] --> A[M1.1 Durable Change + Artifacts]
+    A --> B[M1.2 Repository Intelligence]
+    B --> C[M1.3 Specification + Change Plan]
+    C --> D[M1.4 Review + Maker-Checker]
+    D --> E[M1.5 Quality + Security Verification Foundation]
 
-    I --> J[M1.0 Mature Policy Engine + Policy Packs]
-    J --> K[M1.1 Review Engine + Maker-Checker Enforcement]
-    K --> L[M1.2 Local Project Memory]
-    J --> M[M1.3 Capability Model + Routing + Trust Boundaries]
-    M --> N[M1.4 Multi-provider Maturity]
-    N --> O[M1.5 SCM Integration]
-    N --> P[M1.6 CI + External Evidence Integration]
-    L --> Q[M1.7 Organization Memory + Learning Loop]
-    J --> AM[M1.8 Quality Intelligence + Security Verification]
-    K --> AM
-    P --> AM
-    Q -. optional learning input .-> AM
+    E --> F[M2.0 Project Memory Foundation]
+    F --> G[M2.1 Retrieval + Context Packs]
+    G --> I[M2.2 Invalidation + Conflicts]
+    I --> J[M2.3 Multi-Developer Memory]
 
-    B --> R[Project Registry]
-    B --> S[Local config + audit shell]
-    C --> T[Change Domain]
-    D --> U[Repository impact analysis]
-    E --> V[Sandbox + patch extraction]
-    F --> W[AI Provider Port]
-    G --> X[Verification evidence]
-    H --> Y[Approval & audit gate]
+    E --> K[M3.0 Capability + Trust Routing]
+    K --> L[M3.1 Multi-provider]
+    A --> M[M3.2 SCM + Issue Intake]
+    C --> M
+    D --> M
+    M --> N[M3.3 CI + External Evidence]
+    E --> N
 
-    J --> Z[Policy Engine]
-    J --> AA[Evidence Model]
-    K --> AB[Review Engine]
-    K --> AC[Approval Port]
-    L --> AD[Memory Engine]
-    L --> AE[SQLite + FTS projection]
-    M --> AF[Capability model]
-    M --> AG[Trust + data classification]
-    N --> AH[Provider adapter ecosystem]
-    O --> AI[SCM Port]
-    P --> AJ[CI + evidence adapters]
-    Q --> AK[Organization memory]
-    Q --> AL[Postmortem learning]
-    AM --> AN[Quality and security evidence adapters]
-    AM --> AO[Composed policy quality gate]
+    E --> O[M4.0 Advanced Quality]
+    N --> O
+    B --> P[M4.1 Architectural Conformance]
+    C --> P
+    E --> P
+    O --> Q[M4.2 Regression + Diff Risk]
+    P --> Q
+    G --> Q
+    I --> Q
+    I --> R[M4.3 Postmortem + Local Learning]
+    D --> R
+    Q --> R
+
+    J --> S[M5.0 Organization Memory]
+    R --> S
+    S --> T[M5.1 Organization Policy]
+    T --> U[M5.2 Enterprise Identity]
+    U --> V[M5.3 Advanced Audit]
+    U --> W[M5.4 Hosted Control Plane - conditional]
+    V -. when compliance requires .-> W
 ```
 
-## Dependency logic
+## Dependency rules
 
-1. The repository baseline must exist before implementation begins.
-2. Project identity and local shell are required before any execution can be governed.
-3. The Change domain, workflow, and bounded scope must be proven before policy, memory, or routing become meaningful.
-4. The AI Provider Port and first adapter must exist before V0 so the runtime can use a provider-independent execution contract.
-5. M0.6 verification discovery combines deterministic repository signals with an optional separate read-only `verification-planning` attempt; the Verification Engine, not AI, produces deterministic evidence.
-6. M1.0 policy maturity is the dependency for formalized routing and trust-based policy decisions; project memory is not required for capability routing.
-7. Memory becomes valuable only after the core change loop works.
-8. Organization-scale memory and learning derive primarily from project memory, governance, audit, and promotion authority, not SCM/CI integration.
-9. M1.8 consumes mature policy, review, and external-evidence capabilities. It is delivered after M1.7, but organization memory is an optional learning input rather than a hard technical dependency.
-10. A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED must stop dependent implementation until the required spike/benchmark, ADR and human approval are complete.
-
-## Decision closure gates
-
-Approved decisions now authoritative:
-
-- Workflow representation: declarative YAML with schema validation.
-- Policy representation: declarative YAML with schema validation.
-- Adapter loading: compile-time registration + composition root; no Go plugin loading in the initial architecture.
-- First AI provider adapter: `codex-cli` through non-interactive `codex exec`, behind the provider-independent port; explicit provider/model selection is not routing.
-- Verification planning: language/toolchain-independent discovery may use a separate read-only `verification-planning` attempt, while only validated deterministic execution creates deterministic evidence (ADR-031).
-- Sandbox isolation: Git worktree for source/workspace isolation; not a security sandbox.
-- First remote SCM: local Git first; GitHub is the first remote SCM adapter after Core V0, behind a provider-independent SCM Port. GitHub concepts stay in the adapter layer, not in the domain/core.
-- Provider trust taxonomy: LOCAL, ENTERPRISE, EXTERNAL_APPROVED, EXTERNAL_RESTRICTED, FORBIDDEN.
-- Data classification taxonomy: PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED.
-- Configuration precedence: built-in defaults < user < project < workflow < Change-specific, while governance authority remains higher priority.
-
-Deferred or benchmarked decisions are explicit gates, not silent assumptions:
-
-- Hosted organization memory: DEFERRED, requires persistence spike + ADR + human approval.
-- GUI / server control plane: DEFERRED, requires explicit capability justification + ADR + human approval.
-- Semantic memory conflict detection: DEFERRED / SPIKE REQUIRED before semantic conflict authority can be adopted.
-- Canonical project memory serialization: BENCHMARK REQUIRED before persistence implementation begins.
-- M1.8 concrete tool portfolio, final assurance taxonomy, and consequential deployment choices: deferred to capability evidence and the required architecture/security review; no vendor is preselected.
+1. M1.1 is the common durability foundation. Later artifacts must not invent
+   independent process-local authorities.
+2. M1.2 context and risk precede M1.3 Specification and ChangePlan governance.
+3. M1.4 review consumes exact Specification, Plan, patch, evidence, and policy
+   identities established earlier.
+4. Source-linked inspection and understandable governance actions are
+   cross-cutting acceptance concerns of M1.1 through M1.4, not independent
+   milestones; their projections and presentation never establish authority.
+5. M1.5 establishes current-run quality/security evidence, explicit assurance,
+   bounded tool execution, and secret safeguards before canonical Project
+   Memory promotion.
+6. Phase 2 proceeds from canonical memory to retrieval, invalidation, and then
+   shared multi-developer operation.
+7. M3.0 can begin after M1.5; it does not depend on completing Phase 2.
+8. M3.2 depends on durable Change/spec/review authority, not on M3.1.
+9. M3.3 normally uses M3.2 remote artifact identity but remains an external
+   evidence concern, not provider maturity.
+10. M4.0 owns historical quality; M4.1 owns architectural conformance; M4.2
+   combines those with repository and memory history for regression/DiffRisk.
+11. M4.3 requires trustworthy outcomes and local memory, but not Organization
+    Memory.
+12. M5.0 is repository-backed and non-hosted by default. If its approved
+    decision selects hosted multi-tenant persistence, M5.2 and M5.4 become hard
+    prerequisites and hosted work must be resequenced.
+13. M5.4 remains conditional and may close with an approved determination that
+    no control plane is justified.
 
 ## Critical path
 
-The critical path is:
+The Roadmap V2 traceability-first critical path is:
 
-M0.0 -> M0.1 -> M0.2 -> M0.3 -> M0.4 -> M0.5 -> M0.6 -> M0.7 -> M0.8
+```text
+M1.1 -> M1.2 -> M1.3 -> M1.4 -> M1.5
+-> M2.0 -> M2.1 -> M2.2 -> M4.3
+```
 
-This is the minimal path that proves Praetor’s central thesis.
+The provider/ecosystem branch is:
+
+```text
+M1.5 -> M3.0 -> M3.1
+M1.1 + M1.3 + M1.4 -> M3.2 -> M3.3
+```
+
+The advanced-intelligence convergence is:
+
+```text
+M1.5 + M3.3 -> M4.0
+M1.2 + M1.3 + M1.5 -> M4.1
+M2.1 + M2.2 + M4.0 + M4.1 -> M4.2 -> M4.3
+```
+
+## Decision closure gates
+
+A `DEFERRED`, `BENCHMARK REQUIRED`, `SPIKE REQUIRED`, or undecided gate stops
+only the dependent implementation. It does not authorize a different
+architecture. Required evidence, an ADR or explicit decision, and human
+approval precede implementation.
+
+See `OPEN_DECISIONS.md` for the complete gate inventory and
+`docs/architecture/src/docs/arc42/appendices/traceability.adoc` for inverse
+ownership.

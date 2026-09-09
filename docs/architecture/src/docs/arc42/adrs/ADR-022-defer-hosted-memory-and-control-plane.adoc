@@ -1,0 +1,27 @@
+== ADR-022: Defer Hosted Organization Memory and Control Plane
+
+*Status:* DEFERRED
+
+=== Context
+
+The local-first architecture has no demonstrated workload, tenancy,
+consistency, security, or availability requirement for hosted persistence or a
+server control plane.
+
+=== Decision
+
+Do not select or implement hosted Organization Memory or a control-plane
+topology as an initial or inevitable architecture. M5.0 remains
+repository-backed and non-hosted by default. M5.4 is conditional.
+
+=== Consequences
+
+Local and Project capabilities must not assume a future database, service, or
+tenant model. If hosted multi-tenant Organization Memory is later approved,
+enterprise identity and control-plane dependencies must be sequenced first.
+
+=== Reopen / Review Trigger
+
+A concrete multi-user or remote-orchestration requirement must supply workload,
+tenancy, consistency, persistence, identity, threat, deployment, and operating
+evidence, followed by an ADR and human approval.

@@ -15,8 +15,8 @@ ADR-006 establishes deterministic verification as evidence authority, and
 ADR-013 separates implementation from final review and approval. Neither
 decision defines an AI-assisted verification-planning responsibility, its
 write boundary, or how its output becomes safe executable work. This decision
-adds that coherent refinement without introducing the mature M1.1 Review
-Engine or M1.3/M1.4 provider routing.
+adds that coherent refinement without introducing the mature M1.4 Review
+Engine or M3.0/M3.1 provider routing.
 
 === Decision
 
@@ -86,11 +86,11 @@ Negative:
 
 === Explicit boundary
 
-M0.6 does not introduce a mature semantic Reviewer or Approver. M1.1 remains
+M0.6 does not introduce a mature semantic Reviewer or Approver. M1.4 remains
 responsible for maker-checker review enforcement. M0.6 does not introduce
 automatic provider selection, capability/trust/data-classification routing,
 fallback providers, ranking, load balancing, voting, ensembles, or a second
-provider; M1.3 and M1.4 remain authoritative for those capabilities.
+provider; M3.0 and M3.1 remain authoritative for those capabilities.
 
 The initial plan safety gate is deliberately narrower than the mature M1.0
 Policy Engine. Exact persistent plan serialization, universal tool taxonomy,

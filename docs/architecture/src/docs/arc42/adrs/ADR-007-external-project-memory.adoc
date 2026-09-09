@@ -4,6 +4,6 @@
 
 *Context:* Project knowledge should be shared and persistent without contaminating the application repository.
 
-*Decision:* Associate source and memory repositories through Project Registry; do not require Git submodule linkage.
+*Decision:* Associate source and memory repositories through Project Registry; do not require Git submodule linkage. Roadmap V2 assigns the local canonical foundation to M2.0 and shared multi-developer operation to M2.3.
 
 *Consequences:* Independent lifecycle/access controls and adoption without source metadata. Synchronization and authorization must be managed by the runtime.

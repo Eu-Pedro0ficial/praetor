@@ -38,6 +38,10 @@ INTAKE
   -> MEMORY/POLICY CANDIDATES
 ----
 
+This is a target/reference pipeline. The traceability ledger records which
+stages are `AS-IS`, `PARTIAL`, or `TARGET`; listing a stage here is not an
+implementation claim.
+
 A workflow MAY omit or add stages for a particular change type, but it cannot silently bypass mandatory gates imposed by policy.
 
 === The `Change` as the Primary Work Aggregate
@@ -48,11 +52,11 @@ Conceptual artifacts include:
 
 [source,text]
 ----
-.changes/CHG-01842/
+logical Change artifact set CHG-01842:
   intake.json
   context.json
   impact.json
-  specification.md
+  specification-pack
   plan.json
   approvals.json
   implementation.json
@@ -65,7 +69,11 @@ Conceptual artifacts include:
   postmortem.json
 ----
 
-The physical layout remains implementation-specific, but the **logical artifact model is architectural**.
+The names are illustrative, not file-format decisions. Physical storage stays
+outside governed source unless an approved decision says otherwise. M1.1 owns
+durable Change artifacts, while M1.3 owns future Specification Pack and
+ChangePlan authority; `engineering/specs/` remains a candidate future location
+rather than a current canonical path.
 
 === State-Machine Control
 

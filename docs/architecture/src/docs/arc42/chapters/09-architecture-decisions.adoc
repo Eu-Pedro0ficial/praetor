@@ -20,7 +20,11 @@ include::../adrs/ADR-015-doctoolchain.adoc[]
 include::../adrs/ADR-016-naming-clarity.adoc[]
 include::../adrs/ADR-017-project-organization-memory.adoc[]
 include::../adrs/ADR-018-source-memory-workflow-separation.adoc[]
+include::../adrs/ADR-019-workflow-representation.adoc[]
 include::../adrs/ADR-020-policy-representation.adoc[]
+include::../adrs/ADR-021-compile-time-adapter-registration.adoc[]
+include::../adrs/ADR-022-defer-hosted-memory-and-control-plane.adoc[]
+include::../adrs/ADR-023-defer-semantic-memory-conflict-authority.adoc[]
 include::../adrs/ADR-025-configuration-precedence-and-governance-authority.adoc[]
 include::../adrs/ADR-026-explicit-composition-root.adoc[]
 include::../adrs/ADR-027-stable-logical-project-identity-and-local-project-registry.adoc[]
@@ -29,3 +33,6 @@ include::../adrs/ADR-029-hierarchical-contextual-command-shell.adoc[]
 include::../adrs/ADR-030-codex-cli-first-ai-provider-adapter.adoc[]
 include::../adrs/ADR-031-ai-assisted-verification-planning.adoc[]
 include::../adrs/ADR-032-local-project-policy-engine-and-governance-semantics.adoc[]
+
+ADR-024 is intentionally unallocated. The former registry-only entry duplicated
+ADR-008's benchmark gate and had no ADR file.

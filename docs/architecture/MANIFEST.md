@@ -1,6 +1,6 @@
 # Documentation Manifest
 
-Generated: 2026-09-06
+Generated: 2026-09-08
 
 ## Files
 - `./README.md`
@@ -25,12 +25,19 @@ Generated: 2026-09-06
 - `./src/docs/arc42/adrs/ADR-016-naming-clarity.adoc`
 - `./src/docs/arc42/adrs/ADR-017-project-organization-memory.adoc`
 - `./src/docs/arc42/adrs/ADR-018-source-memory-workflow-separation.adoc`
+- `./src/docs/arc42/adrs/ADR-019-workflow-representation.adoc`
+- `./src/docs/arc42/adrs/ADR-020-policy-representation.adoc`
+- `./src/docs/arc42/adrs/ADR-021-compile-time-adapter-registration.adoc`
+- `./src/docs/arc42/adrs/ADR-022-defer-hosted-memory-and-control-plane.adoc`
+- `./src/docs/arc42/adrs/ADR-023-defer-semantic-memory-conflict-authority.adoc`
+- `./src/docs/arc42/adrs/ADR-025-configuration-precedence-and-governance-authority.adoc`
 - `./src/docs/arc42/adrs/ADR-026-explicit-composition-root.adoc`
 - `./src/docs/arc42/adrs/ADR-027-stable-logical-project-identity-and-local-project-registry.adoc`
 - `./src/docs/arc42/adrs/ADR-028-interactive-praetor-shell.adoc`
 - `./src/docs/arc42/adrs/ADR-029-hierarchical-contextual-command-shell.adoc`
 - `./src/docs/arc42/adrs/ADR-030-codex-cli-first-ai-provider-adapter.adoc`
 - `./src/docs/arc42/adrs/ADR-031-ai-assisted-verification-planning.adoc`
+- `./src/docs/arc42/adrs/ADR-032-local-project-policy-engine-and-governance-semantics.adoc`
 - `./src/docs/arc42/appendices/change-state-machine.adoc`
 - `./src/docs/arc42/appendices/competitive-landscape.adoc`
 - `./src/docs/arc42/appendices/configuration-model.adoc`
@@ -39,6 +46,7 @@ Generated: 2026-09-06
 - `./src/docs/arc42/appendices/memory-model.adoc`
 - `./src/docs/arc42/appendices/policy-model.adoc`
 - `./src/docs/arc42/appendices/requirements-catalog.adoc`
+- `./src/docs/arc42/appendices/traceability.adoc`
 - `./src/docs/arc42/appendices/roadmap.adoc`
 - `./src/docs/arc42/appendices/security-threat-model.adoc`
 - `./src/docs/arc42/appendices/source-notes.adoc`
@@ -68,5 +76,7 @@ Generated: 2026-09-06
 
 ## Build note
 
-The AsciiDoc include graph was checked locally and contains no missing local include targets.
-Rendering through docToolchain was not executed in the sandbox because the runtime cannot resolve external hosts to download the docToolchain distribution. The bootstrap script is included for a normal networked development machine.
+The AsciiDoc include graph and normative traceability ledger are part of the
+canonical documentation validation. Rendering status must be reported from the
+current `./scripts/build-docs.sh` run rather than inherited from this historical
+manifest note.

@@ -4,6 +4,6 @@
 
 *Context:* Canonical Git records need fast local deterministic querying without a hosted database dependency.
 
-*Decision:* Materialize a rebuildable local SQLite + FTS projection. Do not version the SQLite database as canonical memory.
+*Decision:* Proposed direction: materialize a rebuildable local SQLite + FTS projection. Do not version the SQLite database as canonical memory. Roadmap V2 requires M2.1 to close this proposal with retrieval and operational evidence before selecting the concrete adapter.
 
 *Consequences:* Fast portable local search and indexes; projection is disposable and must be reproducibly rebuildable.

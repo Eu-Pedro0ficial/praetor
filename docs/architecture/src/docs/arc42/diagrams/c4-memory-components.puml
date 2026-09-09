@@ -1,19 +1,22 @@
 @startuml
 !include <C4/C4_Component>
+AddElementTag("AS-IS", $bgColor="#2E7D32", $fontColor="#FFFFFF", $legendText="AS-IS")
+AddElementTag("TARGET", $bgColor="#2457A7", $fontColor="#FFFFFF", $legendText="TARGET")
+AddElementTag("DEFERRED", $bgColor="#6A5A78", $fontColor="#FFFFFF", $legendText="DEFERRED")
 LAYOUT_WITH_LEGEND()
-title C4 Level 3 — Memory Engine
+title C4 Level 3 — Memory Engine [TARGET]
 Container_Boundary(mem, "Memory Engine") {
-  Component(model, "Memory Domain Model", "Go", "Typed records, scopes, lifecycle, provenance and validity.")
-  Component(candidate, "Candidate Pipeline", "Go", "Schema, data, conflict and policy validation before canonical promotion.")
-  Component(invalidation, "Invalidation Engine", "Go", "Detects evidence/source fingerprint changes.")
-  Component(retrieval, "Retrieval Engine", "Go", "Path/symbol/domain/dependency/FTS/optional semantic retrieval.")
-  Component(context, "Context Pack Builder", "Go", "Task-specific provider projection under context/token budget.")
-  Component(conflict, "Memory Conflict Resolver", "Go + optional AI", "Duplicates, contradiction, supersession and scope conflicts.")
-  Component(projection, "Projection Builder", "Go", "Canonical records -> SQLite/FTS and provider-facing formats.")
+  Component(model, "Memory Domain Model", "Technology undecided", "Target typed records, scopes, lifecycle, provenance and validity.", $tags="TARGET")
+  Component(candidate, "Candidate Pipeline", "Technology undecided", "Target schema, data, conflict and policy validation before promotion.", $tags="TARGET")
+  Component(invalidation, "Invalidation Engine", "Technology undecided", "Target evidence/source fingerprint invalidation.", $tags="TARGET")
+  Component(retrieval, "Retrieval Engine", "Technology undecided", "Target structural/FTS retrieval; semantic retrieval is optional.", $tags="TARGET")
+  Component(context, "Context Pack Builder", "Technology undecided", "Target provider projection under context/token budget.", $tags="TARGET")
+  Component(conflict, "Semantic Conflict Authority", "Undecided", "Deferred semantic contradiction authority; structural conflict remains target.", $tags="DEFERRED")
+  Component(projection, "Projection Builder", "Technology undecided", "Target canonical records to rebuildable query and provider projections.", $tags="TARGET")
 }
-ContainerDb(local, "Local Query Projection", "SQLite + FTS")
-System_Ext(canonical, "Canonical Memory Git Repository", "Small independent records; serialization benchmark and ADR required before canonical selection")
-System_Ext(source, "Source Repository", "Evidence fingerprints and current commit")
+ContainerDb(local, "Local Query Projection", "Technology undecided", $tags="TARGET")
+System_Ext(canonical, "Canonical Memory Repository", "Target separate records; serialization benchmark and ADR required", $tags="TARGET")
+System_Ext(source, "Source Repository", "Current evidence source", $tags="AS-IS")
 Rel(candidate, model, "validates typed record")
 Rel(candidate, conflict, "checks")
 Rel(candidate, canonical, "appends accepted record")

@@ -7,23 +7,25 @@
 include::../diagrams/c4-context.puml[]
 ----
 
-The runtime sits between the engineer and a set of external engineering/AI systems. It governs when external capabilities are allowed to participate and what evidence must be produced before a state transition is accepted.
+The runtime sits between the engineer and a set of external engineering/AI
+systems. Current and future integrations are distinguished below; only the
+implemented subset governs runtime behavior today.
 
 === In-Scope External Systems
 
 [cols="1,2,2",options="header"]
 |===
 |External system |Purpose |Integration posture
-|AI Providers |Planning, implementation, review, classification, semantic analysis |Port/adapter; capability and trust-level routed
-|Git Repository |Source state, diff, history, worktree/branch information |Primary source state reference
-|Memory Git Repository |Durable project/organization engineering knowledge |Separate repository; append-oriented records
-|SCM Hosting |PRs, commits, reviews, identities, repository creation |GitHub first candidate; GitLab/Bitbucket later adapters
-|Issue Tracker |Change intake and requirement context |Adapter-based
-|Static Analysis Tools |Deterministic code checks |Adapter/runner based
-|Test Frameworks |Dynamic correctness evidence |Adapter/runner based
-|Security Scanners |SAST, secrets, dependency/container checks |Adapter/runner based
-|Identity Provider |Human identity, role and approval authority |Local/Git identity initially; enterprise OIDC/SSO later
-|Telemetry Backend |Execution metrics and traces |Port/adapter; optional and policy-governed
+|AI Providers |Planning, implementation, review, classification, semantic analysis |PARTIAL: provider-independent port and `codex-cli`; M3.0 routing and M3.1 multi-provider are TARGET
+|Git Repository |Source state, diff, history, worktree/branch information |AS-IS local primary source-state reference; remote SCM operations are M3.2 TARGET
+|Memory Repository |Durable project/organization engineering knowledge |TARGET: separate canonical storage; representation benchmark required
+|SCM Hosting |PRs, commits, reviews, identities, repository creation |TARGET M3.2; GitHub is the first approved remote adapter direction
+|Issue Tracker |Change intake and requirement context |TARGET M3.2 adapter
+|Static Analysis Tools |Deterministic code checks |PARTIAL verification runner; M1.5/M4.1 adapters are TARGET
+|Test Frameworks |Dynamic correctness evidence |AS-IS bounded direct-process execution; broader maturity is TARGET
+|Security Scanners |SAST, secrets, dependency/container checks |TARGET M1.5 replaceable adapters
+|Identity Provider |Human identity, role and approval authority |PARTIAL local interaction provenance; enterprise OIDC/SSO is TARGET M5.2
+|Telemetry Backend |Execution metrics and traces |TARGET M3.3 optional policy-governed port
 |===
 
 === Technical Context
@@ -43,9 +45,11 @@ A project association is conceptually:
 
 [source,yaml]
 ----
-project_id: payment-service
-source_repository: git@host:company/payment-service.git
-memory_repository: git@host:company/payment-service.ai-memory.git
+project_id: prj_opaque_generated_value
+repository_root: /work/payment-service
+memory_repository: future-association-only
 ----
 
-This association is maintained by the runtime's Project Registry. A Git submodule is not required and is not the default architectural interpretation. Source and memory repositories may live side-by-side in a workspace while remaining independently versioned.
+The current registry maintains opaque Project identity and operational source
+association. Memory association is target M2.0. A Git submodule is not required
+and is not the default architectural interpretation.

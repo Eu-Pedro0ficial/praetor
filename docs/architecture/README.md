@@ -24,12 +24,18 @@ If your wrapper requires an explicit environment with the installed version:
 
 Outputs are normally produced under:
 
-- `build/html5/`
-- `build/pdf/`
+- `build/docs/html5/src/docs/arc42/`
+- `build/docs/pdf/src/docs/arc42/`
 
 ## Documentation entry point
 
 `src/docs/arc42/arc42.adoc`
+
+The normative inverse traceability ledger is
+`src/docs/arc42/appendices/traceability.adoc`. From the repository root, run
+`python3 scripts/validate_traceability.py` and
+`python3 scripts/validate_traceability.py --self-test` before accepting
+ownership or lifecycle changes.
 
 ## Status vocabulary
 

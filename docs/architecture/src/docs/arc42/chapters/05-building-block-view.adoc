@@ -14,6 +14,11 @@ include::../diagrams/c4-container.puml[]
 include::../diagrams/c4-core-components.puml[]
 ----
 
+The diagrams distinguish `AS-IS`, `PARTIAL`, `TARGET`, and `DEFERRED`
+elements. These tags are navigation aids; the normative owner, lifecycle, and
+evidence for every first-class component is the traceability ledger. A diagram
+tag must be reconciled with that ledger before milestone closure.
+
 ==== CLI / Developer Interface
 
 Responsibilities:
@@ -74,6 +79,12 @@ The Change aggregate preserves intent and state. Candidate concepts include:
 ==== Specification Engine
 
 Transforms normalized intent and repository context into an explicit behavioral/technical specification or validates a human-provided spec. It is responsible for specification completeness and traceability, not implementation.
+
+M1.3 plans versioned Specification Packs and end-to-end requirement -> spec ->
+change -> evidence -> policy traceability. `engineering/specs/` is a candidate
+future governed-source location only; its format, authority, persistence, and
+invalidation semantics require the M1.3 decision gate and are not part of the
+current runtime.
 
 ==== Policy Engine
 
@@ -183,7 +194,7 @@ fresh ephemeral context and `ExecutionAttemptId` distinct from
 `implementation`; the `codex-cli` adapter selects its advertised read-only
 sandbox, while before/after patch and canonical-source checks fail closed on
 mutation. It produces structured `VerificationCandidate` values only; it is
-not the M1.1 Reviewer or Approver and cannot create deterministic evidence.
+not the M1.4 Reviewer or Approver and cannot create deterministic evidence.
 
 The planner/candidate normalizer constructs a non-empty structured
 `VerificationPlan`. The minimum V0 rule gate validates each required
@@ -205,7 +216,7 @@ provider completion and planning/semantic findings remain separate
 provenance. An empty plan, missing tool, non-zero exit, timeout, cancellation,
 execution error, or integrity failure cannot pass.
 
-M1.8 later broadens this provider/tool-independent evidence architecture with
+M1.5 later broadens this provider/tool-independent evidence architecture with
 advanced quality/security adapters and a Policy Engine-composed Quality Gate.
 It may reuse approved existing infrastructure or open-source/local fallbacks,
 but retains availability, applicability, source and materially different
@@ -214,6 +225,30 @@ assurance rather than treating all tools as equivalent.
 ==== Review Engine
 
 Coordinates independent AI review roles and deterministic evidence summaries. It must record disagreements rather than flattening them into a false consensus.
+
+The independent Review Engine is a target M1.4 component. The current local
+human disposition gate and M0.6 verification planner are executable subsets of
+different responsibilities and do not satisfy maker-checker review.
+
+==== Cross-Cutting Inspection, Presentation, and Operability
+
+Explainable source-linked views are supporting read models of M1.1 artifact
+inspection, M1.3 Specification/Change traceability, and M2.1 memory retrieval.
+They remain subordinate to authoritative requirements, artifacts, evidence,
+policies, and decisions; freshness, provenance, gaps, and rebuild behavior are
+explicit.
+
+Human-facing governance state, blockers, consequences, rework, exceptions,
+and available actions are acceptance concerns of M1.4 and other owning
+milestones. The M0.9 presentation boundary may render and invoke them but
+cannot infer authority, alter policy, manufacture evidence, or become
+canonical state.
+
+Recovery and local concurrency remain with M1.1 durability. M1.5 owns
+cancellation, bounded resources, process/network/credential boundaries, and
+diagnostics only for its quality/security tool execution. Git worktrees remain
+source/workspace isolation, not hostile-code containment. These concerns do
+not constitute independent roadmap milestones.
 
 ==== Memory Engine
 

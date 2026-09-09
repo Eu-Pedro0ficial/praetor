@@ -78,8 +78,8 @@ providers, or multi-provider execution. `ProviderCapability` is descriptive
 contract metadata only. Manual selection is not routing.
 
 Codex CLI is not a universal or privileged provider. Additional providers are
-separate compile-time registered adapters behind the same port. M1.3 owns
-policy-governed routing and M1.4 owns multi-provider maturity.
+separate compile-time registered adapters behind the same port. M3.0 owns
+policy-governed routing and M3.1 owns multi-provider maturity.
 
 === Reopen / review trigger
 

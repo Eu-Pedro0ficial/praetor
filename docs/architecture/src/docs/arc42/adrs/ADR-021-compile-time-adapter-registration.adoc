@@ -1,0 +1,26 @@
+== ADR-021: Compile-Time Adapter Registration
+
+*Status:* DECIDED FOR INITIAL ARCHITECTURE
+
+=== Context
+
+Praetor needs replaceable provider and infrastructure adapters without turning
+the domain into a service locator or adopting unsafe in-process plugin loading.
+
+=== Decision
+
+Use compile-time adapter registration, the explicit composition root, typed
+dependency injection, and configuration-driven selection. Do not use Go plugin
+loading for the initial architecture.
+
+=== Consequences
+
+Adapters remain replaceable through ports while the build owns the concrete
+set. The domain and application layers do not perform runtime resolution or
+depend on adapter implementations.
+
+=== Reopen / Review Trigger
+
+Independently deployable third-party adapters or runtime extension requirements
+must demonstrate need, compare an out-of-process protocol, and receive an ADR
+and human approval before changing the loading model.

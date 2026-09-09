@@ -28,21 +28,24 @@
 |R-023 |AI verification planning becomes arbitrary shell authority |Command injection or unsafe execution |read-only separate role, structured schema validation, explicit executable/argument vectors and no blind shell interpolation
 |R-024 |Repository verification declarations are spoofed or malicious |Misleading evidence or harmful tool execution |retain provenance, validate plans, constrain execution and treat repository scripts as untrusted
 |R-025 |AI planning or semantic findings are mistaken for deterministic evidence |False acceptance |only actual Verification Engine tool execution produces deterministic evidence
-|R-026 |M1.8 fallback tools are treated as equivalent to preferred capabilities |False assurance |record capability source, availability, applicability and materially different evidence strength
+|R-026 |M1.5 fallback tools are treated as equivalent to preferred capabilities |False assurance |record capability source, availability, applicability and materially different evidence strength
 |R-027 |Advanced scanners create vendor or operational lock-in |Cost, deployment and sovereignty loss |replaceable adapters, existing-infrastructure integration and preference for adequate open-source/local/self-hostable tools
+|R-028 |Engineering knowledge projection becomes a competing authority |Contradictory requirements or decisions |source-linked rebuildable views, explicit freshness, and no canonical promotion by inference
+|R-029 |Governance presentation shows an action or outcome more strongly than its authority |Accidental approval or false confidence |render exact authority and blockers; presentation never manufactures evidence or decisions
+|R-030 |Runtime failure handling overstates worktree isolation or hides partial failure |Security exposure or false completion |M1.1 recovery evidence, M1.5 bounded-tool boundaries, and truthful failure state
 |===
 
 === Known Architectural Debt at Baseline
 
-With Core V0 implementation complete through M0.8, the principal remaining
+With implementation complete through M1.0, the principal remaining
 debt is **decision debt**, not an unimplemented V0 loop. Canonical application
 is deliberately local and working-tree-only. Its adapter lock coordinates one
 process; concurrent external Git writers are detected by repeated preflight or
 post-application proof but are not claimed to be prevented by a repository-wide
 multi-process lock. The most important deferred items are
 the canonical memory serialization benchmark, hosted organization memory,
-semantic conflict detection, M1.3 provider routing/trust enforcement,
+semantic conflict detection, M3.0 provider routing/trust enforcement,
 multi-provider maturity, stronger sandboxing beyond the approved worktree
-strategy, and M1.8's concrete tool portfolio/final assurance taxonomy. These
+strategy, and M1.5's concrete tool portfolio/final assurance taxonomy. These
 items remain explicitly gated by their milestones, benchmark, ADR and human
 approval rather than silently being implemented.

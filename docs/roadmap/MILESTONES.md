@@ -1,1640 +1,933 @@
-# Milestones and Capability Breakdown
+# Roadmap V2 Milestones and Capability Breakdown
 
-## Architectural correction
+## Authority and lifecycle
 
-The roadmap must not treat memory, routing sophistication, or organizational learning as prerequisites for the first proof of Praetor.
+Roadmap V2 replaces only the future delivery plan. M0.0 through M1.0 remain
+completed historical facts and are not renumbered or expanded retroactively.
+Their complete accepted contracts are preserved in
+`archive/MILESTONES_V1.md`; the former future entries in that file are
+`SUPERSEDED` planning history.
 
-The project must prove a governed change loop first, then expand capability after V0.
+A future milestone cannot become complete without implementation and
+validation evidence in the normative traceability ledger, plus an arc42/C4
+lifecycle-drift review. A `DEFERRED`, `BENCHMARK REQUIRED`, `SPIKE REQUIRED`,
+or undecided gate stops dependent implementation until evidence, an ADR or
+explicit decision, and human approval exist.
 
-Current implementation status: M0.0 through M1.0 are complete. The Core V0
-release gate, bounded post-V0 presentation milestone, and local Policy Engine
-milestone have passed; M1.1 has not begun.
+## Phase 0 — Core V0 Build-up — COMPLETE
 
-## Mandatory decision closure rule
+| Milestone | Historical scope | Status |
+|---|---|---|
+| M0.0 Baseline Verification | Repository, Go, governance, architecture and documentation baseline | COMPLETE |
+| M0.1 Runtime Shell + Project Identity | Initial shell, repository attachment, durable local Project identity/registry and initialization audit | COMPLETE |
+| M0.2 Change Domain + State Machine | Process-local Change aggregate, exact Core V0 transitions and append-oriented transition audit | COMPLETE |
+| M0.3 Repository Intelligence + Change Surface V0 | Git source snapshot, tracked inventory, explicit file scope and surface validation | COMPLETE |
+| M0.4 Sandbox + Patch Lifecycle | Detached worktree source isolation, Git patch extraction, surface enforcement and cleanup | COMPLETE |
+| M0.5 AI Provider Port + Codex CLI | Provider-independent execution contract, runtime selection and one `codex-cli` adapter | COMPLETE |
+| M0.6 Deterministic Verification + Evidence | Repository discovery, read-only verification planning, structured plan validation and deterministic EvidenceSet | COMPLETE |
+| M0.7 Human Approval + Change Audit | Explicit local-human approve/reject decision over linked evidence; no canonical mutation | COMPLETE |
+| M0.8 Governed Change End-to-End | Exact accepted-patch application or rejection closure followed by terminal audit lock | COMPLETE |
+| M0.9 Engineering Console | Retained-context console, adaptive sidebar and user-local presentation preferences | COMPLETE |
 
-A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
+Historical scope remains exactly bounded by the implementation and evidence
+recorded for each milestone. In particular, these milestones did not deliver
+durable Change/artifact persistence, mature repository intelligence,
+Specification/ChangePlan governance, independent Review, or Project Memory.
 
-When a milestone reaches the trigger for such a decision:
+## Phase 1 — Governed Engineering Runtime
 
-1. dependent implementation must stop;
-2. the required spike/benchmark/research must be performed;
-3. an ADR or explicit architecture decision must be produced;
-4. human approval is required;
-5. only then may dependent implementation continue.
+### M1.0 — Mature Policy Engine — COMPLETE
 
-This rule is part of the Definition of Done for any milestone that depends on a deferred or benchmarked decision.
+The strict Project Policy Manifest V1, normalized severity, conjunctive
+governance outcomes, candidate-only exceptions, and immutable evidence/policy
+linkage are implemented. Roadmap V2 does not change this accepted scope.
 
-## Phase 0 — Core V0 build-up
+**Requirements:** Primary FR-015 and FR-016. Supports FR-022, FR-045, NFR-008,
+QS-008, and QS-012.
 
-### Milestone M0.0 — Baseline Verification
+### M1.1 — Durable Change + Artifact Foundation
 
-#### Objective
-Establish that the repository is a coherent architecture baseline and the runtime can begin from a valid Go project skeleton.
+**Objective:** Make Change state, generated artifacts, evidence, policy and
+human decisions, and workflow authority durable, inspectable, and recoverable
+without provider conversation state.
 
-#### Motivation
-The repository already contains the architecture baseline, but implementation work must be bootstrapped deliberately and verified before product logic is introduced.
+**Internal delivery slices:**
 
-#### Architectural components involved
-- repository structure
-- Go module and CLI shell
-- documentation governance
-- architecture authority boundary
+- M1.1-A — artifact/change model and local store;
+- M1.1-B — workflow snapshot, recovery, and migration;
+- M1.1-C — inspection CLI and crash/restart E2E.
 
-#### Domain concepts introduced
-- RuntimeBootstrap
-- RepositoryBaseline
-- ArchitectureAuthority
+**Dependencies:** M1.0 and the completed Core V0 loop.
 
-#### Required ports
-- none required for direct product execution yet
+**Requirements:** Primary FR-005, FR-037, NFR-004, and NFR-007. Supports
+FR-038, FR-045, NFR-003, NFR-008, and QS-011.
 
-#### Required adapters
-- none required yet
+**Components, artifacts, and ports:** Change Domain, Workflow Engine, Artifact
+Store Port, Audit Ledger, Approval Port, durable Change record,
+ArtifactReference, artifact identity/version/digest, and WorkflowSnapshot.
 
-#### Inputs
-- existing Go module
-- architecture docs
-- product thesis and engineering manifesto
+**Boundaries and non-goals:** Persistence is user-local XDG data and never
+runtime metadata in governed source. No distributed database, hosted service,
+Project Memory, semantic repository model, or M1.3 state expansion is included.
 
-#### Outputs
-- valid local project skeleton
-- buildable Go CLI shell
-- documentation authority baseline
+**Acceptance criteria:**
 
-#### Dependencies
-- repo baseline documents
-- Go toolchain
+- every authoritative artifact is linked to exactly one Project and Change;
+- workflow identity/version/digest used by the Change is inspectable;
+- process failure and restart cannot manufacture, lose, or silently advance a
+  valid state;
+- artifact, evidence, approval, and audit inspection are available through
+  presentation-neutral use cases and the CLI, with source-linked views that
+  remain subordinate to authoritative artifacts.
 
-#### Preconditions
-- architecture docs remain the source of truth
-- no product logic is implemented yet
+**Definition of Done:** A representative governed Change can be interrupted at
+each durable boundary, restarted, inspected, and resumed without reconstructing
+chat history. Corrupt, partial, mismatched, or unsupported data fails clearly
+and safely. Traceability rows gain stable implementation and validation
+references.
 
-#### Implementation boundaries
-- no product logic
-- no AI execution
-- no policy engine
+**Decision and spike gates:** Artifact identity/schema/store; workflow
+snapshot/version/migration; crash consistency/recovery; local concurrency and
+locking; artifact/audit transaction boundary; fault-injection comparison of
+the candidate local store.
 
-#### Explicit non-goals
-- workflow engine
-- project registry
-- AI integration
+**Downstream capabilities:** Every later Roadmap V2 milestone.
 
-#### Tests
-- module builds cleanly
-- `go test ./...` succeeds for the shell layer only
+### M1.2 — Repository Intelligence + Impact + Risk
 
-#### Validation
-- repository compiles with no product feature code
+**Objective:** Mature M0.3's source-inventory V0 into an explainable
+RepositoryModel, inferred blast radius, RiskProfile, knowledge gaps,
+confidence/provenance, and stale-model detection.
 
-#### Documentation changes
-- note the repo is a baseline, not an implementation milestone
+**Internal delivery slices:**
 
-#### Risks
-- mistaking scaffolding for architecture maturity
+- M1.2-A — repository graph/model;
+- M1.2-B — impact and blast radius;
+- M1.2-C — RiskProfile, confidence, gaps, and staleness.
 
-#### Acceptance criteria
-- the repo is ready for implementation without contradicting the architecture
+**Dependencies:** M1.1.
 
-#### Definition of Done
-A clean local Go project skeleton exists and the architecture baseline remains the authoritative design source.
+**Requirements:** Primary FR-003, FR-007, FR-040, and QS-012. Supports FR-008,
+NFR-011, NFR-013, NFR-017, and QS-013.
 
----
-
-### Milestone M0.1 — Runtime Shell + Project Identity
-
-#### Objective
-Create the smallest local runtime shell that can attach to a repository, establish project identity, and persist minimal runtime metadata.
-
-#### Motivation
-Before a change can be governed, the runtime must know what repository it is operating in and what project identity it is using.
-
-#### Architectural components involved
-- CLI / developer entrypoint
-- minimal Project Registry
-- repository intelligence
-- local audit ledger
-
-#### Domain concepts introduced
-- Project
-- ProjectId
-- SourceSnapshot
-- RuntimeContext
-- LocalConfiguration
-
-#### Required ports
-- Repository Port
-- Audit Port
-
-#### Required adapters
-- local Git repository adapter
-- local filesystem adapter
-- local configuration adapter
-
-#### Inputs
-- repository root
-- source tree path
-- local config files
-
-#### Outputs
-- project registration metadata
-- minimal source snapshot metadata
-- initialization audit events
-- status and diagnostics output
-
-#### Dependencies
-- M0.0
-
-#### Preconditions
-- a valid Git repository exists
-- local runtime write directories are available
-
-#### Implementation boundaries
-- no AI provider calls
-- no workflow execution beyond project identity and local status
-- no memory candidate processing
-
-#### Explicit non-goals
-- provider routing
-- memory lifecycle model
-- organization memory
-
-#### Tests
-- project attach success and failure tests
-- config precedence tests
-- invalid repository handling
-
-#### Validation
-- local project identity is stable and inspectable
-- runtime status output is reproducible
+**Components, artifacts, and ports:** Repository Intelligence, Impact Engine,
+Repository Port, optional analyzer adapters, RepositoryModel, ImpactReport,
+RiskProfile, KnowledgeGap, and provenance-bearing relationships.
 
-#### Documentation changes
-- CLI usage docs for project attach and status
-- project registry notes
+**Boundaries and non-goals:** Deterministic facts and heuristic inference remain
+distinct. No embeddings-first discovery, universal compiler front-end,
+perfect impact claim, or automatic scope expansion.
 
-#### Risks
-- ambiguous project identity mapping
-- configuration precedence drift
+**Acceptance criteria:** Symbol, dependency, test, ownership, history, API, and
+architecture signals are used when available; missing knowledge is explicit;
+every inference identifies evidence, confidence, and freshness; stale models
+cannot be used silently.
 
-#### Acceptance criteria
-- the runtime can establish project identity for a real repository
-- the runtime can persist local metadata and create audit events
+**Definition of Done:** Representative heterogeneous repositories produce a
+versioned model and explainable expected, possible, protected, and uncertain
+impact. A trivial change proposing a broad refactor is flagged with evidence.
 
-#### Definition of Done
-The runtime can attach to a real repository and establish a consistent local project identity without executing AI work.
-
----
-
-### Milestone M0.2 — Change Domain + State Machine
-
-#### Objective
-Introduce the Change aggregate and the state machine that governs the lifecycle of a proposed software modification.
-
-#### Motivation
-Change is the primary work aggregate in Praetor; the system cannot be governed without explicit lifecycle control.
-
-#### Architectural components involved
-- Change domain model
-- workflow engine
-- state transition validation
-- audit linkage
-
-#### Domain concepts introduced
-- Change
-- ChangeState
-- ChangeIntent
-- ExecutionAttempt
-- AuditEvent
-
-#### Required ports
-- Audit Port
-- Workflow Port
-
-#### Required adapters
-- in-memory state adapter or basic persistence adapter
-
-#### Inputs
-- developer request or change intent
-- repository context
-- project identity
-
-#### Outputs
-- change record
-- change state transitions
-- audit event stream
-
-#### Dependencies
-- M0.1
-
-#### Preconditions
-- runtime can attach to a repository
-- local project identity is available
-
-#### Implementation boundaries
-- no AI provider execution yet
-- no patch generation yet
-- no complex policy rules beyond a minimal state model
-
-#### Explicit non-goals
-- provider-specific execution
-- broad workflow DSL
-- mature approval engine
-
-#### Tests
-- allowed transition tests
-- forbidden transition tests
-- audit linkage tests
-
-#### Validation
-- each Change follows an explicit lifecycle and remains auditable
+**Decision and spike gates:** Repository-model boundary/version and cache
+semantics; confidence/gap representation; RiskProfile taxonomy and authority;
+representative polyglot corpus and incremental-rebuild performance.
 
-#### Documentation changes
-- workflow-state model and transition table
+**Downstream capabilities:** M1.3, M4.1, and M4.2.
 
-#### Risks
-- state-model drift
-- untracked lifecycle edge cases
+### M1.3 — Specification + Change Plan Governance
 
-#### Acceptance criteria
-- a Change can be created, updated, and closed through well-defined lifecycle states
-- state transitions are auditable and enforced
+**Objective:** Make human-provided and AI-proposed Specification and ChangePlan
+artifacts explicit, validated, approved where required, and binding on later
+implementation and verification.
 
-#### Definition of Done
-The runtime has a working Change lifecycle with explicit states and deterministic state transitions.
-
----
+**Internal delivery slices:**
 
-### Milestone M0.3 — Repository Intelligence + Change Surface
-
-#### Objective
-Create repository-level impact analysis and a bounded change-surface model that constrains where modifications are allowed.
-
-#### Motivation
-A governed change must be scoped to a bounded surface before any implementation work begins.
-
-#### Architectural components involved
-- repository intelligence
-- source inspection
-- change-surface policy
-- minimal SourceSnapshot
-
-#### Domain concepts introduced
-- ChangeSurface
-- SourceSnapshot
-- ImpactAnalysis
-- ApprovedScope
-
-#### Required ports
-- Repository Port
-- Audit Port
-
-#### Required adapters
-- local Git repository adapter
-- filesystem inspection adapter
-
-#### Inputs
-- repository context
-- Change definition
-- source tree and relevant file metadata
-
-#### Outputs
-- source fingerprint metadata
-- approved change surface
-- violation or warning signals
-
-#### Dependencies
-- M0.2
-
-#### Preconditions
-- project identity exists
-- Change lifecycle is active
-- ARCHITECTURE DECISION GATE: workflow representation is DECIDED as declarative YAML with schema validation; no custom workflow DSL may be introduced without an explicit ADR and human approval
-
-#### Implementation boundaries
-- only minimal repository analysis needed for V0
-- no broad dependency graph or multi-repo model
-
-#### Explicit non-goals
-- deep semantic code understanding
-- repo-wide risk scoring beyond a bounded-surface check
-- organization-level policy inheritance
-
-#### Tests
-- approved-surface success tests
-- disallowed write tests
-- snapshot integrity tests
+- M1.3-A — Specification lifecycle;
+- M1.3-B — ChangePlan and approval;
+- M1.3-C — digest-chain enforcement and invalidation;
+- M1.3-D — Specification Packs and requirement-to-policy traceability.
 
-#### Validation
-- unauthorized writes are blocked or flagged before patch acceptance
+**Dependencies:** M1.1 and M1.2.
 
-#### Documentation changes
-- change-surface policy model and repository inspection notes
+**Requirements:** Primary FR-006 and FR-009. Supports FR-019, FR-037, NFR-003,
+NFR-004, NFR-008, and QS-012.
 
-#### Risks
-- overly strict or overly weak change-surface enforcement
-- incomplete repo fingerprinting
+**Components, artifacts, and ports:** Specification Engine, Change Planning,
+Workflow Engine, Policy Engine, AI Provider Port, Artifact Store Port,
+Approval Port, source-linked traceability/read-model views,
+SpecificationId/Version/Digest, PlanId/Version/Digest, Specification Pack,
+requirements, invariants, acceptance criteria, assumptions, gaps, out-of-scope,
+architectural constraints, ordered steps, expected surface, and verification
+expectations.
 
-#### Acceptance criteria
-- repository analysis can define a bounded change surface
-- writes outside that surface are detected and rejected
+**Boundaries and non-goals:** AI proposes but cannot establish canonical
+requirements or approve a plan. This milestone does not add capability
+routing, independent final review, organization planning, or a new DSL.
+`engineering/specs/` is a planned candidate location only; its canonical
+format, authority, and persistence semantics remain decision-gated.
 
-#### Definition of Done
-The runtime can analyze a project and enforce a bounded change surface before implementation begins.
-
----
-
-### Milestone M0.4 — Sandbox + Patch Lifecycle
-
-#### Objective
-Move implementation into an isolated proposal context so canonical source is untouched until approval.
+**Acceptance criteria:** Required workflows reject missing, incomplete, stale,
+or unapproved specs/plans; mutations invalidate downstream authority; every
+proposal and validation result can identify the exact governing digests.
+The accepted design must preserve requirement -> spec -> change -> evidence ->
+policy traceability without creating a parallel requirements authority. Every
+displayed relationship resolves to its authoritative source and exposes stale,
+incomplete, or unavailable projection state.
 
-#### Motivation
-Praetor is only distinct from a direct AI coding API when implementation happens in a controlled and isolated patch pipeline.
+**Definition of Done:** Human and AI candidate paths both produce validated
+artifacts; required plan approval is explicit; implementation is constrained
+by the current approved Specification and Plan.
 
-#### Architectural components involved
-- sandbox/worktree engine
-- patch artifact model
-- proposal lifecycle
-- canonical-source guard
-
-#### Domain concepts introduced
-- IsolatedPatch
-- PatchArtifact
-- ProposalWorkspace
-- CanonicalSourceGuard
+**Decision and spike gates:** Canonical Specification/Plan schemas; candidate
+authority/digest chain; plan-approval semantics; mutation/invalidation;
+state-machine evolution; representative bug, feature, refactor, and migration
+workflow fixtures.
 
-#### Required ports
-- Sandbox Port
-- Patch Port
-- Audit Port
-
-#### Required adapters
-- local worktree or temporary sandbox adapter
-- patch extraction adapter
-
-#### Inputs
-- approved change boundary
-- implementation request
-- repository snapshot
-
-#### Outputs
-- isolated patch artifact
-- patch metadata and diff summary
-- rejection or accept classification
-
-#### Dependencies
-- M0.3
-
-#### Preconditions
-- change surface is known
-- workflow state is active
-- ARCHITECTURE DECISION GATE: Git worktree is the initial source/workspace isolation mechanism; stronger security sandboxing remains a deferred spike-and-ADR concern and must not be silently claimed as equivalent
-
-#### Implementation boundaries
-- no provider-specific execution integration yet
-- no canonical mutation before explicit acceptance
-
-#### Explicit non-goals
-- live editing in canonical source
-- broad multi-branch orchestration
-- external patch system compatibility
-
-#### Tests
-- isolated patch generation tests
-- canonical source preservation tests
-- patch extraction failure tests
-
-#### Validation
-- only isolated workspaces are mutated, never canonical source
+The following is a `TARGET/CANDIDATE` authority chain, not an accepted ADR:
 
-#### Documentation changes
-- patch lifecycle and worktree execution notes
-
-#### Risks
-- sandbox portability issues
-- patch extraction drift
-
-#### Acceptance criteria
-- generated changes live in an isolated workspace and can be validated before acceptance
-- canonical source stays unchanged until human approval
-
-#### Definition of Done
-The runtime can generate a patch in an isolated context and preserve canonical source until a human decision is made.
-
----
-
-### Milestone M0.5 — AI Provider Port + First Adapter
-
-#### Objective
-Introduce a provider-independent AI execution contract and connect it to the first working concrete adapter behind that port.
-
-#### Motivation
-The core domain must remain provider-independent, but V0 still needs one concrete provider path to prove the end-to-end thesis.
-
-#### Architectural components involved
-- AI Provider Port
-- first AI Provider Adapter
-- executor contract
-- provider metadata and request shaping
-
-#### Domain concepts introduced
-- ProviderCapability
-- ProviderRoleContract
-- ExecutionRequest
-- ProviderResponse
-
-#### Required ports
-- AI Provider Port
-
-#### Required adapters
-- exactly one concrete M0.5 adapter: `codex-cli` through non-interactive `codex exec`
-
-#### Inputs
-- implementation task metadata
-- change surface and repository context
-- provider connection/config metadata
-
-#### Outputs
-- structured provider response
-- implementation proposal or patch candidate
-- provider execution records
-
-#### Dependencies
-- M0.4
-
-#### Preconditions
-- sandbox path is available
-- isolated patch workflow exists
-- ARCHITECTURE DECISION GATE: Go adapter loading is DECIDED as compile-time registration and composition-root selection; Go plugin loading is not the initial model and requires a separate spike and ADR before adoption
-- FIRST PROVIDER DECISION: ADR-030 records the human-approved `codex-cli` integration mechanism
-
-#### Implementation boundaries
-- exactly one concrete provider adapter for the V0 path
-- explicit session/configuration selection of provider and optional provider-scoped model; manual selection is not routing
-- no capability-routing requirement yet
-- no broad trust-boundary model yet
-
-#### Explicit non-goals
-- multi-provider routing
-- automatic selection, fallback, ranking, load balancing, or multi-provider execution
-- data-classification-driven provider choice
-- general provider marketplace abstraction
-
-#### Tests
-- adapter contract conformance tests
-- provider failure handling tests
-- isolation and request-shaping tests
-
-#### Validation
-- provider calls are isolated behind the port and never leak into the domain model
-
-#### Documentation changes
-- provider abstraction and first adapter docs
-
-#### Risks
-- provider coupling in the core domain
-- uneven adapter behavior across environments
-
-#### Acceptance criteria
-- the domain executes AI work through an interface, not direct provider-specific code
-- one provider adapter works in the end-to-end path
-
-#### Definition of Done
-A provider-independent AI execution contract exists and is backed by a working first adapter.
-
----
-
-### Milestone M0.6 — Deterministic Verification + Evidence
-
-#### Objective
-Discover, validate, and execute the deterministic checks appropriate to an
-isolated patch without coupling Praetor to one language or toolchain, then
-normalize the real execution results as required evidence.
-
-#### Motivation
-A patch is not acceptable merely because AI produced it. Repositories express
-verification through heterogeneous manifests, scripts, CI configuration, test
-layouts, and toolchain conventions, so Praetor needs general discovery rather
-than one hard-coded implementation path per stack. AI may assist when those
-signals are ambiguous, but only actual tool execution can prove a
-deterministic outcome.
-
-#### Architectural components involved
-- repository verification discovery
-- constrained Verification Planning Agent
-- VerificationCandidate and VerificationPlan normalization
-- verification engine
-- evidence model
-- validation adapters
-- minimal rule gate
-
-#### Domain concepts introduced
-- VerificationCandidate
-- VerificationPlan
-- VerificationStep
-- EvidenceSet
-- ValidationOutcome
-- RuleDecision
-- VerificationResult
-- `verification-planning` role
-
-#### Required ports
-- Verification Port
-- Repository Port
-- AI Provider Port
-- Policy Port
-- Audit Port
-
-#### Required adapters
-- repository-evidence discovery adapter
-- structured deterministic process/tool adapter
-- patch-integrity adapter
-- the existing `codex-cli` adapter may serve the optional
-  `verification-planning` role behind the same provider-independent port
-
-#### Inputs
-- SourceSnapshot and bounded Repository Context
-- surface-valid PatchArtifact and ApprovedScope
-- ChangeIntent
-- open-ended repository evidence such as manifests, lockfiles, build/task
-  files, repository scripts, test/lint/typecheck configuration, CI
-  configuration, and toolchain files
-
-#### Outputs
-- provenance-bearing verification candidates
-- validated structured VerificationPlan
-- normalized EvidenceSet from actual deterministic executions
-- policy decision records
-- verification summary for approval
-
-#### Dependencies
-- M0.5
-
-#### Preconditions
-- the AI execution path exists
-- a patch artifact can be generated in isolation
-- ADR-031 is accepted as the verification-planning and evidence-authority
-  boundary
-
-#### Implementation boundaries
-- discovery is language/framework/toolchain agnostic and its evidence taxonomy
-  remains open-ended
-- explicit repository declarations generally outrank AI inference; their
-  origins remain distinguishable
-- `implementation` and `verification-planning` use separate
-  `ExecutionAttemptId` values and fresh execution contexts
-- verification planning is source/workspace read-only and cannot advance
-  Change state, approve, reject, or create deterministic success evidence
-- AI output becomes structured candidates/steps and is never passed to an
-  uncontrolled shell
-- plan validation bounds executable resolution, argument vectors,
-  working-directory scope, environment exposure, time, cancellation, and
-  output before deterministic execution
-- only the minimal applicable deterministic checks needed for V0
-- no mature policy DSL or broad exception framework
-
-#### Explicit non-goals
-- mature semantic correctness review or final Reviewer/Approver behavior
-- automatic provider selection, capability/trust/data routing, provider
-  fallback, ranking, voting, ensembles, or load balancing
-- requiring a second concrete provider
-- a closed universal taxonomy of languages, frameworks, or verification tools
-- a canonical persistent VerificationPlan format
-- large enterprise policy catalog
-- heavy remote validation infrastructure
-
-#### Tests
-- deterministic repository-discovery and ambiguity tests across heterogeneous
-  fixture projects
-- distinct-attempt/context and read-only planner boundary tests
-- structured plan/schema and unsafe-command rejection tests
-- timeout, cancellation, bounded-output, working-directory and environment
-  safety tests
-- pass/fail deterministic execution tests
-- patch integrity tests
-- evidence normalization tests
-
-#### Validation
-- AI/provider completion and AI opinion never count as deterministic evidence
-- no plan step executes before the minimum safety/executability gate
-- no patch becomes eligible for human approval without the required real
-  deterministic evidence
-
-#### Documentation changes
-- verification discovery, planning, execution, evidence, and trust-boundary
-  documentation
-
-#### Risks
-- repository evidence or AI inference proposes unsafe or irrelevant checks
-- malicious project configuration attempts command injection or discovery
-  spoofing
-- repository-defined checks execute untrusted behavior
-- noisy validation outputs
-- false negatives from incomplete or over-broad discovery
-- planner mutation, tool hangs, output flooding, or credential/environment
-  leakage
-
-#### Acceptance criteria
-- Praetor discovers verification for heterogeneous target projects without a
-  language-specific architecture branch
-- a separate read-only `verification-planning` attempt may assist ambiguous
-  discovery without inheriting implementation conversation state
-- validated structured steps, never arbitrary AI shell text, drive execution
-- actual checks produce normalized source/patch-linked evidence
-- a patch with insufficient evidence does not pass the gate
-- successful evidence may advance the Change only through the existing
-  `isolated -> validated` transition; the separate M0.7 gate owns human
-  disposition
-
-#### Definition of Done
-The runtime can discover, safely plan, and deterministically verify an isolated
-patch for heterogeneous repositories, produce a normalized EvidenceSet from
-real tool results, and enforce the existing validation gate without treating
-AI planning or provider completion as evidence of success.
-
----
-
-### Milestone M0.7 — Human Approval + Change Audit
-
-#### Objective
-Require explicit human approval or rejection before any modification reaches canonical source, while recording the complete execution lifecycle in append-only audit history.
-
-#### Motivation
-The human remains the decision authority. The system must not silently choose acceptance.
-
-#### Architectural components involved
-- approval gate
-- audit ledger
-- approval and rejection workflow
-- lifecycle record model
-
-#### Domain concepts introduced
-- Approval
-- Rejection
-- HumanDecision
-- AuditRecord
-
-#### Required ports
-- Approval Port
-- Audit Port
-
-#### Required adapters
-- local approval adapter
-- local append-only log adapter
-
-#### Inputs
-- final patch artifact
-- deterministic evidence
-- repository/scope context
-- human decision input
-
-#### Outputs
-- accept or reject decision
-- complete audit record
-- change closure metadata
-
-#### Dependencies
-- M0.6
-
-#### Preconditions
-- patch validation is complete
-- human reviewer is available
-
-#### Implementation boundaries
-- minimal local approval UX is sufficient for V0
-- M0.7 is authorization-only: approval/rejection leaves canonical source
-  unchanged and ends in `approved`/`rejected`, without automatic
-  `audit-locked`
-- actor provenance is `local-interactive-human`, meaning local process
-  interaction rather than authenticated personal identity
-- the HumanDecision is process-local while the existing append-oriented audit
-  event is durable outside the governed repository
-- the proposal remains retained during the active session and uses the
-  existing session-owned cleanup path
-- M0.8 owns canonical patch integration and the release proof
-- no broad review engine or organization policy model yet
-
-#### Explicit non-goals
-- semantic reviewer roles
-- remote approval systems
-- enterprise RBAC beyond project-level authority
-
-#### Tests
-- approval gate tests
-- rejection gate tests
-- audit completeness tests
-
-#### Validation
-- accepted changes are authorized by an explicit human decision
-- rejected changes remain visible and auditable
-
-#### Documentation changes
-- approval flow and audit expectations
-
-#### Risks
-- approval bypass
-- incomplete audit records
-
-#### Acceptance criteria
-- no patch reaches canonical source without explicit human decision
-- the complete lifecycle is represented in append-only audit history
-
-#### Definition of Done
-The runtime has a working human approval/rejection gate and a complete change audit trail for the V0 path.
-
----
-
-### Milestone M0.8 — Governed Change End-to-End
-
-#### Objective
-Prove the full Praetor thesis end-to-end: request a real change, isolate it, validate it, and approve or reject it before canonical source changes.
-
-#### Motivation
-This is the first executable proof that Praetor is meaningfully different from simply calling an AI coding API.
-
-#### Architectural components involved
-- all V0 system parts together: repository intelligence, Change lifecycle, isolated patching, provider port, verification, approval, audit
-
-#### Domain concepts introduced
-- governed-change execution model
-- end-to-end patch lifecycle
-- V0 evidence chain
-
-#### Required ports
-- Repository Port
-- AI Provider Port
-- Verification Port
-- Approval Port
-- Audit Port
-- Canonical Source Port
-
-#### Required adapters
-- local Git repository adapter
-- one concrete provider adapter
-- validation adapters
-- local approval adapter
-- append-only audit adapter
-
-#### Inputs
-- real change request in a local Git repo
-- project identity and source snapshot
-- approved bounded change surface
-- provider configuration
-
-#### Outputs
-- isolated patch
-- deterministic verification evidence
-- explicit accept/reject decision
-- complete append-only audit record
-- exact canonical application proof or unchanged-source rejection closure
-
-#### Dependencies
-- M0.0, M0.1, M0.2, M0.3, M0.4, M0.5, M0.6, M0.7
-
-#### Preconditions
-- all earlier M0 milestones are complete
-- local repository and provider environment are valid
-
-#### Implementation boundaries
-- V0 is intentionally minimal and local
-- no organization memory or advanced review stack yet
-- canonical application is an explicit working-tree-only `git apply` after
-  approval; HEAD and index remain unchanged and no commit or push is performed
-- rejected changes use a separate closure path that never invokes application
-
-#### Explicit non-goals
-- mature Policy Engine
-- project memory maturity
-- capability-based routing
-- organization memory promotion
-- broad SCM or provider ecosystem support
-
-#### Tests
-- end-to-end change execution on a fixture repo
-- change-surface enforcement tests
-- patch integrity tests
-- evidence-before-approval tests
-- audit completeness tests
-- canonical preflight, exact-diff proof, late-failure and replay tests
-- real PTY approval, rejection, help/completion, and session-close tests
-
-#### Validation
-- human approval is required before any canonical-source mutation
-- verification evidence is captured and auditable
-- append-only audit history records the lifecycle
-- application start is durable before mutation, completion is durable before
-  `approved -> audit-locked`, and failure reports mutation truthfully
-- `rejected -> audit-locked` requires unchanged canonical source
-
-#### Documentation changes
-- V0 release gate docs and acceptance summary
-
-#### Risks
-- end-to-end failure due to hidden assumptions in sandbox or verification paths
-- weak change-surface rules
-
-#### Acceptance criteria
-- a developer can submit a change request, isolate implementation, validate it,
-  explicitly accept or reject it, explicitly apply an approved patch or close
-  a rejected change, and record the lifecycle in audit history
-- no accepted patch reaches canonical source without evidence and approval
-- canonical application creates no commit or push and leaves HEAD/index unchanged
-
-#### Definition of Done
-Complete. The full local change lifecycle is proven in temporary real Git
-repositories and the Core V0 release-gate criteria are satisfied.
-
----
-
-### Milestone M0.9 — Terminal Presentation and Layout Configuration
-
-#### Objective
-Give the interactive shell a distinctive, adaptive Engineering Console while
-preserving its keyboard-first command semantics and every Core V0 governance
-boundary.
-
-#### Architectural components involved
-- presentation shell renderer
-- presentation-neutral session status snapshot
-- immutable hierarchical command tree
-- user-local presentation preference store
-- explicit composition root
-
-#### Inputs
-- current retained session/application state
-- terminal dimensions and color capability
-- versioned user-local presentation preferences
-
-#### Outputs
-- minimal branded header and footer
-- adaptive primary command area and optional right sidebar
-- bounded color and section preferences under `configure layout`
-
-#### Dependencies
-- M0.8
-- ADR-026 explicit composition root
-- ADR-028 interactive shell
-- ADR-029 hierarchical contextual commands
-
-#### Implementation boundaries
-- presentation preferences are separate from governed configuration precedence
-- preferences affect rendering only and live outside governed repositories
-- the sidebar and `status` consume the same status snapshot
-- narrow-terminal suppression never changes the persisted sidebar preference
-
-#### Explicit non-goals
-- full-screen TUI behavior
-- domain, workflow, evidence, policy, provider, or audit changes
-- M1.x routing, review, memory, SCM, or CI capabilities
-
-#### Tests and validation
-- preference defaults, validation, persistence, reset, and safe file handling
-- wide, narrow, resize, section, truncation, UTF-8, and ANSI-safe rendering
-- direct/contextual commands, help, completion, and non-mutation
-- real wide and narrow PTY inspection plus the complete Core V0 regression suite
-
-#### Acceptance criteria
-- the command area remains dominant and all existing shell commands work
-- the default sidebar presents identity, context, provider, and status coherently
-- layout and bounded colors are configurable and persist between sessions
-- small terminals remain usable without overwriting output or changing preferences
-- no governed repository metadata, new governance semantics, or heavy TUI
-  dependency is introduced
-
-#### Definition of Done
-Complete. The Engineering Console, adaptive sidebar, persistent presentation
-preferences, shared status projection, command integration, safety tests, and
-real PTY checks satisfy the M0.9 release criteria without beginning M1.0.
-
----
-
-## Phase 1 — post-V0 maturity
-
-### Milestone M1.0 — Mature Policy Engine and Policy Packs
-
-#### Objective
-Evolve from the minimal deterministic V0 rules to a first-class Policy Engine with explicit governance rules and policy bundles.
-
-#### Motivation
-Once the governed change loop is proven, a broader policy model becomes valuable rather than burdensome.
-
-#### Architectural components involved
-- Policy Engine
-- validation adapters
-- policy package model
-- exception handling
-
-#### Domain concepts introduced
-- Policy
-- PolicyBundle
-- PolicyException
-- Severity
-
-#### Required ports
-- Policy Port
-- Verification Port
-
-#### Required adapters
-- project policy adapter
-- validation severity adapter
-
-#### Inputs
-- patch and evidence records
-- project-level policy configuration
-
-#### Outputs
-- policy decision records
-- exception candidates
-- enriched evidence
-
-#### Dependencies
-- M0.8
-
-#### Preconditions
-- V0 governance loop is stable
-
-#### Implementation boundaries
-- no organization-wide inheritance yet
-
-#### Explicit non-goals
-- hosted policy infrastructure
-- broad enterprise policy language complexity
-
-#### Tests
-- policy bundle tests
-- exception path tests
-- severity mapping tests
-
-#### Validation
-- policy decisions are explicit, inspectable, and auditable
-
-#### Documentation changes
-- policy model and governance docs
-
-#### Acceptance criteria
-- policy enforcement is first-class and evidence-linked
-
-#### Definition of Done
-Complete. A mature local Policy Engine exists with strict Project Policy
-Manifest V1 loading, normalized severity, deterministic conjunctive bundle
-requirements, evidence-linked decisions, candidate-only exceptions,
-append-oriented audit, and existing approval/application enforcement. It does
-not alter the completed V0 release gate or begin M1.1.
-
----
-
-### Milestone M1.1 — Review Engine + Maker-Checker Enforcement
-
-#### Objective
-Separate implementation from independent review and approval responsibilities once the V0 proof exists.
-
-#### Motivation
-Maker-checker is a governance pattern that strengthens the system after the first proof rather than before it.
-
-#### Architectural components involved
-- Review Engine
-- approval and exception handling
-- audit integration
-
-#### Domain concepts introduced
-- ReviewResult
-- Approver
-- ReviewCycle
-- ExceptionRequest
-
-#### Required ports
-- Approval Port
-- Audit Port
-
-#### Required adapters
-- reviewer role adapter
-- review evidence capture adapter
-
-#### Inputs
-- final patch artifact
-- evidence set
-- review policy
-
-#### Outputs
-- accept, reject, or escalate decision
-- review record
-
-#### Dependencies
-- M1.0
-
-#### Preconditions
-- V0 governance loop is stable
-
-#### Implementation boundaries
-- local project review authority only
-
-#### Explicit non-goals
-- remote reviewer orchestration
-- full enterprise identity or RBAC
-
-#### Tests
-- review bypass tests
-- rejection tracing tests
-- audit linkage tests
-
-#### Validation
-- implementation and approval authority remain distinct
-
-#### Documentation changes
-- review/approval workflow docs
-
-#### Acceptance criteria
-- implementer cannot silently approve self-generated work
-
-#### Definition of Done
-Maker-checker separation is enforced and visible in the audit trail.
-
----
-
-### Milestone M1.2 — Local Project Memory
-
-#### Objective
-Add local project memory as a governed follow-on capability after the change loop is proven.
-
-#### Motivation
-Memory becomes valuable when the governed-change loop is stable; it is not part of the V0 proof path.
-
-#### Architectural components involved
-- Memory Engine
-- local memory store
-- retrieval projection
-- provenance tracking
-
-#### Domain concepts introduced
-- MemoryCandidate
-- MemoryRecord
-- Provenance
-- ContextPack
-
-#### Required ports
-- Memory Store Port
-- Memory Index Port
-
-#### Required adapters
-- local SQLite + FTS adapter
-- provenance adapter
-
-#### Inputs
-- accepted change records and evidence
-- validated project artifacts
-
-#### Outputs
-- candidate records
-- local context packs
-- retrieval projections
-
-#### Dependencies
-- M1.1
-
-#### Preconditions
-- V0 change loop already works and is considered stable
-- ARCHITECTURE DECISION GATE: canonical project memory serialization is BENCHMARK REQUIRED; persistence must not begin before the benchmark, ADR, and human approval are complete
-
-#### Implementation boundaries
-- local memory only
-- no organization promotion yet
-
-#### Explicit non-goals
-- embeddings-first retrieval
-- organization memory inheritance
-- broad knowledge graph modeling
-
-#### Tests
-- candidate validation tests
-- retrieval tests
-- provenance tests
-
-#### Validation
-- memory is traceable to accepted evidence and source state
-
-#### Documentation changes
-- local memory lifecycle and retrieval notes
-
-#### Acceptance criteria
-- memory records are explicit, provenance-aware, and locally retrievable
-
-#### Definition of Done
-Project memory is available as a governed local capability after V0.
-
----
-
-### Milestone M1.3 — Capability Model + Routing + Trust Boundaries
-
-#### Objective
-Add capability-aware provider routing and trust-boundary enforcement after the V0 proof is established.
-
-#### Motivation
-Provider routing provides value only when the core change loop and source-boundary enforcement are already proven. Routing decisions depend on provider capabilities, task requirements, governance policy, trust level, and data classification, not on project memory.
-
-#### Architectural components involved
-- provider capability registry
-- routing policy
-- trust classification model
-
-#### Domain concepts introduced
-- Role
-- Capability
-- TrustLevel
-- DataClassification
-
-#### Required ports
-- AI Provider Port
-- Policy Port
-
-#### Required adapters
-- capability metadata adapter
-- trust classification adapter
-
-#### Inputs
-- task role requirements
-- provider capabilities
-- project policy constraints
-
-#### Outputs
-- provider selection decision
-- blocked route notifications
-
-#### Dependencies
-- M1.0
-
-#### Preconditions
-- V0 governance loop is stable
-
-#### Implementation boundaries
-- provider selection is policy-governed and role-aware, not ad hoc
-
-#### Explicit non-goals
-- multi-provider marketplace management
-- global provider trust index
-
-#### Tests
-- route selection tests
-- restricted data route-block tests
-
-#### Validation
-- restricted data is never routed to disallowed providers
-
-#### Documentation changes
-- provider routing and trust-boundary docs
-
-#### Acceptance criteria
-- provider choice is based on capability and policy rather than hard-coded assumptions
-
-#### Definition of Done
-Capability-based routing and trust boundaries work in a way that is policy-governed and auditable.
-
----
-
-### Milestone M1.4 — Multi-provider Maturity
-
-#### Objective
-Extend Praetor beyond its local proof path with a governed multi-provider ecosystem that consumes the capability, routing, and trust model established in M1.3.
-
-#### Motivation
-Further operational support is a second-order value after the local proof is complete, and it must build on the capability and trust model rather than duplicate provider-selection logic.
-
-#### Architectural components involved
-- provider adapter ecosystem
-- provider selection policy
-- cross-provider execution normalization
-- M1.3 capability/routing/trust model
-
-#### Domain concepts introduced
-- ProviderSet
-- ProviderExecutionPolicy
-- CrossProviderNormalization
-
-#### Required ports
-- AI Provider Port
-- Policy Port
-
-#### Required adapters
-- additional provider adapters behind the same port
-- provider adapters that consume the M1.3 routing/trust metadata contract
-
-#### Inputs
-- task routing requirements
-- provider capability metadata
-- project governance constraints
-- M1.3 trust and classification outputs
-
-#### Outputs
-- provider selection decisions
-- cross-provider execution records
-
-#### Dependencies
-- M1.0
-- M1.3
-
-#### Preconditions
-- the base provider port and first adapter are stable
-- M1.3 capability/routing/trust boundaries are in place
-
-#### Implementation boundaries
-- no broad SCM or CI coupling yet
-- no duplicated provider-selection rules beyond the M1.3 model
-
-#### Explicit non-goals
-- issue-tracker parity
-- SCM workflow integration
-- CI evidence pipeline
-
-#### Tests
-- multi-provider selection tests
-- provider fallback and failure tests
-- route policy tests
-- trust-boundary enforcement tests using the M1.3 model
-
-#### Validation
-- provider operations remain governed by the policy and routing layer introduced in M1.3
-
-#### Documentation changes
-- provider maturity docs
-
-#### Acceptance criteria
-- the runtime can operate across multiple providers behind the same port without weakening governance or reintroducing provider selection logic that bypasses the M1.3 capability/routing/trust model
-
-#### Definition of Done
-Multi-provider execution is supported as an extension layer that consumes the M1.3 routing and trust model, not a V0 prerequisite or parallel provider-selection implementation.
-
----
-
-### Milestone M1.5 — SCM Integration
-
-#### Objective
-Add source-control integration as an independently testable capability after the local governance loop is proven, using the GitHub SCM adapter as the first concrete remote adapter behind a provider-independent SCM port.
-
-#### Motivation
-SCM integration is operationally valuable, but it is not the core proof of Praetor and should not be bundled with provider maturity or CI evidence. Local Git remains foundational; GitHub is the first remote SCM integration after Core V0.
-
-#### Architectural components involved
-- SCM port
-- repository workflow adapter
-- change-source traceability
-- GitHub SCM adapter as the first remote adapter
-
-#### Domain concepts introduced
-- SCMEvent
-- RepositoryWorkflowLink
-- ExternalChangeContext
-
-#### Required ports
-- SCM Port
-- Audit Port
-
-#### Required adapters
-- GitHub SCM adapter as the first concrete remote SCM adapter
-- additional SCM adapters only after the provider-independent contract is proven
-
-#### Inputs
-- accepted project changes
-- repository and change state metadata
-
-#### Outputs
-- SCM status and workflow linkage
-- externally visible change context
-
-#### Dependencies
-- M1.4
-
-#### Preconditions
-- local governance loop is stable
-- the provider-independent SCM contract is stable
-
-#### Implementation boundaries
-- isolated SCM workflow support only
-- no GitHub concepts embedded in the domain/core; GitHub belongs in the adapter layer
-
-#### Explicit non-goals
-- issue tracker parity
-- broad CI orchestration
-- hosted control plane
-
-#### Tests
-- SCM contract tests
-- repository linkage tests
-- GitHub adapter integration tests
-- audit continuity tests
-
-#### Validation
-- SCM actions remain governed, auditable, and provider-independent at the domain/core layer
-
-#### Documentation changes
-- SCM integration docs
-
-#### Acceptance criteria
-- SCM operations remain explicit, auditable, and controlled by project governance, with GitHub as the first concrete remote adapter behind a provider-independent SCM port
-
-#### Definition of Done
-SCM integration works as a separate extension of the local governance model, with GitHub as the first supported remote adapter and no GitHub-specific behavior in the domain/core.
-
----
-
-### Milestone M1.6 — CI + External Evidence Integration
-
-#### Objective
-Integrate CI and external evidence sources after local execution is stable and separately from SCM or provider maturity.
-
-#### Motivation
-CI and external evidence are operational signals that should be normalized after the runtime can already govern changes locally.
-
-#### Architectural components involved
-- CI adapter
-- observability and evidence integration
-- external result normalization
-
-#### Domain concepts introduced
-- CIResult
-- ExternalEvidence
-- EvidenceEnvelope
-
-#### Required ports
-- Verification Port
-- Telemetry Port
-- Audit Port
-
-#### Required adapters
-- CI and evidence adapters under the selected architecture
-
-#### Inputs
-- accepted changes
-- build or verification results
-- external environment metadata
-
-#### Outputs
-- CI evidence
-- normalized external verification records
-
-#### Dependencies
-- M1.4
-
-#### Preconditions
-- local governance loop is stable
-- evidence normalization is already in place for local validation
-
-#### Implementation boundaries
-- external evidence only; no broad hosted control plane
-
-#### Explicit non-goals
-- issue tracker integration
-- general SaaS operational stack
-
-#### Tests
-- CI evidence ingestion tests
-- external evidence normalization tests
-- audit linkage tests
-
-#### Validation
-- external evidence can be linked to the correct Change without weakening local governance
-
-#### Documentation changes
-- CI and evidence integration docs
-
-#### Acceptance criteria
-- external evidence contributes to the governing record without replacing local deterministic checks
-
-#### Definition of Done
-CI and external evidence are integrated as concrete, independently testable evidence sources.
-
----
-
-### Milestone M1.7 — Organization Memory + Learning Loop
-
-#### Objective
-Promote validated local learning into organization memory and capture rejected-change learning as explicit governance artifacts.
-
-#### Motivation
-Institutional learning matters after the local proof is established and should not distort the V0 timeline.
-
-#### Architectural components involved
-- organization memory store
-- policy inheritance model
-- postmortem and learning loop
-
-#### Domain concepts introduced
-- OrganizationMemory
-- PromotionCandidate
-- Postmortem
-- PolicyCandidate
-
-#### Required ports
-- Memory Store Port
-- Policy Port
-- Audit Port
-
-#### Required adapters
-- organization memory adapter
-- policy distribution adapter
-- postmortem extraction adapter
-
-#### Inputs
-- accepted project memory
-- rejected-change findings
-- policy and review metadata
-- promotion authority decisions
-
-#### Outputs
-- promoted organization memory
-- policy or convention candidates
-- postmortem records
-
-#### Dependencies
-- M1.2
-
-#### Preconditions
-- local governance, audit, and project memory are stable
-- promotion authority is explicit
-- ARCHITECTURE DECISION GATE: hosted organization memory and persistence remain DEFERRED; this milestone may not proceed beyond concept design until the workload, consistency, tenancy, security, persistence spike, ADR and human approval are complete
-
-#### Implementation boundaries
-- explicit promotion only
-- governed inheritance only
-
-#### Explicit non-goals
-- silent model tuning
-- automatic promotion without review
-- dependency on SCM/CI merely to enable promotion
-
-#### Tests
-- org promotion tests
-- rejected-change learning tests
-- policy inheritance tests
-
-#### Validation
-- promoted knowledge is still reviewed and auditable
-
-#### Documentation changes
-- organization memory governance and learning workflow docs
-
-#### Acceptance criteria
-- project learning can be promoted to organization memory only through formal policy and audit gates
-
-#### Definition of Done
-Organizational learning becomes an extension of the proven local system rather than an early prerequisite.
-
----
-
-### Milestone M1.8 — Quality Intelligence + Security Verification
-
-#### Objective
-Mature provider- and tool-independent quality/security evidence and compose it
-into policy-governed quality gates without making any external product a core
-dependency.
-
-#### Motivation
-Core deterministic verification proves the V0 path, while mature engineering
-governance also benefits from advanced quality, security, external, and
-semantic signals. Those capabilities should reuse approved existing
-infrastructure when available and degrade transparently when it is not.
-
-#### Architectural components involved
-- quality/security capability adapters
-- evidence normalization and assurance metadata
-- mature Policy and Review Engines
-- CI/external evidence integration
-- quality-gate composition
-
-#### Domain concepts introduced
-- QualityCapability
-- CapabilityAvailability
-- EvidenceStrength or assurance metadata (exact taxonomy remains gated)
-- QualityGateDecision
-
-#### Required ports
-- Verification Port
-- Policy Port
-- Audit Port
-- provider-independent analyzer/scanner/evidence ports as justified by
-  concrete capabilities
-
-#### Required adapters
-- adapters may integrate approved user infrastructure, local executables,
-  self-hosted services, containerized scanners, managed services, or
-  CI-provided evidence
-- no specific vendor or deployment form is mandatory
-
-#### Inputs
-- local deterministic EvidenceSet
-- external/CI quality and security evidence
-- AI-assisted semantic quality/security findings
-- project policy, applicability, and approved capability configuration
-- optional project/organization learning that influences verification depth
-
-#### Outputs
-- normalized quality/security evidence with source, capability, availability,
-  applicability, and distinguishable assurance
-- risk aggregation and advanced quality-gate decisions
-- explicit unavailable/not-applicable outcomes where a capability cannot run
-
-#### Dependencies
-- M1.0 Policy Engine
-- M1.1 Review Engine
-- M1.6 CI + External Evidence Integration
-- delivery order follows M1.7, whose learning may improve verification depth
-  but is not a hard technical prerequisite
-
-#### Preconditions
-- local deterministic evidence and mature policy/review semantics exist
-- external evidence can be normalized and linked to a Change
-- any final assurance taxonomy or consequential external integration decision
-  has completed its required review
-
-#### Implementation boundaries
-- candidate capabilities include SAST, SCA/dependency vulnerability analysis,
-  secret scanning, conditional DAST, IaC and container/image scanning, code
-  quality metrics, coverage enrichment, practical mutation testing,
-  architecture conformance, API/security validation, AI-assisted code-quality
-  review, AI-assisted security review, risk aggregation, and advanced gates
-- these categories are a roadmap scope, not a requirement to deliver every
-  adapter at once
-- prefer open-source, locally executable, or self-hostable tooling when
-  capability, reliability, and maintenance quality are adequate
-- proprietary and hosted products remain optional replaceable adapters
-- approved existing infrastructure is preferred over duplicated deployment
-- an approved fallback records explicitly lower or different assurance; it
-  never masquerades as equivalent evidence
-- DAST is conditional on a runnable authorized target, safe environment,
-  network/dependencies/test data, and applicability
-- deterministic, external, and non-deterministic AI findings remain distinct
-  inputs to the mature Policy Engine
-
-#### Explicit non-goals
-- bundling heavyweight scanners, servers, databases, or images in governed
-  source repositories
-- making SonarQube or any other vendor mandatory
-- requiring enterprise infrastructure for basic Praetor operation
-- claiming identical assurance across fallback tools
-- forcing DAST on non-runnable, unauthorized, or non-network projects
-- replacing deterministic tools with AI judgment
-- implementing a hosted control plane merely for quality scanning
-- silently installing large external services
-
-#### Tests
-- adapter contract and evidence provenance tests
-- capability available/unavailable/not-applicable behavior tests
-- fallback assurance differentiation tests
-- deterministic/external/AI evidence separation tests
-- composed quality-gate and policy interaction tests
-
-#### Validation
-- evidence authority and provenance remain explicit across tools/providers
-- unavailable or inapplicable capabilities are not reported as passing
-- AI findings cannot override deterministic tool failures by authority
-- quality-gate outcomes are policy-governed and auditable
-
-#### Documentation changes
-- advanced quality/security capability, evidence, fallback, applicability,
-  adapter, and operational-boundary documentation
-
-#### Risks
-- vendor coupling or mandatory SaaS dependence
-- false equivalence among tools with different assurance
-- scanner operational weight, supply-chain risk, and credential exposure
-- AI semantic findings being mistaken for deterministic facts
-
-#### Acceptance criteria
-- approved advanced capabilities integrate behind replaceable contracts
-- evidence records preserve source, applicability, availability, and assurance
-  differences
-- the Policy Engine composes deterministic, external, and AI semantic evidence
-  into explicit `PASS`, `REVIEW`, or `FAIL` governance behavior
-- basic Praetor operation remains possible without one vendor or enterprise
-  service
-
-#### Definition of Done
-Praetor can govern an extensible set of advanced quality/security evidence
-sources and compose their materially different assurance into auditable policy
-decisions without bundling a platform, mandating a vendor, or replacing
-deterministic evidence with AI judgment.
-
----
-
-## Summary of the revised order
-
-1. M0.0 — Baseline Verification
-2. M0.1 — Runtime Shell + Project Identity
-3. M0.2 — Change Domain + State Machine
-4. M0.3 — Repository Intelligence + Change Surface
-5. M0.4 — Sandbox + Patch Lifecycle
-6. M0.5 — AI Provider Port + First Adapter
-7. M0.6 — Deterministic Verification + Evidence
-8. M0.7 — Human Approval + Change Audit
-9. M0.8 — Governed Change End-to-End
-10. M0.9 — Terminal Presentation and Layout Configuration
-11. M1.0 — Mature Policy Engine and Policy Packs
-12. M1.1 — Review Engine + Maker-Checker Enforcement
-13. M1.2 — Local Project Memory
-14. M1.3 — Capability Model + Routing + Trust Boundaries
-15. M1.4 — Multi-provider Maturity
-16. M1.5 — SCM Integration
-17. M1.6 — CI + External Evidence Integration
-18. M1.7 — Organization Memory + Learning Loop
-19. M1.8 — Quality Intelligence + Security Verification
-
-This ordering keeps the architecture honest: the runtime proves a governed
-change loop before it adds memory, review maturity, routing sophistication,
-organization-scale learning, or advanced quality/security intelligence.
+```text
+ChangeIntent -> ImpactReport -> SpecificationDigest -> PlanDigest
+-> Proposal/Patch -> EvidenceSet -> PolicyDecision -> ReviewResult
+-> HumanDecision -> Canonical Apply
+```
+
+**Downstream capabilities:** M1.4, M3.0, and M4.1.
+
+### M1.4 — Review Engine + Maker-Checker Authority
+
+**Objective:** Add independent semantic, deterministic-evidence,
+Specification, Plan, patch, and architecture review with truthful actor/role
+separation, rework, and bounded local exception authority.
+
+**Internal delivery slices:**
+
+- M1.4-A — actor/review model;
+- M1.4-B — independent review and rework;
+- M1.4-C — local exception and audit authority.
+
+**Dependencies:** M1.0 through M1.3.
+
+**Requirements:** Primary FR-019 through FR-022 and NFR-008. Supports FR-016,
+FR-037, QS-006, QS-008, and QS-012.
+
+**Components, artifacts, and ports:** Review Engine, Identity Port, Approval
+Port, AI Provider Port, Policy Engine, Engineering Console/read-model adapters,
+ReviewCycle, ReviewResult, ActorIdentity, ActorRole, findings, disagreement,
+rework, and ExceptionDecision.
+
+**Boundaries and non-goals:** No enterprise RBAC/SSO, remote reviewer service,
+consensus voting, or claim that provider/model/role labels prove identity.
+Reviewer authority is distinct from final human acceptance.
+
+**Acceptance criteria:** The implementer cannot satisfy required independent
+review; stale inputs invalidate ReviewResult; disagreements remain visible;
+`FORBIDDEN` is not bypassed through an ordinary exception or approval path.
+Governance state, evidence, blockers, consequences, and available human actions
+are inspectable without presentation establishing authority.
+
+**Definition of Done:** `REVIEW` can be satisfied only by an eligible reviewer
+over the exact current authority chain, rework is explicit, and all review and
+exception attempts are durable and auditable.
+
+**Decision and spike gates:** Minimum ActorIdentity/ActorRole, identity
+comparison strength, reviewer authority, stale-review invalidation, local
+exception authority, and AI/human reviewer evidence semantics.
+
+**Downstream capabilities:** M1.5, M3.2, and M4.3.
+
+### M1.5 — Quality + Security Verification Foundation
+
+**Objective:** Establish replaceable quality/security evidence and a
+Praetor-governed current-run Quality Gate.
+
+**Internal delivery slices:**
+
+- M1.5-A — capability, outcome, and assurance contracts;
+- M1.5-B — static analysis, secret scanning, and SCA baseline;
+- M1.5-C — conditional runtime, IaC, container/image, and DAST capabilities;
+- M1.5-D — Quality Gate, fallback, and end-to-end verification.
+
+**Dependencies:** M1.0 through M1.4.
+
+**Requirements:** Primary FR-012, FR-014, NFR-006, NFR-011, QS-016, and
+QS-017. Supports FR-013, FR-015, FR-016, and FR-021.
+
+**Components, artifacts, and ports:** Verification, Policy, and Review Engines;
+Static Analyzer, Test Runner, Security Scanner, Secret Scanner, Artifact Store,
+and Policy Ports; normalized findings, capability assessment, applicability,
+availability, authorization, assurance, fallback, and QualityGateDecision.
+
+**Boundaries and non-goals:** Tools produce facts/evidence; Praetor policy
+determines consequence. No vendor is mandatory. Fallback does not impersonate
+preferred assurance. `UNAVAILABLE`, `NOT_APPLICABLE`, and `NOT_AUTHORIZED`
+must remain distinguishable from `PASS`, but the exact runtime representation
+is not decided by this roadmap. Historical trends, mature architectural
+conformance, regression intelligence, and DiffRisk belong to M4.*.
+
+**Acceptance criteria:** Applicable SAST, SCA, secret, DAST, IaC,
+container/image, coverage, practical mutation, and lint/static quality
+evidence retains tool/version, provenance, freshness, capability state, and
+assurance. DAST requires an authorized runnable target. Cancellation, bounded
+execution, resource constraints, credential/network/process boundaries, and
+operational diagnostics are explicit for the tools that require them. Secret
+protection is available before memory promotion. Quality state, blockers, and
+policy consequence are inspectable without presentation creating authority.
+
+**Definition of Done:** The Quality Gate composes materially different evidence
+without treating a tool or AI as governance authority, and unavailable or
+inapplicable capabilities cannot fabricate a pass.
+
+**Decision and spike gates:** Capability outcome model; normalized finding;
+assurance taxonomy; applicability/availability/authorization model; Quality
+Gate composition; fallback/native boundary; concrete tool portfolio;
+cancellation and resource constraints; credential/network/process/deployment
+boundaries; operational diagnostics; stronger execution-isolation needs.
+
+**Downstream capabilities:** Phase 2, M3.0, M3.3, and M4.0 through M4.2.
+
+## Phase 2 — Institutional Knowledge
+
+### M2.0 — Local Project Memory Foundation
+
+**Objective:** Establish canonical, typed, provenance-bearing Project Memory
+outside source, with governed candidate validation and promotion.
+
+**Internal delivery slices:**
+
+- M2.0-A — memory serialization benchmark and ADR;
+- M2.0-B — memory model and store;
+- M2.0-C — candidate validation and promotion.
+
+**Dependencies:** M1.1, M1.4, and M1.5.
+
+**Requirements:** Primary FR-002 and FR-026 through FR-029. Supports FR-025,
+FR-037, NFR-006, NFR-016, NFR-017, QS-006, and QS-010.
+
+**Components, artifacts, and ports:** Memory Domain, Candidate Pipeline,
+Project Registry, Memory Store Port, MemoryCandidate, MemoryRecord, provenance,
+scope, lifecycle, and source/evidence links.
+
+**Boundaries and non-goals:** No retrieval ranking, semantic conflict,
+Organization Memory, hosted persistence, or direct AI canonical writes.
+
+**Acceptance criteria:** Canonical records have stable identity, provenance,
+lifecycle, promotion authority, secret/schema validation, and source-memory
+separation. Project Registry can associate the separate memory location.
+
+**Definition of Done:** An evidence-backed candidate can be approved, appended,
+rejected, restarted, and inspected without modifying governed source.
+
+**Decision and benchmark gates:** ADR-008's mandatory representative
+serialization benchmark and human approval; record identity; local store
+topology; append/promotion consistency.
+
+**Downstream capabilities:** M2.1 through M2.3, M4.3, and M5.0.
+
+### M2.1 — Memory Retrieval + Context Packs
+
+**Objective:** Build structural/FTS retrieval, a rebuildable local projection,
+explainable ranking, and bounded provider-independent Context Packs.
+
+**Internal delivery slices:**
+
+- M2.1-A — projection and index;
+- M2.1-B — retrieval and ranking;
+- M2.1-C — Context Pack and CLI.
+
+**Dependencies:** M2.0.
+
+**Requirements:** Primary FR-032 through FR-034, FR-043, FR-045, NFR-009, and
+NFR-017. Supports FR-025, FR-040, QS-004, and QS-010.
+
+**Components, artifacts, and ports:** Projection Builder, Local Memory Index,
+Retrieval Engine, Context Pack Builder, Memory Index/Store Ports, optional
+Embedding Port, RetrievalQuery/Result, ContextPack, and projection fingerprint.
+
+**Boundaries and non-goals:** Retrieval ranking does not change canonical
+truth. Canonical storage and AI projection remain separate. Embeddings are
+optional and cannot become canonical conflict authority.
+
+**Acceptance criteria:** Retrieval explains record IDs, lifecycle, scope,
+ranking factors, and projection version; Context Packs respect Project,
+classification, and token budgets; indexes rebuild deterministically.
+
+**Definition of Done:** A fresh process can rebuild local search and reproduce
+a bounded Context Pack without conversation history or cross-project leakage.
+
+**Decision and benchmark gates:** Reconcile ADR-009's `PROPOSED` status;
+ranking, token accounting, AI projection contract, retrieval relevance,
+latency, and token use across a representative corpus.
+
+**Downstream capabilities:** M2.2, M2.3, M3.0, and M4.2.
+
+### M2.2 — Memory Invalidation + Conflict Handling
+
+**Objective:** Make Project Memory stale-aware, revisable, structurally
+conflict-safe, and subject to explicit human conflict authority.
+
+**Internal delivery slices:**
+
+- M2.2-A — source invalidation;
+- M2.2-B — duplicate, supersession, and conflict handling;
+- M2.2-C — human revalidation.
+
+**Dependencies:** M1.2, M2.0, and M2.1.
+
+**Requirements:** Primary FR-030, FR-031, FR-039, NFR-016, and QS-003.
+
+**Components, artifacts, and ports:** Invalidation Engine, Conflict Resolver,
+Candidate Pipeline, Repository/Memory/Approval/Audit Ports,
+SourceFingerprintLink, lifecycle events, and Conflict.
+
+**Boundaries and non-goals:** Only deterministic equivalence may auto-resolve.
+Semantic/embedding/LLM contradiction authority remains deferred under ADR-023.
+
+**Acceptance criteria:** Changed supporting code/evidence invalidates affected
+records; duplicate, superseded, stale, disputed, rejected, and deprecated
+states remain explicit; ambiguous truth requires human authority.
+
+**Definition of Done:** Status-aware retrieval excludes or qualifies stale and
+disputed knowledge while preserving all prior record and lifecycle history.
+
+**Decision and spike gates:** Source-fingerprint granularity, lifecycle rules,
+structural conflict basis, and—only after demonstrated need—a representative
+semantic-conflict dataset with false-positive/negative evidence.
+
+**Downstream capabilities:** M2.3, M4.2, M4.3, and M5.0.
+
+### M2.3 — Multi-Developer Project Memory
+
+**Objective:** Allow multiple developers to share and concurrently extend one
+Project Memory with deterministic reconciliation and low-conflict records.
+
+**Internal delivery slices:**
+
+- M2.3-A — shared topology and contributor identity;
+- M2.3-B — merge and concurrency;
+- M2.3-C — fresh-workstation E2E.
+
+**Dependencies:** M2.0 through M2.2.
+
+**Requirements:** Primary FR-041, FR-042, QS-004, QS-005, and QS-010. Supports
+FR-002, FR-025, and NFR-017.
+
+**Components, artifacts, and ports:** Memory Store, Project Registry,
+Candidate/Conflict pipelines, sync adapter, shared revision, contributor
+identity, and reconciliation state.
+
+**Boundaries and non-goals:** Shared storage permission does not grant
+promotion authority. No Organization Memory, hosted tenancy, or real-time
+collaboration.
+
+**Acceptance criteria:** Unrelated records merge without a monolithic hotspot;
+conflicting authoritative records enter explicit conflict; interrupted sync is
+recoverable; a fresh workstation can attach and rebuild context.
+
+**Definition of Done:** Two independent clones contribute, synchronize, merge,
+rebuild, and retrieve shared records with complete audit provenance.
+
+**Decision and benchmark gates:** Shared storage topology, concurrent record
+identity, synchronization/reconciliation, repository reassociation trigger,
+and a representative merge-conflict/multi-process benchmark.
+
+**Downstream capabilities:** M5.0.
+
+## Phase 3 — Provider / Ecosystem Maturity
+
+### M3.0 — Capability Routing + Trust Boundaries
+
+**Objective:** Route logical roles only to providers eligible by capability,
+policy, trust level, and data classification.
+
+**Internal delivery slices:**
+
+- M3.0-A — capability and classification model;
+- M3.0-B — Agent Router;
+- M3.0-C — policy and audit integration.
+
+**Dependencies:** M1.3 through M1.5. Phase 2 is not a hard prerequisite.
+
+**Requirements:** Primary FR-017, FR-018, NFR-005, and QS-007. Supports
+NFR-001, NFR-010, and FR-033.
+
+**Components, artifacts, and ports:** Agent Router, provider registry, Policy
+and AI Provider Ports, Capability, TrustLevel, DataClassification,
+RoutingRequirement, and RoutingDecision.
+
+**Boundaries and non-goals:** Provider metadata cannot self-authorize. Manual
+selection may remain a governed override but is not routing. No multi-provider
+fallback, marketplace, load balancing, or popularity ranking.
+
+**Acceptance criteria:** Routing happens before serialization/transmission;
+unknown classification/trust fails closed; each excluded and selected provider
+has an auditable reason; restricted context produces zero disallowed calls.
+
+**Definition of Done:** Every provider invocation is preceded by an explainable
+eligibility decision with no provider-specific domain logic.
+
+**Decision and spike gates:** Capability schema, classification derivation,
+routing precedence, override behavior, representative capability matching,
+and policy-conflict cases. Accepted trust/classification taxonomies do not
+change silently.
+
+**Downstream capabilities:** M3.1 and safe routed Context Packs.
+
+### M3.1 — Multi-provider Maturity
+
+**Objective:** Add interchangeable provider adapters, health observations, and
+policy-constrained fallback behind the existing provider-independent port.
+
+**Internal delivery slices:**
+
+- M3.1-A — second provider adapter;
+- M3.1-B — health and fallback;
+- M3.1-C — conformance E2E.
+
+**Dependencies:** M3.0.
+
+**Requirements:** Primary QS-002. Supports FR-017, FR-044, NFR-001, and
+NFR-010.
+
+**Components, artifacts, and ports:** AI Provider Port, Agent Router, provider
+registry, ProviderSet, health observation, fallback policy, and per-attempt
+provenance.
+
+**Boundaries and non-goals:** No load balancing, marketplace, provider ranking,
+merged hidden conversation, or provider-specific core logic. Every fallback is
+a new attempt and must re-pass routing policy.
+
+**Acceptance criteria:** When a primary provider is unavailable, Praetor
+selects an allowed compatible provider or fails explicitly; provider,
+model/version, fallback cause, and capability differences remain visible.
+
+**Definition of Done:** At least two adapters pass one conformance contract and
+coexist without domain rewrite or trust-policy bypass.
+
+**Decision and spike gates:** Second adapter/dependency and credential boundary,
+health semantics, fallback equivalence, and provider failure-mode comparison.
+
+**Downstream capabilities:** A broader provider ecosystem; no unrelated
+milestone is forced to depend on it.
+
+### M3.2 — SCM + Issue/Change Intake Integration
+
+**Objective:** Add GitHub-first remote issue intake and accepted commit/PR
+delivery behind provider-independent SCM and Issue Tracker Ports.
+
+**Internal delivery slices:**
+
+- M3.2-A — SCM Port and GitHub authentication;
+- M3.2-B — issue intake;
+- M3.2-C — commit/PR creation and reconciliation.
+
+**Dependencies:** M1.1, M1.3, and M1.4; not M3.1.
+
+**Requirements:** Primary FR-023. Supports FR-004, FR-037, NFR-002, and
+NFR-004.
+
+**Components, artifacts, and ports:** SCM/Issue Tracker Ports, Workflow Engine,
+Project Registry, ExternalChangeReference, RemoteArtifactIdentity,
+SCMOperation, and PullRequestLink.
+
+**Boundaries and non-goals:** GitHub belongs only to the adapter. Remote issue
+authorship is intent provenance, not approval. No SCM parity, general CI
+orchestration, or hosted control plane.
+
+**Acceptance criteria:** Remote events are idempotent and linked to exact
+Project/Change/source/patch identities; no commit or PR occurs before required
+acceptance; credentials are least-scope and never audited as payload.
+
+**Definition of Done:** Issue import through governed Change to exactly one
+linked accepted PR works under retry, stale-base, and failure conditions.
+
+**Decision and spike gates:** GitHub authentication/scopes, webhook versus
+polling, remote actor/link identity, idempotency, rate limits, and
+reconciliation behavior.
+
+**Downstream capabilities:** M3.3 and remote governed delivery.
+
+### M3.3 — CI + External Evidence Integration
+
+**Objective:** Ingest fresh, trustworthy, external verification evidence tied
+to exact source and artifact identities.
+
+**Internal delivery slices:**
+
+- M3.3-A — external evidence envelope and trust;
+- M3.3-B — CI adapter;
+- M3.3-C — reconciliation and gate integration.
+
+**Dependencies:** M1.1, M1.5, and normally M3.2.
+
+**Requirements:** Supports FR-012 through FR-014, FR-021, FR-037, NFR-007,
+NFR-011, QS-008, and QS-016.
+
+**Components, artifacts, and ports:** Verification Engine, Artifact Store,
+Telemetry Port, Audit, ExternalEvidenceEnvelope, producer identity, freshness,
+trust, and reconciliation result.
+
+**Boundaries and non-goals:** CI produces evidence, not governance authority.
+No general CI orchestration, mandatory cloud service, or silent replacement of
+non-equivalent local evidence.
+
+**Acceptance criteria:** Wrong source/patch, stale, duplicate, unauthorized, or
+unmatched external evidence cannot satisfy policy; raw logs remain untrusted
+and bounded.
+
+**Definition of Done:** One approved CI source is normalized and reconciled
+with local evidence without flattening provenance or assurance differences.
+
+**Decision and spike gates:** External producer/artifact identity, trust,
+freshness, authentication, reconciliation, raw-artifact retention, and CI
+authenticity/reliability evidence.
+
+**Downstream capabilities:** M4.0 and richer remote governance.
+
+## Phase 4 — Advanced Engineering Intelligence
+
+### M4.0 — Advanced Quality Intelligence
+
+**Objective:** Reason over quality evolution through baselines, trends,
+new-code comparisons, richer mutation intelligence, and assurance composition.
+
+**Internal delivery slices:**
+
+- M4.0-A — baselines and trends;
+- M4.0-B — new-code and mutation intelligence;
+- M4.0-C — insights and assurance composition.
+
+**Dependencies:** M1.5 and relevant durable/external history from M3.3.
+
+**Requirements:** Supports FR-012 through FR-015, NFR-011, and QS-008.
+
+**Components, artifacts, and ports:** Quality Intelligence, Artifact Store,
+Verification/Policy/Telemetry Ports, QualityBaseline, Trend, MetricDelta,
+AssuranceComposition, and QualityInsight.
+
+**Boundaries and non-goals:** M1.5 answers current-run governance; M4.0
+analyzes evolution. No architecture conformance, DiffRisk, or automatic policy
+mutation.
+
+**Acceptance criteria:** Every trend identifies a compatible baseline, metric
+definition, method, evidence, and assurance; missing or incompatible baselines
+remain explicit.
+
+**Definition of Done:** A current tool pass can still produce an explainable
+new-code or historical quality regression without changing deterministic
+evidence authority.
+
+**Decision and benchmark gates:** Baseline authority, metric compatibility,
+assurance composition, mutation cost, history-query performance, and signal
+stability.
+
+**Downstream capabilities:** M4.2.
+
+### M4.1 — Architectural Conformance
+
+**Objective:** Validate approved architecture rules, dependency direction,
+component boundaries, forbidden relationships, and architecture drift.
+
+**Internal delivery slices:**
+
+- M4.1-A — rule authority;
+- M4.1-B — analyzer adapters;
+- M4.1-C — drift and policy gate.
+
+**Dependencies:** M1.2, M1.3, and M1.5.
+
+**Requirements:** Supports FR-012, FR-015, NFR-011, NFR-013, and QS-012.
+
+**Components, artifacts, and ports:** Repository Intelligence, Verification and
+Policy Engines, Static Analyzer Port, ArchitectureRule, Boundary,
+ArchitectureViolation, and ArchitectureDrift.
+
+**Boundaries and non-goals:** Repository text cannot manufacture authoritative
+rules. Tools report evidence; approved architecture/policy establishes
+authority. No automatic organization architecture policy.
+
+**Acceptance criteria:** Every violation names the exact rule/version, graph
+edge or source location, applicability, and tool provenance.
+
+**Definition of Done:** A representative forbidden dependency is blocked with
+reproducible architecture evidence and stale rules fail visibly.
+
+**Decision and spike gates:** Rule representation/source/authority,
+applicability, drift semantics, and analyzer/language coverage.
+
+**Downstream capabilities:** M4.2 and architecture-aware postmortems.
+
+### M4.2 — Regression Analysis + Diff Risk
+
+**Objective:** Synthesize historical failures, related tests, repository
+impact, quality evolution, and architecture evidence into risk-informed
+validation.
+
+**Internal delivery slices:**
+
+- M4.2-A — historical signals;
+- M4.2-B — DiffRisk;
+- M4.2-C — risk-informed validation.
+
+**Dependencies:** M1.2, M1.5, M2.1, M2.2, M4.0, and M4.1.
+
+**Requirements:** Supports FR-007, FR-012, FR-013, FR-040, NFR-007, NFR-011,
+QS-009, and QS-012.
+
+**Components, artifacts, and ports:** Impact Engine, Repository Intelligence,
+Verification/Policy/Memory Ports, RegressionRecord, DiffRisk, RelatedTest,
+RiskSignal, and ValidationRecommendation.
+
+**Boundaries and non-goals:** Heuristic risk remains distinct from deterministic
+failure and cannot silently accept or reject a Change. No universal defect
+prediction claim.
+
+**Acceptance criteria:** Every signal, weight/rule, uncertainty, and selected
+test rationale is attributable; missing history is explicit; risk may deepen
+but not remove mandatory verification.
+
+**Definition of Done:** A known historical regression selects related tests and
+changes validation depth through policy with an explainable risk report.
+
+**Decision and benchmark gates:** Risk synthesis, heuristic authority,
+test-link confidence, history retention, and precision/recall over a
+representative historical corpus.
+
+**Downstream capabilities:** M4.3.
+
+### M4.3 — Postmortem + Local Learning Loop
+
+**Objective:** Turn completed and rejected Change outcomes into governed local
+postmortems and memory/policy candidates.
+
+**Internal delivery slices:**
+
+- M4.3-A — Postmortem;
+- M4.3-B — candidate extraction;
+- M4.3-C — local promotion loop.
+
+**Dependencies:** M1.4, M2.0 through M2.2, and M4.2.
+
+**Requirements:** Primary FR-024, QS-006, and QS-009. Supports FR-029, FR-031,
+FR-039, NFR-007, NFR-008, and NFR-016.
+
+**Components, artifacts, and ports:** Workflow, Review, Memory, and Policy
+Engines; Artifact/Memory/Approval/Audit Ports; Postmortem, Incident,
+Regression, Workaround, Debt, Risk, MemoryCandidate, and PolicyCandidate.
+
+**Boundaries and non-goals:** AI may propose causal analysis but cannot activate
+memory or policy. No Organization Memory, model training, or automatic rule
+promotion.
+
+**Acceptance criteria:** Claims identify supporting evidence, confidence, and
+gaps; sensitive incident material is classified/redacted; candidate validation
+and promotion remain separate governed operations.
+
+**Definition of Done:** A rejected change can produce a candidate convention
+that becomes active local knowledge only after explicit validation and
+promotion.
+
+**Decision and spike gates:** Postmortem schema, causal confidence/gap model,
+candidate authority, sensitive-data boundary, and representative postmortem
+corpus.
+
+**Downstream capabilities:** M5.0 and M5.1.
+
+## Phase 5 — Organization / Enterprise
+
+### M5.0 — Organization Memory + Promotion
+
+**Objective:** Govern explicit Project-to-Organization Memory promotion while
+preserving complete Project provenance and scope.
+
+**Internal delivery slices:**
+
+- M5.0-A — workload, tenancy, authority, and persistence gate;
+- M5.0-B — organization memory store;
+- M5.0-C — governed promotion.
+
+**Dependencies:** M2.3 and M4.3.
+
+**Requirements:** Primary FR-025 and FR-035. Supports NFR-016 through NFR-018,
+QS-006, and QS-010.
+
+**Components, artifacts, and ports:** Memory Engine, promotion pipeline,
+Identity/Approval/Audit Ports, OrganizationId, PromotionCandidate/Decision,
+and OrganizationMemoryRecord.
+
+**Boundaries and non-goals:** Repository-backed and non-hosted by default. No
+organization policy inheritance, full RBAC/SSO, inevitable SaaS, or automatic
+promotion. Hosted multi-tenant persistence requires M5.2 and M5.4 and must be
+resequenced after those approvals.
+
+**Acceptance criteria:** Only higher-authority validated knowledge is promoted;
+tenant/scope and classification are enforced; rejected/conflicting promotions
+remain auditable.
+
+**Definition of Done:** Two Projects can contribute governed knowledge to a
+non-hosted Organization Memory without losing their provenance.
+
+**Decision and spike gates:** ADR-017; workload/collaboration, tenancy,
+consistency, security, persistence, and promotion authority; mandatory hosted
+persistence spike only if hosting is proposed.
+
+**Downstream capabilities:** M5.1.
+
+### M5.1 — Organization Policy Inheritance
+
+**Objective:** Distribute higher-authority organization policy with
+non-overridable rules, provenance, and bounded explicit exceptions.
+
+**Internal delivery slices:**
+
+- M5.1-A — inheritance and authority model;
+- M5.1-B — effective policy calculation;
+- M5.1-C — exception and distribution behavior.
+
+**Dependencies:** M1.0 and M5.0.
+
+**Requirements:** Primary FR-036. Supports NFR-005, NFR-008, QS-006, and
+QS-007.
+
+**Components, artifacts, and ports:** Policy Engine, organization policy store,
+Identity/Approval/Audit Ports, OrganizationPolicy, EffectivePolicySet,
+authority provenance, and ExceptionDecision.
+
+**Boundaries and non-goals:** No silent downgrade, full enterprise RBAC/SSO,
+or hosted control-plane requirement. Configuration precedence cannot weaken
+higher governance authority.
+
+**Acceptance criteria:** Every effective rule is explainable by source,
+version/digest, precedence, and authority; unauthorized weakening and stale
+organization policy fail closed.
+
+**Definition of Done:** A Project cannot re-enable an organization prohibition,
+while explicitly permitted exceptions retain scope, reason, authority, and
+expiry.
+
+**Decision and spike gates:** Organization authority and role requirements,
+inheritance, non-overridable semantics, exception authority, distribution
+consistency, and offline behavior.
+
+**Downstream capabilities:** M5.2 and enterprise governance.
+
+### M5.2 — Enterprise Identity / RBAC / SSO
+
+**Objective:** Add authenticated enterprise principals, role bindings, and SSO
+behind the existing Identity Port.
+
+**Internal delivery slices:**
+
+- M5.2-A — identity and authentication;
+- M5.2-B — RBAC;
+- M5.2-C — SSO and audit integration.
+
+**Dependencies:** M1.4, M5.0, and M5.1.
+
+**Requirements:** Supports FR-020, FR-022, FR-035 through FR-037, NFR-008,
+NFR-018, QS-006, QS-007, and QS-010.
+
+**Components, artifacts, and ports:** Identity, Approval, Policy, and Audit
+Ports; Principal, AuthenticationContext, RoleBinding, Permission, and
+OrganizationMembership.
+
+**Boundaries and non-goals:** Praetor does not own passwords and local use does
+not require enterprise identity. Authentication, role membership, and the
+governance decision remain distinct.
+
+**Acceptance criteria:** Issuer/audience, authentication strength, session,
+revocation, tenant, and role mapping are explicit; forged, expired, or
+cross-tenant assertions fail closed.
+
+**Definition of Done:** Authenticated actors can perform only their authorized
+organization actions and the domain remains independent of the chosen IdP.
+
+**Decision and spike gates:** Protocol/provider, role taxonomy, session/token
+model, revocation, offline behavior, tenant semantics, IdP compatibility, and
+threat assessment.
+
+**Downstream capabilities:** Hosted multi-tenancy and stronger audit signing.
+
+### M5.3 — Advanced Audit / Retention / Signing
+
+**Objective:** Add policy-driven retention/export, stronger integrity, and
+optional signing without weakening append-oriented audit history.
+
+**Internal delivery slices:**
+
+- M5.3-A — retention and export;
+- M5.3-B — stronger integrity;
+- M5.3-C — optional signing and key management.
+
+**Dependencies:** M1.1 and M5.2.
+
+**Requirements:** Supports FR-037, FR-038, NFR-007, NFR-008, NFR-018, and
+QS-011.
+
+**Components, artifacts, and ports:** Audit Ledger, Identity and Telemetry
+Ports, optional key-management/signing port, RetentionPolicy, AuditExport,
+IntegrityLink, SignatureEnvelope, and verification result.
+
+**Boundaries and non-goals:** No custom cryptography, mandatory local PKI, or
+unqualified tamper-proof/non-repudiation claim. Corrections remain later
+events. Retention must be reconciled with immutable-history claims.
+
+**Acceptance criteria:** Export completeness and integrity are independently
+verifiable; signing records algorithm/key/version/rotation provenance; claims
+match the implemented assurance exactly.
+
+**Definition of Done:** A complete Change history can be exported and verified,
+with optional signatures introduced only through approved key custody and
+algorithm choices.
+
+**Decision and spike gates:** Retention/legal semantics, export format,
+integrity model, algorithms, PKI/KMS, rotation, verification, and mandatory
+security/crypto design evidence.
+
+**Downstream capabilities:** Compliance-sensitive hosted deployments.
+
+### M5.4 — Hosted Control Plane if Justified — CONDITIONAL
+
+**Objective:** Introduce shared hosted orchestration only if a demonstrated
+capability cannot reasonably be delivered through local/CLI architecture.
+
+**Internal delivery slices:**
+
+- M5.4-A — use-case justification, workload evidence, and ADR;
+- M5.4-B — minimum approved control plane;
+- M5.4-C — operations and security proof.
+
+**Dependencies:** M5.2 and M5.3 where compliance requires it.
+
+**Requirements:** No MUST requirement has M5.4 as its primary owner. It may
+support NFR-017 and NFR-018 only after new approved hosted quality scenarios
+and requirements exist.
+
+**Components, artifacts, and ports:** Only those approved by the gate; existing
+application/domain ports remain authoritative. Potential network, persistence,
+and deployment adapters must not fork the domain.
+
+**Boundaries and non-goals:** A hosted service, SaaS topology, GUI, distributed
+database, and multi-tenant control plane are not inevitable product
+destinations and must not be built speculatively.
+
+**Acceptance criteria:** Workload, tenancy, identity, security, persistence,
+availability, API, and operational requirements demonstrate that a service is
+necessary and define the smallest acceptable boundary.
+
+**Definition of Done:** Either the approved minimal control plane passes tenant,
+authorization, recovery, deployment, and operational validation, or an
+explicit human-approved decision records that it is not justified.
+
+**Decision and spike gates:** Concrete use case, topology, tenancy, API,
+persistence, SLOs, threat model, deployment, ADR, and human approval.
+
+**Downstream capabilities:** Only separately approved hosted capabilities.
+
+## Roadmap V2 critical path
+
+```text
+M1.1 -> M1.2 -> M1.3 -> M1.4 -> M1.5
+-> M2.0 -> M2.1 -> M2.2 -> M4.3
+```
+
+Phase grouping does not add dependencies beyond the authoritative graph in
+`DEPENDENCY_GRAPH.md`.

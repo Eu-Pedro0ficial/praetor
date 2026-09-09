@@ -185,7 +185,7 @@ unless caller cancellation prevents it. Patch integrity is always a separate
 deterministic result. Empty plans and any non-passing outcome fail closed.
 
 The M0.6 gate uses only the minimum deterministic rules required for V0. It
-does not implement the mature M1.0 Policy Engine, M1.1 Reviewer, or M1.3/M1.4
+does not implement the mature M1.0 Policy Engine, M1.4 Reviewer, or M3.0/M3.1
 routing/multi-provider capabilities. Required passing evidence may authorize
 only the existing `isolated -> validated` transition.
 
@@ -227,13 +227,14 @@ output. Direct/contextual help, `?`, and completion tests prove non-mutation.
 Real wide and narrow PTY inspection complements unit tests for border, prompt,
 readline, completion, persistence, reset, and existing-command behavior.
 
-==== M1.8 Advanced Quality and Security Evidence Direction
+==== M1.5 Quality and Security Verification Foundation
 
-M1.8 broadens replaceable evidence adapters for applicable SAST, SCA, secret,
-DAST, IaC, container/image, code-quality, coverage, mutation, architecture and
-API/security capabilities. It may normalize approved local, self-hosted,
+M1.5 broadens replaceable evidence adapters for applicable SAST, SCA, secret,
+DAST, IaC, container/image, code-quality, coverage, and practical current-run
+mutation capabilities. It may normalize approved local, self-hosted,
 containerized, managed, existing-enterprise, and CI-provided sources alongside
-AI semantic findings.
+AI semantic findings. Mature architectural conformance remains M4.1; M1.5
+establishes evidence contracts that later capabilities may reuse.
 
 Evidence must retain source, capability, availability, applicability and
 material assurance differences. An approved fallback with lower or different

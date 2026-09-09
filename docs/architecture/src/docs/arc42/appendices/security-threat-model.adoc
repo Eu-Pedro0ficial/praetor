@@ -108,7 +108,7 @@ failures do not expose raw provider output.
 This does not isolate the provider process from the host filesystem,
 environment, credentials, or network and does not make untrusted code safe to
 execute. M0.5 neither runs generated project programs nor claims enterprise
-trust/data-classification enforcement. M1.3 owns provider trust and data
+trust/data-classification enforcement. M3.0 owns provider trust and data
 routing; stronger process/container/network isolation remains a separate
 security decision.
 
@@ -147,7 +147,10 @@ presence/truncation and outcome metadata rather than raw process output.
 These are minimum V0 controls, not a claim of hostile-code isolation or the
 mature M1.0 Policy Engine. Any stronger filesystem, process, container,
 network, or credential boundary required by real verification tools must
-follow the existing security spike/ADR governance.
+follow the owning approved milestone's security spike/ADR governance. M1.1
+owns recovery and local concurrency; M1.5 owns boundaries required by its
+quality/security tools. Neither changes the current worktree boundary by
+implication.
 
 ==== M0.7 Local Human Decision Boundary
 
@@ -189,11 +192,11 @@ credentials, arbitrary environment, provider output, or workspace paths.
 `REJECT` uses a non-application closure path and requires canonical source to
 remain unchanged.
 
-==== M1.8 External Quality/Security Tool Boundary
+==== M1.5 External Quality/Security Tool Boundary
 
 Advanced scanners may introduce heavyweight services/images, network and
 credential access, supply-chain exposure, licensing constraints, and
-different assurance. M1.8 therefore integrates them through replaceable
+different assurance. M1.5 therefore integrates them through replaceable
 adapters, prefers approved existing or adequate open-source/local
 infrastructure, and never vendors a platform into governed source. A fallback
 must expose different assurance; unavailable or inapplicable DAST/scanners do

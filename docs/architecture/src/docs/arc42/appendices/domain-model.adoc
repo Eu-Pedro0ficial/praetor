@@ -231,6 +231,7 @@ Potential value objects/entities:
 |RiskProfile |Data/operational/architecture/security risk classification
 |ChangeSurface |Expected/possible/protected/actual source scope
 |Specification |Explicit requirements/invariants for the change
+|SpecificationPack |M1.3 target bundle linking requirements, constraints, acceptance criteria, provenance, lifecycle, and exact governing digest
 |ChangePlan |Ordered implementation plan and expected modifications
 |ExecutionAttempt |One role-scoped provider attempt with Praetor-owned identity, selected provider/model, execution boundary, source-state and bounded audit provenance
 |Patch |Proposed source modification artifact
@@ -244,6 +245,14 @@ Potential value objects/entities:
 |Exception |Explicit bounded departure from a policy
 |Postmortem |Outcome analysis and candidate learning artifacts
 |===
+
+`SpecificationPack` is target architecture only. M1.3 must decide its schema,
+version, identity, authority, approval, invalidation, and relationship to
+`ChangePlan`. The planned `engineering/specs/` path is a candidate
+governed-source location rather than an existing directory or accepted
+canonical format. The required future trace is requirement -> spec -> change
+-> evidence -> policy; it must not duplicate or replace the authoritative
+requirements catalog or traceability ledger.
 
 ==== Project Aggregate / Registry
 

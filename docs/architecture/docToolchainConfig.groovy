@@ -1,5 +1,5 @@
 inputFiles = [
-    [file: 'arc42/arc42.adoc', formats: ['html','pdf']]
+    [file: 'src/docs/arc42/arc42.adoc', formats: ['html','pdf']]
 ]
 
 outputPath = 'build/docs'

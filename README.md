@@ -144,9 +144,18 @@ policies produce immutable evidence-linked `AUTO`, `REVIEW`, `APPROVAL`, or
 `FORBIDDEN` decisions. Bundle aggregation retains independent review and
 approval requirements. Positive disposition and canonical application consume
 the retained policy/evidence digest chain; `AUTO` never bypasses Core V0 human
-acceptance, while `REVIEW` remains unsatisfied until M1.1.
+acceptance, while `REVIEW` remains unsatisfied until M1.4.
 
 `policy show`, `policy list`, `policy evaluate`, and `policy exception` expose
 bounded inspection. Exceptions are auditable candidates only and never grant,
 consume, or bypass policy. Runtime audit and locks remain under existing XDG
-boundaries. M1.1 has not started.
+boundaries. M1.1 runtime implementation has not started.
+
+Approved Phase 1 begins with the completed M1.0 Policy Engine. Its future
+sequence is M1.1 durable Change/artifact foundation, M1.2 repository
+intelligence, M1.3 Specification and ChangePlan governance, M1.4 independent
+review, and M1.5 quality and security verification foundation. M1.3 plans
+future Specification Packs and the candidate `engineering/specs/` location;
+neither is implemented or an approved canonical format yet. The canonical
+ownership and lifecycle record is the arc42 traceability ledger, with details
+in `docs/roadmap/`.

@@ -39,6 +39,13 @@ authoritative context and consequences.
 Determine completion from implementation, tests, validation evidence, Git
 history, and milestone Definition of Done—not from filenames or claims alone.
 
+The canonical inverse ownership and lifecycle source is
+`docs/architecture/src/docs/arc42/appendices/traceability.adoc`. Roadmap and
+architecture changes that affect requirements, components, ports, pipeline
+stages, lifecycle, or milestone ownership must update that ledger and pass
+`python3 scripts/validate_traceability.py`; do not create a parallel ownership
+matrix.
+
 ## Decision Gates and Human Governance
 
 Never silently resolve a decision marked `DEFERRED`, `BENCHMARK REQUIRED`,

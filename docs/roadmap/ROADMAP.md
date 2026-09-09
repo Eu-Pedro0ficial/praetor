@@ -109,7 +109,7 @@ An implementation convenience is NOT an architecture decision.
 - Capability: minimal rule gate
   - Sub-capability: minimal deterministic governance rules for bounded execution and acceptance
   - Implementation tasks: enforce structured invocation, read/write boundary, executable resolution, timeouts, cancellation, bounded output and safe environment handling without a mature generic policy engine
-- Architecture decision: ADR-031 establishes AI-assisted verification planning with deterministic evidence authority. `verification-planning` is a distinct read-only attempt/context from `implementation`; it is neither the M1.1 Reviewer nor M1.3/M1.4 routing.
+- Architecture decision: ADR-031 establishes AI-assisted verification planning with deterministic evidence authority. `verification-planning` is a distinct read-only attempt/context from `implementation`; it is neither the M1.4 Reviewer nor M3.0/M3.1 routing.
 
 #### M0.7 — Human Approval + Change Audit
 - Capability: explicit human decision gate
@@ -130,70 +130,323 @@ An implementation convenience is NOT an architecture decision.
   - Implementation tasks: render a lightweight readline-compatible console, project existing session status through one shared snapshot, and persist bounded user-local rendering preferences outside governed repositories
   - Explicit boundary: presentation preferences affect rendering only and never participate in Project, Change, policy, evidence, provider, verification, audit, or canonical-source semantics
 
-### Phase 1 — post-V0 maturity and expansion
+### Phase 1 — Governed Engineering Runtime
 
-#### M1.0 — Mature Policy Engine and Policy Pack Model
-- Capability: policy engine maturity
-  - Sub-capability: severity, exceptions, policy bundles, and rule packages
-  - Implementation tasks: evolve from minimum deterministic V0 rules to a generic Policy Engine with explicit policy metadata and governance sequencing
-  - Status: complete; local Manifest V1, conjunctive bundle evaluation, candidate-only exceptions, immutable evidence/policy linkage, audit, and approval/application enforcement are implemented
+#### M1.0 — Mature Policy Engine — COMPLETE
 
-#### M1.1 — Review Engine + Maker-Checker Enforcement
-- Capability: review engine
-  - Sub-capability: independent reviewer role and semantic review evidence
-  - Implementation tasks: define separate review roles, trigger review evidence, and enforce maker-checker behavior after V0
-- Capability: human review decision
-  - Sub-capability: explicit review and rejection reasoning
-  - Implementation tasks: record reviewer findings and decisions in the audit trail
+The local Manifest V1 Policy Engine, conjunctive bundle evaluation,
+candidate-only exceptions, immutable evidence/policy linkage, audit, and
+approval/application enforcement are implemented. This historical scope is
+unchanged.
 
-#### M1.2 — Local Project Memory
-- Capability: project memory foundation
-  - Sub-capability: memory candidate lifecycle and retrieval projection
-  - Implementation tasks: add governed local memory, candidate validation, provenance, and local indexing without making memory a V0 prerequisite
-- Architecture decision gate: canonical project memory serialization is benchmark-required and undecided. This milestone may not proceed beyond the persistence design until the benchmark, ADR, and human approval are complete.
+#### M1.1 — Durable Change + Artifact Foundation
 
-#### M1.3 — Capability Model + Routing + Trust Boundaries
-- Capability: provider maturity
-  - Sub-capability: capability model, routing, trust levels, and data classification
-  - Implementation tasks: route providers by capability and trust policy; normalize provider metadata and enforce data-classification constraints
-  - Dependencies: M1.0 policy maturity and the proven V0 governance loop
-- Architecture decision gate: provider trust taxonomy and data classification are DECIDED. Any future taxonomy change requires architecture review and ADR approval before implementation changes.
+- Objective: persist and recover Change state, generated artifacts, evidence,
+  decisions, and exact workflow authority without conversation state.
+- Internal slices: A artifact/change model and store; B workflow
+  snapshot/recovery/migration; C inspection CLI and crash/restart E2E.
+- Dependencies: M1.0 and Core V0.
+- Decision gates: artifact identity/schema/store, workflow
+  snapshot/version/migration, crash consistency/recovery, and artifact/audit
+  transaction boundary.
+- Boundary: user-local XDG persistence; no runtime metadata in governed source;
+  no distributed database.
+- Acceptance: a Change can be restarted, inspected, and resumed without
+  manufacturing a state or reconstructing provider conversation; source-linked
+  inspection remains subordinate to authoritative artifacts.
+- Downstream: all later Roadmap V2 milestones.
 
-#### M1.4 — Multi-provider Maturity
-- Capability: provider ecosystem maturity
-  - Sub-capability: multi-provider operation and provider selection rules
-  - Implementation tasks: support multiple provider adapters behind the provider port and normalize cross-provider execution behavior
+#### M1.2 — Repository Intelligence + Impact + Risk
 
-#### M1.5 — SCM Integration
-- Capability: source-control integration
-  - Sub-capability: governed SCM adapter and repository workflow integration
-  - Implementation tasks: add SCM adapter support without making SCM a precondition for project or organization memory
+- Objective: mature M0.3's explicit-path V0 into an evidence-bearing
+  RepositoryModel, inferred blast radius, RiskProfile, confidence, provenance,
+  knowledge gaps, and stale-model detection.
+- Internal slices: A repository graph/model; B impact/blast radius; C risk,
+  confidence, gaps, and staleness.
+- Dependencies: M1.1.
+- Decision gates: repository-model boundary/version, confidence/gap model, and
+  RiskProfile taxonomy.
+- Boundary: deterministic and heuristic knowledge remain distinct; semantic
+  embeddings are not required.
+- Acceptance: every inferred relationship and risk is explainable, source
+  linked, freshness-aware, and unable to silently expand approved scope.
+- Downstream: M1.3, M4.1, and M4.2.
 
-#### M1.6 — CI + External Evidence Integration
-- Capability: external evidence pipeline
-  - Sub-capability: CI and observability evidence capture
-  - Implementation tasks: normalize external CI and evidence inputs after the local workflow is proven
+#### M1.3 — Specification + Change Plan Governance
 
-#### M1.7 — Organization Memory + Learning Loop
-- Capability: organization-level learning
-  - Sub-capability: promotion, policy inheritance, and rejected-change learning
-  - Implementation tasks: govern project-to-organization memory promotion and derived learning from failures and postmortems, using project memory, governance, audit, and promotion authority as the primary inputs
-- Architecture decision gate: hosted organization memory and persistence remain DEFERRED. This milestone may not proceed beyond concept design until the workload, tenancy, consistency, security, persistence spike, ADR and human approval have been completed.
+- Objective: make human-provided or AI-proposed Specification and ChangePlan
+  artifacts explicit, validated, approved where required, and binding on
+  implementation.
+- Internal slices: A Specification lifecycle; B ChangePlan and approval; C
+  digest-chain enforcement and invalidation; D Specification Packs and
+  end-to-end requirement-to-policy traceability.
+- Dependencies: M1.1 and M1.2.
+- Decision gates: canonical Specification/Plan schemas, authority/digest chain,
+  plan approval, mutation/invalidation, and state-machine evolution.
+- Boundary: AI proposes; validation and authorized decisions establish
+  authority. The candidate chain and `engineering/specs/` location are future
+  design candidates, not implemented or accepted canonical formats.
+- Acceptance: required workflows cannot implement against missing, stale, or
+  unapproved Specification/Plan artifacts, and an approved Specification Pack
+  can trace requirement -> spec -> change -> evidence -> policy without a
+  parallel source of truth; projected links expose provenance and freshness.
+- Downstream: M1.4, M3.0, and M4.1.
 
-#### M1.8 — Quality Intelligence + Security Verification
-- Capability: provider/tool-independent advanced quality and security evidence
-  - Sub-capability: integrate applicable SAST, SCA/dependency, secret, DAST, IaC, container/image, code-quality, coverage, mutation, architecture-conformance and API/security checks through adapters
-  - Implementation tasks: normalize local executable, self-hosted, containerized, managed-service, existing-enterprise and CI-provided evidence without making a vendor a domain dependency
-- Capability: AI-assisted quality and security findings
-  - Sub-capability: retain semantic findings as non-deterministic evidence
-  - Implementation tasks: combine them with deterministic/external evidence through the mature Policy Engine without allowing AI to override deterministic results
-- Capability: graceful quality-capability degradation
-  - Sub-capability: represent capability source, availability, applicability and explicitly different assurance when an approved fallback is used
-  - Implementation tasks: prefer suitable open-source/local/self-hostable tools, reuse approved existing infrastructure, and keep commercial/hosted products optional adapters
-- Capability: composed quality gate
-  - Sub-capability: normalize evidence for policy-governed `PASS`, `REVIEW`, or `FAIL` outcomes
-  - Dependencies: M1.0 Policy Engine, M1.1 Review Engine, and M1.6 external evidence; M1.7 learning may influence verification depth but is not deterministic evidence or a hard technical prerequisite
-- Explicit boundaries: do not bundle heavyweight platforms in source repositories, mandate one vendor or enterprise infrastructure, equate fallback assurance, force DAST where unavailable/not applicable, replace tools with AI judgment, add a hosted control plane, or silently install external services
+#### M1.4 — Review Engine + Maker-Checker Authority
+
+- Objective: add independent review, truthful actor/role separation, rework,
+  and bounded local exception authority.
+- Internal slices: A actor/review model; B independent review/rework; C local
+  exception and audit authority.
+- Dependencies: M1.0 through M1.3.
+- Decision gates: minimum ActorIdentity/ActorRole, maker-checker comparison,
+  reviewer authority/invalidation, and local exception authority.
+- Boundary: no enterprise RBAC/SSO and no claim that a provider or role label
+  alone proves identity.
+- Acceptance: `REVIEW` is satisfied only by an eligible independent review of
+  the exact current Specification, Plan, patch, evidence, and policy decision;
+  state, blockers, consequences, rework, and available human actions remain
+  inspectable without presentation establishing authority.
+- Downstream: M1.5, M3.2, and M4.3.
+
+#### M1.5 — Quality + Security Verification Foundation
+
+- Objective: establish replaceable quality/security evidence and a
+  Praetor-governed current-run Quality Gate.
+- Internal slices: A capability/outcome/assurance contracts; B static analysis,
+  secret scanning, and SCA baseline; C conditional runtime, IaC,
+  container/image, and DAST capabilities; D Quality Gate, fallback, and
+  end-to-end verification.
+- Dependencies: M1.0 through M1.4.
+- Decision gates: capability outcome, normalized findings, assurance taxonomy,
+  Quality Gate composition, fallback/native boundary, and consequential tool
+  execution/dependency boundaries, including cancellation, bounded resources,
+  credentials, network/process exposure, and operational diagnostics.
+- Boundary: external tools produce evidence, not governance decisions; no
+  vendor is mandatory; unavailable, not applicable, and not authorized do not
+  mean PASS; fallback assurance remains visibly different.
+- Acceptance: applicable quality/security evidence is normalized with source,
+  tool/version, freshness, availability, applicability, authorization, and
+  assurance; Quality Gate state and consequence are inspectable without
+  presentation creating authority; secret protection precedes durable memory
+  promotion.
+- Downstream: Phase 2, M3.0, M3.3, and Phase 4.
+
+### Phase 2 — Institutional Knowledge
+
+#### M2.0 — Local Project Memory Foundation
+
+- Objective: establish typed, provenance-bearing, separately persisted Project
+  Memory and a governed candidate-promotion pipeline.
+- Slices: A mandatory serialization benchmark/ADR; B memory model/store; C
+  candidate validation/promotion.
+- Dependencies: M1.1, M1.4, and M1.5.
+- Gate: canonical memory serialization benchmark, local store topology, record
+  identity, and promotion consistency.
+- Boundary: AI never writes canonical memory directly; no organization or
+  hosted memory.
+- Acceptance: promoted records are schema/secret/authority validated and
+  recoverable from storage outside governed source.
+
+#### M2.1 — Memory Retrieval + Context Packs
+
+- Objective: provide structural/FTS retrieval, rebuildable local projection,
+  explainable ranking, and bounded Context Packs.
+- Slices: A projection/index; B retrieval/ranking; C Context Pack and CLI.
+- Dependencies: M2.0.
+- Gates: reconcile ADR-009, ranking, token accounting, and projection contract.
+- Boundary: canonical storage and AI-facing representation remain distinct;
+  embeddings are optional.
+- Acceptance: Context Packs can be reconstructed without conversation history
+  and cannot leak another Project's context.
+
+#### M2.2 — Memory Invalidation + Conflict Handling
+
+- Objective: detect stale, duplicate, superseded, and structurally conflicting
+  memory while retaining human authority over ambiguous truth.
+- Slices: A source invalidation; B duplicate/supersession/conflict; C human
+  revalidation.
+- Dependencies: M1.2, M2.0, and M2.1.
+- Gates: source-fingerprint linkage, lifecycle transitions, and conflict basis;
+  semantic conflict authority remains deferred under ADR-023.
+- Acceptance: source changes invalidate affected records and no prior history
+  is silently rewritten.
+
+#### M2.3 — Multi-Developer Project Memory
+
+- Objective: allow multiple developers to share one low-conflict Project
+  Memory repository.
+- Slices: A shared topology/identity; B merge/concurrency; C fresh-workstation
+  E2E.
+- Dependencies: M2.0 through M2.2.
+- Gates: shared topology, concurrent identity, reconciliation, and repository
+  reassociation where evidence triggers it.
+- Boundary: shared storage permission does not grant Praetor promotion
+  authority; no hosted Organization Memory.
+- Acceptance: two independent clones can contribute, merge, rebuild, and
+  retrieve unrelated records without a monolithic merge hotspot.
+
+### Phase 3 — Provider / Ecosystem Maturity
+
+#### M3.0 — Capability Routing + Trust Boundaries
+
+- Objective: route roles only to providers eligible by capability, policy,
+  trust, and data classification.
+- Slices: A capability/classification model; B router; C policy/audit
+  integration.
+- Dependencies: M1.3 through M1.5; it does not depend on Phase 2 merely because
+  it appears later numerically.
+- Gates: capability schema, classification derivation, routing precedence, and
+  manual override semantics.
+- Acceptance: restricted context produces zero disallowed provider calls and
+  every invocation has an explainable routing decision.
+
+#### M3.1 — Multi-provider Maturity
+
+- Objective: prove provider replaceability through additional adapters,
+  health, and policy-constrained fallback.
+- Slices: A second adapter; B health/fallback; C conformance E2E.
+- Dependencies: M3.0.
+- Gates: second adapter/dependency/credential boundary and health/fallback
+  semantics.
+- Boundary: no load balancing, marketplace, popularity ranking, or
+  provider-specific core logic.
+- Acceptance: two providers coexist behind the same port without bypassing
+  routing or trust policy.
+
+#### M3.2 — SCM + Issue/Change Intake Integration
+
+- Objective: add GitHub-first issue intake and commit/PR delivery behind
+  provider-independent ports.
+- Slices: A SCM port/GitHub auth; B issue intake; C commit/PR/reconciliation.
+- Dependencies: M1.1, M1.3, and M1.4; not M3.1.
+- Gates: credential scopes, remote identity/linkage, event delivery, retry,
+  reconciliation, and idempotency.
+- Boundary: remote issue text supplies intent, not approval; no GitHub concepts
+  enter domain/core.
+- Acceptance: an accepted Change creates exactly one linked commit/PR and no
+  remote source mutation occurs before acceptance.
+
+#### M3.3 — CI + External Evidence Integration
+
+- Objective: ingest fresh external evidence tied to exact source and artifact
+  identities.
+- Slices: A external envelope/trust; B CI adapter; C reconciliation/gate.
+- Dependencies: M1.1, M1.5, and normally M3.2.
+- Gates: external identity/trust, freshness, reconciliation, and retention.
+- Boundary: CI produces evidence, not governance authority, and cannot silently
+  replace non-equivalent local checks.
+- Acceptance: stale or unmatched evidence cannot satisfy another Change or
+  revision.
+
+### Phase 4 — Advanced Engineering Intelligence
+
+#### M4.0 — Advanced Quality Intelligence
+
+- Objective: add quality baselines, trends, new-code evolution, richer mutation
+  intelligence, and assurance composition over time.
+- Slices: A baselines/trends; B new-code/mutation intelligence; C
+  insight/assurance.
+- Dependencies: M1.5 and relevant durable/external evidence from M3.3.
+- Boundary: M1.5 answers whether the current Change passes; M4.0 explains how
+  engineering quality is evolving.
+- Acceptance: every comparison identifies a compatible baseline and method.
+
+#### M4.1 — Architectural Conformance
+
+- Objective: validate approved dependency-direction, component-boundary, and
+  architecture-drift rules.
+- Slices: A rule authority; B analyzer adapters; C drift/gate.
+- Dependencies: M1.2, M1.3, and M1.5.
+- Gates: rule representation, authority, applicability, and drift semantics.
+- Acceptance: a forbidden dependency is blocked with reproducible rule and
+  graph-edge evidence.
+
+#### M4.2 — Regression Analysis + Diff Risk
+
+- Objective: synthesize historical failures, related tests, repository impact,
+  quality evolution, and architecture evidence into explainable DiffRisk.
+- Slices: A historical signals; B DiffRisk; C risk-informed validation.
+- Dependencies: M1.2, M1.5, M2.1, M2.2, M4.0, and M4.1.
+- Gates: heuristic authority, risk synthesis, test-link confidence, and
+  historical retention.
+- Acceptance: every risk signal is attributable and cannot override
+  deterministic evidence by itself.
+
+#### M4.3 — Postmortem + Local Learning Loop
+
+- Objective: turn completed/rejected Change outcomes into governed local
+  postmortems and memory/policy candidates.
+- Slices: A postmortem; B candidate extraction; C local promotion loop.
+- Dependencies: M1.4, M2.0 through M2.2, and M4.2.
+- Gates: Postmortem schema, causal confidence/gaps, and candidate authority.
+- Boundary: candidates are not automatically activated and no Organization
+  Memory is required.
+- Acceptance: a rejected-change reason may become validated local knowledge
+  only through the existing candidate/promotion authority.
+
+### Phase 5 — Organization / Enterprise
+
+#### M5.0 — Organization Memory + Promotion
+
+- Objective: govern Project-to-Organization Memory promotion.
+- Slices: A workload/tenancy/persistence gate; B organization store; C
+  promotion.
+- Dependencies: M2.3 and M4.3.
+- Gate: ADR-017 plus workload, consistency, tenancy, security, persistence, and
+  authority decisions.
+- Boundary: repository-backed/non-hosted by default. A hosted multi-tenant
+  implementation depends on M5.2 and M5.4 and must be resequenced.
+- Acceptance: only higher-authority validated knowledge is promoted with full
+  Project provenance.
+
+#### M5.1 — Organization Policy Inheritance
+
+- Objective: distribute higher-authority policy with non-overridable rules and
+  explicit bounded exceptions.
+- Slices: A inheritance model; B effective policy; C exceptions/distribution.
+- Dependencies: M1.0 and M5.0.
+- Gates: organization authority, inheritance, exception roles, and consistency.
+- Acceptance: every effective policy is explainable and project configuration
+  cannot weaken a higher-authority prohibition.
+
+#### M5.2 — Enterprise Identity / RBAC / SSO
+
+- Objective: add authenticated enterprise principals and authorization behind
+  the Identity Port.
+- Slices: A identity/authentication; B RBAC; C SSO/audit integration.
+- Dependencies: M1.4, M5.0, and M5.1.
+- Gates: provider/protocol, role taxonomy, sessions, revocation, offline
+  behavior, and tenancy.
+- Boundary: local Praetor use does not require enterprise identity.
+- Acceptance: consequential enterprise actions are attributable to
+  authenticated principals and explicit authority decisions.
+
+#### M5.3 — Advanced Audit / Retention / Signing
+
+- Objective: add retention/export, stronger integrity, and optional signing
+  without weakening append-oriented history.
+- Slices: A retention/export; B integrity; C optional signing/key management.
+- Dependencies: M1.1 and M5.2.
+- Gates: retention/legal semantics, export format, integrity claims,
+  algorithms, PKI/KMS, rotation, and verification.
+- Boundary: no custom cryptography, mandatory local PKI, or unqualified
+  non-repudiation claim.
+- Acceptance: an exported Change history can be independently verified to the
+  precise approved assurance level.
+
+#### M5.4 — Hosted Control Plane if Justified — CONDITIONAL
+
+- Objective: introduce hosted multi-project orchestration only when a concrete
+  requirement cannot reasonably be delivered through local/CLI architecture.
+- Slices: A justification/ADR; B minimal control plane; C operations/security
+  proof.
+- Dependencies: M5.2 and M5.3 where compliance requires it.
+- Gates: use case, workload, topology, tenancy, API, persistence, SLOs, threat
+  model, deployment, ADR, and human approval.
+- Boundary: hosted architecture and GUI are not inevitable destinations.
+- Acceptance: either the approved minimum control plane ships, or an explicit
+  decision records that it is not justified.
 
 ## Core V0 release gate
 
@@ -203,79 +456,79 @@ proof against temporary Git repositories.
 
 The V0 release gate is not a single giant milestone. It is the cumulative result of a sequence of independently testable milestones that prove the governed change loop progressively.
 
-## Critical path
+## Dependency semantics
 
-The critical path is:
+Phase grouping communicates product purpose, not an automatic hard dependency.
+The authoritative dependency graph is `DEPENDENCY_GRAPH.md`. Provider and
+ecosystem work can branch after M1.5 without waiting for every Phase 2
+milestone, and M3.2 does not depend on multi-provider maturity.
 
+If M5.0 selects hosted multi-tenant persistence, M5.2 and M5.4 become hard
+prerequisites and the hosted implementation must be resequenced. Without that
+decision, M5.0 remains repository-backed and non-hosted.
+
+## Roadmap V2 critical path
+
+The traceability-first governed engineering critical path is:
+
+```text
+M1.1 -> M1.2 -> M1.3 -> M1.4 -> M1.5
+-> M2.0 -> M2.1 -> M2.2 -> M4.3
+```
+
+The historical Core V0 path remains:
+
+```text
 M0.0 -> M0.1 -> M0.2 -> M0.3 -> M0.4 -> M0.5 -> M0.6 -> M0.7 -> M0.8
+```
 
-This is the minimal path proving the Praetor thesis without depending on mature memory, policy, or review infrastructure.
+## Major Roadmap V2 risks
 
-## Major technical risks
+- M1.1 becoming an unsliced persistence-platform rewrite;
+- artifact, audit, and workflow storage becoming competing authorities;
+- heuristic repository knowledge overstating confidence;
+- Specification and Plan gates becoming ceremonial rather than enforced;
+- local identity being overstated as authenticated enterprise identity;
+- scanner vendor, supply-chain, credential, and operating-weight coupling;
+- canonical memory format selection without the required benchmark;
+- opaque quality or DiffRisk scores acquiring governance authority;
+- organization scope pulling hosted persistence and identity forward;
+- documentation traceability becoming a duplicate manual matrix rather than a
+  mechanically checked ledger.
 
-- inaccurate change-surface detection
-- sandbox portability and execution isolation issues
-- validation noise or incomplete evidence
-- unsafe or misleading verification discovery and command execution
-- over-building the policy model before the runtime is proven
-- provider abstraction drift if the first adapter is not kept behind a stable port
-- premature memory or organization-scale complexity
+## Architecture and benchmark gates
 
-## Architectural spikes required
+Every gate is maintained in `OPEN_DECISIONS.md`. The immediate M1.1 gates are
+artifact identity/schema/store, workflow snapshot/version/migration,
+crash-consistency/recovery, and the artifact/audit transaction boundary.
+M1.1 implementation must not begin until those decisions are approved.
 
-- repository impact and bounded-surface spike
-- sandbox/worktree isolation spike
-- provider port and first-adapter integration spike
-- language/toolchain-independent verification discovery, structured plan safety and evidence normalization spike
-- post-V0 memory lifecycle and conflict spike
-- post-V0 capability-routing and trust-boundary spike
-
-## What must not be on the Core V0 critical path
-
-- project memory infrastructure
-- mature generic Policy Engine
-- mature Review Engine or independent semantic reviewer (the constrained read-only M0.6 verification-planning role is not that reviewer)
-- provider capability routing and trust classification as V0 prerequisites
-- organization memory or learning promotion
-- broad SCM and CI support
-- embeddings-first retrieval
+Later mandatory gates include the Project Memory serialization benchmark,
+semantic conflict evidence before semantic authority, quality assurance/tool
+portfolio evidence, hosted organization-memory workload and tenancy analysis,
+enterprise identity review, and crypto/key-management review before signed
+audit claims.
 
 ## Implementation sequence status
 
-M0.0 through M1.0 are implemented. Core V0 remains complete. M0.9 is
-presentation-only post-V0 polish; M1.0 is the completed first governance
-maturity milestone. M1.1 has not started.
-
-## Minimum necessary architecture before V0
-
-The minimum architecture required before the V0 gate is:
-
-- Go CLI entrypoint
-- minimal Project Registry
-- minimal SourceSnapshot identity
-- Change aggregate and state machine
-- repository inspection and Change Surface enforcement
-- AI Provider Port with one concrete adapter
-- isolated patch workspace
-- language/toolchain-independent verification discovery and structured plan validation
-- deterministic verification execution and evidence output
-- explicit human approval gate
-- append-only audit event log
-
-Everything else is deferred until after V0.
+M0.0 through M1.0 are implemented. M1.1 runtime implementation has not begun.
+Roadmap V2 documentation approval and reconciliation do not close any M1.1
+architecture gate.
 
 ## Key decisions preserved
 
-This roadmap keeps the accepted architecture intact:
+- Go and layered ports/adapters remain the implementation foundation.
+- Change remains the primary aggregate and workflow authority remains explicit.
+- AI providers remain replaceable constrained executors.
+- Deterministic evidence cannot be minted or overridden by model confidence.
+- Project Memory remains distinct from source, workflow, and provider state.
+- Audit remains append-oriented.
+- Human authority and exceptions remain explicit.
+- Hosted architecture remains conditional rather than inevitable.
 
-- Go is the implementation language
-- layered architecture with ports and adapters
-- AI providers remain replaceable adapters
-- the domain/core stays independent from concrete provider implementations
-- change is a first-class domain concept
-- the workflow/state machine remains authoritative
-- human authority remains final
-- deterministic evidence is required before acceptance
-- AI may propose verification steps but cannot mint deterministic evidence
-- project memory remains distinct from source and provider state
-- audit remains append-oriented
+## Governing traceability
+
+The normative ownership and lifecycle ledger is
+`docs/architecture/src/docs/arc42/appendices/traceability.adoc`. Milestone
+completion requires traceability updates, implementation and validation
+references, and arc42/C4 lifecycle-drift review.

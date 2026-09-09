@@ -1,13 +1,17 @@
 @startuml
 !include <C4/C4_Dynamic>
-title Dynamic View — Governed Implementation
-Person(engineer, "Engineer")
-Container(cli, "CLI", "Go")
-Container(core, "Workflow/Governance Core", "Go")
-Container(sandbox, "Sandbox", "Isolated worktree/container")
-System_Ext(ai, "Implementer AI Provider", "Selected adapter")
-System_Ext(tools, "Verification Tools", "tests/analyzers/scanners")
-System_Ext(src, "Source Repository", "Git")
+AddElementTag("AS-IS", $bgColor="#2E7D32", $fontColor="#FFFFFF", $legendText="AS-IS")
+AddElementTag("PARTIAL", $bgColor="#B26A00", $fontColor="#FFFFFF", $legendText="PARTIAL")
+AddElementTag("TARGET", $bgColor="#2457A7", $fontColor="#FFFFFF", $legendText="TARGET")
+LAYOUT_WITH_LEGEND()
+title Dynamic View — Governed Implementation [COMPOSITE TARGET]
+Person(engineer, "Engineer", $tags="AS-IS")
+Container(cli, "CLI", "Go", $tags="AS-IS")
+Container(core, "Workflow/Governance Core", "Go", $tags="PARTIAL")
+Container(sandbox, "Isolated Proposal Worktree", "Git worktree", $tags="AS-IS")
+System_Ext(ai, "Implementer AI Provider", "Explicitly selected adapter", $tags="AS-IS")
+System_Ext(tools, "Verification Tools", "Current bounded tests; broader tools target", $tags="PARTIAL")
+System_Ext(src, "Source Repository", "Git", $tags="AS-IS")
 RelIndex(1, engineer, cli, "implement approved Change")
 RelIndex(2, cli, core, "request transition")
 RelIndex(3, core, sandbox, "create constrained execution")

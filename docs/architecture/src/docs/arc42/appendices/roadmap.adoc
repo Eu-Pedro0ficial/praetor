@@ -1,69 +1,75 @@
 === Architectural Roadmap
 
-The roadmap is intentionally capability-oriented; milestone scope should be finalized before implementation.
+The detailed milestone contracts and actual dependency edges are maintained in
+`docs/roadmap/MILESTONES.md` and `docs/roadmap/DEPENDENCY_GRAPH.md`. This
+appendix records their architectural shape without creating a parallel
+ownership matrix; normative inverse ownership and lifecycle live in the
+traceability ledger.
 
-==== V0 — Governance Kernel / Walking Skeleton
+==== Phase 0 — Governance Kernel — COMPLETE
 
-Recommended objective: demonstrate one complete governed Change on one real repository without attempting broad ecosystem support.
+M0.0 through M0.9 are complete historical facts. They establish the Go CLI,
+Project identity, Change/workflow domain, bounded repository scope, isolated
+proposal workspaces, provider-independent AI execution with `codex-cli`,
+deterministic verification, local-human disposition, canonical apply/reject
+closure, and terminal presentation.
 
-Candidate capabilities:
+No completed milestone changes meaning under Roadmap V2.
 
-* Go CLI skeleton;
-* layered + Ports & Adapters boundaries;
-* local Git repository adapter;
-* one AI provider adapter behind generic capability interface;
-* Project Registry local configuration;
-* Change aggregate and persisted state;
-* workflow state machine;
-* language/toolchain-independent repository verification discovery;
-* basic Change Surface Control;
-* isolated Git worktree implementation proposal;
-* separate read-only AI verification-planning role for ambiguous discovery;
-* validated structured VerificationPlan and deterministic tool adapters;
-* evidence normalization;
-* approval/rejection flow;
-* append-oriented audit;
-* project memory candidate + validation + canonical promotion;
-* local SQLite/FTS projection;
-* Context Pack assembly;
-* docToolchain/arc42/C4 documentation kept executable.
+==== Phase 1 — Governed Engineering Runtime — M1.0 COMPLETE; M1.1–M1.5 TARGET
 
-==== V1 — Multi-Agent and Rich Verification
+* M1.0 — Mature Policy Engine — `COMPLETE`;
+* M1.1 — Durable Change + Artifact Foundation;
+* M1.2 — Repository Intelligence + Impact + Risk;
+* M1.3 — Specification + Change Plan Governance;
+* M1.4 — Review Engine + Maker-Checker Authority;
+* M1.5 — Quality + Security Verification Foundation.
 
-* Planner / Implementer / Reviewer separation;
-* second provider adapter to prove provider independence;
-* richer static analysis;
-* risk classification;
-* policy bundles;
-* PR integration;
-* memory invalidation from source fingerprints;
-* postmortem learning;
-* rejected-review learning candidate;
-* conflict/supersession handling;
-* provider/tool-independent quality and security evidence adapters plus
-  composed quality gates (M1.8).
+M1.0's accepted local Manifest V1 Policy Engine scope remains unchanged;
+M1.1 onward is target planning and has not begun.
 
-==== V2 — Multi-Developer / Organization
+M1.3 prepares versioned Specification Packs and
+requirement -> spec -> change -> evidence -> policy traceability.
+`engineering/specs/` is a candidate future governed-source location, not a
+current directory, implementation, canonical format, or accepted authority.
+Source-linked views and governance presentation are cross-cutting acceptance
+concerns of their owning milestones: projections remain subordinate to
+authoritative artifacts and presentation cannot decide governance. Recovery
+and bounded execution stay with the milestones that require them. M1.5 tools
+produce evidence while policy retains consequence, and Git worktree isolation
+is not hostile-code containment.
 
-* remote project-memory collaboration workflow;
-* organization memory;
-* governed project->organization promotion;
-* organization policy inheritance and project exceptions;
-* identity/RBAC adapter;
-* stronger audit indexing;
-* provider trust levels/data classification.
+==== Phase 2 — Institutional Knowledge — TARGET
 
-==== Later / Enterprise-Compatible
+M2.0 through M2.3 deliver canonical local Project Memory, explainable
+retrieval/Context Packs, invalidation/conflict handling, and multi-developer
+Project Memory. Canonical serialization remains benchmark-gated. AI and query
+projections never become canonical truth.
 
-* SSO/OIDC;
-* cryptographic signatures;
-* centralized audit/retention;
-* air-gapped distribution;
-* hosted control plane if justified;
-* advanced semantic retrieval/vector index if benchmarks show value;
-* IDE/GUI adapters;
-* broader SCM/issue tracker/security tool ecosystem.
+==== Phase 3 — Provider and Ecosystem Maturity — TARGET
+
+M3.0 through M3.3 deliver capability/trust routing, multi-provider maturity,
+SCM/issue intake, and CI/external evidence. Manual M0.5 selection is not
+routing, and provider, SCM, and CI concerns stay separate.
+
+==== Phase 4 — Advanced Engineering Intelligence — TARGET
+
+M4.0 through M4.3 deliver historical quality intelligence, architectural
+conformance, regression/DiffRisk synthesis, and governed local learning.
+Heuristics and AI findings remain explainable supporting signals rather than
+deterministic or human authority.
+
+==== Phase 5 — Organization and Enterprise — TARGET / CONDITIONAL
+
+M5.0 through M5.3 cover Organization Memory, organization policy, enterprise
+identity, and stronger audit/retention. M5.4 is a hosted control plane only if
+a concrete approved need justifies it. Hosted/multi-tenant persistence,
+semantic conflict authority, cryptographic claims, and enterprise identity
+remain decision-gated.
 
 ==== Explicit Anti-Roadmap
 
-Do not start by implementing every provider, every language, a GUI, a vector database, a distributed control plane, or a custom DSL for all policies. Prove the governance loop first.
+Do not start M1.1 before its gate closes, skip directly to M1.1 implementation
+during documentation work, or begin by implementing every provider, every
+language, a GUI, vector database, distributed control plane, or custom DSL.
+Roadmap prose does not silently close an ADR, benchmark, spike, or human gate.

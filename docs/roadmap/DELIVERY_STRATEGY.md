@@ -54,7 +54,7 @@ Adapter loading is DECIDED as compile-time registration and composition-root sel
 
 ADR-030 names `codex-cli` through non-interactive `codex exec` as the sole
 Core V0 adapter. Provider and optional model selection remain explicit runtime
-metadata; this manual selection does not implement M1.3 routing or M1.4
+metadata; this manual selection does not implement M3.0 routing or M3.1
 multi-provider maturity.
 
 ### Step 7 — M0.6 deterministic verification and evidence
@@ -69,7 +69,7 @@ before any human approval decision. AI/provider completion is never proof that
 a deterministic check passed.
 
 ADR-031 keeps this role distinct from both the M0.5 `implementation` attempt
-and the mature M1.1 Reviewer. Reusing `codex-cli` does not introduce automatic
+and the mature M1.4 Reviewer. Reusing `codex-cli` does not introduce automatic
 routing, fallback, or multi-provider maturity.
 
 ### Step 8 — M0.7 human approval and audit completeness
@@ -108,51 +108,48 @@ Complete. Project governance is loaded from the strict versioned manifest,
 evaluated against deterministic evidence, retained by exact bundle digest, and
 enforced through the existing human-decision and canonical-application gates.
 
-### Step 12 — M1.1 review engine and maker-checker enforcement
+### Step 12 — M1.1 durable change and artifact foundation
 
-The runtime enforces independent review after the proof exists.
+Persist and recover Change state, workflow authority, artifacts, evidence, and
+audit links outside governed source. The artifact/store/recovery decision gate
+must close before runtime implementation begins. Recovery, local concurrency,
+and source-linked artifact inspection stay within this durability boundary.
 
-### Step 13 — M1.2 local project memory
+### Step 13 — M1.2 repository intelligence, impact, and risk
 
-Memory is added only after the governed-change loop is stable.
+Mature the M0.3 inventory into provenance-bearing repository, impact, risk,
+confidence, gap, and staleness models. Heuristic knowledge remains distinct
+from deterministic facts and cannot silently expand approved scope.
 
-Canonical project memory serialization remains BENCHMARK REQUIRED. Project memory persistence may not begin until the benchmark, ADR and human approval are complete.
+### Step 14 — M1.3 specification and change-plan governance
 
-### Step 14 — M1.3 capability routing and trust boundaries
+Introduce validated Specification, Specification Pack, and ChangePlan
+authority before implementation. `engineering/specs/` is a planned candidate,
+not an implemented or approved canonical format. The accepted design must
+trace requirement -> spec -> change -> evidence -> policy, with every
+projection subordinate to those authoritative artifacts.
 
-Capability-based routing and trust classification follow the proven system, not precede it. They depend on the mature policy model and governance layer, not on project memory.
+### Step 15 — M1.4 review engine and maker-checker authority
 
-Provider trust levels and data classification are DECIDED and authoritative. Future changes require architecture review and ADR approval.
+Add independent review, truthful actor/role separation, explicit rework, and
+bounded local exception authority over the exact current artifact chain.
+Governance state, blockers, consequences, and human actions must be inspectable
+without presentation establishing authority.
 
-### Step 15 — M1.4 multi-provider maturity
+### Step 16 — M1.5 quality and security verification foundation
 
-This adds broader provider operation after the runtime is stable, without collapsing provider, SCM, and CI into a single milestone.
+Integrate replaceable current-run quality and security evidence
+with explicit capability, applicability, availability, authorization,
+provenance, and assurance. External tools produce evidence; Praetor policy
+determines governance consequence, and fallback evidence remains visibly
+non-equivalent. Cancellation, bounded execution, resource limits,
+process/network/credential boundaries, and diagnostics are addressed where
+the selected tools require them; Git worktree isolation is not overstated as
+hostile-code containment.
 
-### Step 16 — M1.5 SCM integration
-
-SCM integration is introduced as an independent, independently testable addition to the runtime once the local governance loop is proven.
-
-### Step 17 — M1.6 CI and external evidence integration
-
-CI and external evidence inputs are normalized separately from SCM integration and from provider maturity.
-
-### Step 18 — M1.7 organization memory and learning loop
-
-Institutional learning and organization memory remain downstream extensions, not V0 prerequisites, and are primarily derived from project memory, audit, governance, and promotion authority.
-
-Hosted organization memory remains DEFERRED; this milestone may not proceed beyond concept design until the persistence spike, ADR, and human approval are complete.
-
-### Step 19 — M1.8 quality intelligence and security verification
-
-Advanced quality/security capabilities build on the mature Policy Engine,
-Review Engine, and CI/external evidence pipeline. Delivery follows M1.7, but
-organization memory is not a hard technical dependency; learning may instead
-influence verification depth while actual checks still produce the evidence.
-
-M1.8 integrates replaceable local, self-hosted, existing-enterprise,
-containerized, managed, or CI-provided tools. It prefers adequate open-source
-and locally operable options, preserves different fallback assurance, treats
-DAST as conditional, and does not mandate or vendor a quality platform.
+Later Phase 2 through Phase 5 milestones follow the authoritative contracts in
+`MILESTONES.md` and actual edges in `DEPENDENCY_GRAPH.md`; phase grouping alone
+does not create a dependency.
 
 ## Delivery discipline
 
@@ -187,24 +184,23 @@ Do not add broad infrastructure or speculative abstraction before the current pr
 9. M0.8 governed change end-to-end
 10. M0.9 terminal presentation + layout configuration
 11. M1.0 policy maturity
-12. M1.1 review engine + maker-checker enforcement
-13. M1.2 local project memory
-14. M1.3 capability routing + trust boundaries
-15. M1.4 multi-provider maturity
-16. M1.5 SCM integration
-17. M1.6 CI + external evidence integration
-18. M1.7 organization memory + learning loop
-19. M1.8 quality intelligence + security verification
+12. M1.1 durable change + artifact foundation
+13. M1.2 repository intelligence + impact + risk
+14. M1.3 specification + change-plan governance
+15. M1.4 review engine + maker-checker authority
+16. M1.5 quality + security verification foundation
 
 ## Quality maturity framing
 
 - Level 1 — Core deterministic quality (M0.6): repository-supported build,
   test, lint, typecheck, patch integrity, and equivalent checks.
-- Level 2 — Governed engineering quality (M1.0, M1.1, M1.6): policy,
-  independent semantic review, CI/external evidence, and architecture checks.
-- Level 3 — Advanced quality/security intelligence (M1.8): advanced scanner
-  evidence, conditional dynamic testing, AI quality/security findings, risk
-  aggregation, and composed quality gates.
+- Level 2 — Governed engineering quality (M1.0, M1.3, M1.4): policy,
+  specification/plan authority, and independent semantic review.
+- Level 3 — Current-run quality/security foundation (M1.5): replaceable scanner
+  evidence, conditional dynamic testing, explicit assurance, and composed
+  quality gates.
+- Level 4 — Advanced engineering intelligence (M4.0-M4.2): historical quality,
+  architecture conformance, regression analysis, and DiffRisk.
 
 These levels explain capability maturity; they are not another product state
 machine.

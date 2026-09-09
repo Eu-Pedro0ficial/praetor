@@ -15,6 +15,7 @@
 |Context Pack |Task-scoped projection of repository/memory/policy knowledge assembled for one AI role invocation.
 |Developer Sovereignty |Principle that the engineering process and authorized humans retain final authority over consequential actions.
 |Evidence |Structured result supporting a claim or state transition: tests, scans, diffs, analysis, approvals, etc.
+|Engineering Knowledge Surface |Cross-cutting source-linked read model under an owning artifact/specification/memory milestone; never a parallel source of truth or an independent milestone.
 |Institutional Engineering Memory |Durable project/organization knowledge independent from an individual developer or AI provider.
 |Knowledge Gap |Explicitly represented unknown or insufficiently supported area of project understanding.
 |Memory Candidate |Proposed knowledge record that has not yet become canonical memory.
@@ -33,8 +34,9 @@
 |Repository Model |Structured representation of a source repository used for impact, retrieval and validation.
 |Role |Logical agent responsibility such as Planner, Implementer or Security Reviewer.
 |Run |One execution attempt of a workflow step/tool/agent.
-|Sandbox |Isolated environment where proposed source modifications execute before acceptance.
+|Sandbox |Architectural isolation boundary for proposed changes. The current implementation is Git worktree source/workspace isolation; stronger containment requires the gate of the approved capability that needs it.
 |Software Change Provenance |Ability to reconstruct why/how/by-whom/with-what-context a code change was produced and accepted.
+|Specification Pack |M1.3 target versioned bundle of requirements, constraints, acceptance criteria, provenance, and lifecycle linked to an exact Change authority chain.
 |State Machine |Explicit allowed progression of a Change rather than agent-controlled free-form progression.
 |Workflow |Versioned engineering process defining stages, contracts, gates and allowed transitions.
 |===

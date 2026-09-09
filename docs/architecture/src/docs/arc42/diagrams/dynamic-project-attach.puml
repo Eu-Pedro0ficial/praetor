@@ -1,12 +1,16 @@
 @startuml
 !include <C4/C4_Dynamic>
-title Dynamic View — Attach Existing Project
-Person(engineer, "Engineer")
-Container(cli, "CLI", "Go")
-Container(core, "Governance Core", "Go")
-ContainerDb(index, "Local Memory Index", "SQLite/FTS")
-System_Ext(src, "Source Repository", "Git")
-System_Ext(mem, "Memory Repository", "Git")
+AddElementTag("AS-IS", $bgColor="#2E7D32", $fontColor="#FFFFFF", $legendText="AS-IS")
+AddElementTag("PARTIAL", $bgColor="#B26A00", $fontColor="#FFFFFF", $legendText="PARTIAL")
+AddElementTag("TARGET", $bgColor="#2457A7", $fontColor="#FFFFFF", $legendText="TARGET")
+LAYOUT_WITH_LEGEND()
+title Dynamic View — Attach Existing Project [CURRENT + TARGET]
+Person(engineer, "Engineer", $tags="AS-IS")
+Container(cli, "CLI", "Go", $tags="AS-IS")
+Container(core, "Governance Core", "Go", $tags="PARTIAL")
+ContainerDb(index, "Local Memory Index", "Technology undecided", $tags="TARGET")
+System_Ext(src, "Source Repository", "Git", $tags="AS-IS")
+System_Ext(mem, "Memory Repository", "Format benchmark required", $tags="TARGET")
 RelIndex(1, engineer, cli, "project attach/init")
 RelIndex(2, cli, core, "invoke attach use case")
 RelIndex(3, core, src, "inspect repository/history")

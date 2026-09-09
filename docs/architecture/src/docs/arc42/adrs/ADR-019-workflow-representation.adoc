@@ -1,0 +1,31 @@
+== ADR-019: Declarative Workflow Representation
+
+*Status:* DECIDED
+
+=== Context
+
+Workflow definitions influence authoritative Change transitions and must be
+inspectable, versioned, and schema validated without coupling domain logic to
+a storage syntax. A custom language would add parser and governance complexity
+before concrete requirements justify it.
+
+=== Decision
+
+Workflow definitions use declarative, versioned YAML with schema validation.
+The domain/core models workflow semantics independently from YAML; YAML is an
+adapter/configuration representation. A custom Praetor workflow DSL requires
+demonstrated limitations, an ADR, and human approval.
+
+This decision does not select M1.1's workflow snapshot persistence, migration,
+re-evaluation, or crash-recovery semantics. Those remain open Roadmap V2 gates.
+
+=== Consequences
+
+Workflow changes can be reviewed as versioned configuration while domain
+transitions remain representation-independent. Unknown or malformed versions
+fail before acquiring workflow authority.
+
+=== Reopen / Review Trigger
+
+Reopen only when approved workflow requirements cannot be represented safely
+or maintainably by the accepted model.

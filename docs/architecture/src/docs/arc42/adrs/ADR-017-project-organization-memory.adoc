@@ -4,6 +4,6 @@
 
 *Context:* Useful learning may span projects but unchecked propagation magnifies errors.
 
-*Decision:* Project knowledge may become an organization candidate; higher governance validates promotion. Hosted organization memory and persistence remain DEFERRED until the workload, tenancy, consistency, security, persistence spike, ADR and human approval are complete.
+*Decision:* Project knowledge may become an organization candidate; higher governance validates promotion. Roadmap V2 assigns local candidate learning to M4.3 and organization promotion to M5.0. M5.0 remains repository-backed and non-hosted by default. Hosted organization memory and persistence remain DEFERRED until the workload, tenancy, consistency, security, identity, control-plane, persistence spike, ADR and human approval are complete.
 
 *Consequences:* Creates institutional learning while preserving authority boundaries. Requires scope/version/conflict handling and explicit promotion authority. The local/project architecture must not assume a future hosted organization topology.

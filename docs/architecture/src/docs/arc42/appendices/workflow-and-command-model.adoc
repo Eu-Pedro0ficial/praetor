@@ -258,6 +258,19 @@ candidate before changing session-visible presentation. These commands cannot
 change Project, Change, provider selection, verification, decision, source, or
 audit state.
 
+==== M1.3 Target Specification and ChangePlan Workflow
+
+M1.3 may add commands only after the Specification/Plan authority gate closes.
+The target workflow validates a human-provided or AI-proposed Specification
+Pack, obtains any required Plan approval, and binds later proposal, evidence,
+policy, review, and human disposition to exact current digests. Mutation of a
+governing requirement, Specification, or Plan invalidates dependent authority.
+
+`engineering/specs/` is a candidate future location, not a current command,
+directory requirement, persistent format, or accepted source of authority.
+Command names and serialization remain intentionally undecided. The required
+future linkage is requirement -> spec -> change -> evidence -> policy.
+
 ==== Predefined Workloads
 
 The system should support well-defined workflows rather than one universal autonomous loop. Candidate change types may include:

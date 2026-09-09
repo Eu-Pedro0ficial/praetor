@@ -4,6 +4,6 @@
 
 *Context:* Self-review by the same logical actor/provider role can create confirmation bias.
 
-*Decision:* The default workflow prevents the Implementer role from being its own final Reviewer/Approver.
+*Decision:* The default workflow prevents the Implementer role from being its own final Reviewer/Approver. Roadmap V2 assigns the minimum truthful identity, Review Engine, and maker-checker implementation to M1.4.
 
 *Consequences:* Improves separation of duties. More model/tool calls may increase cost and latency.

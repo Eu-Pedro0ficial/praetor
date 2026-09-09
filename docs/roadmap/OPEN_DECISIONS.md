@@ -1,397 +1,417 @@
-# Open Decisions and Explicitly Deferred Architecture Questions
+# Roadmap V2 Open Decisions and Explicit Gates
 
-This document records the decisions that remain intentionally open or explicitly deferred. It is not a place for silent implementation assumptions.
+This is the current decision-gate index. ADR files provide authoritative
+context and consequences for decisions already recorded. The Decision Registry
+provides the cross-reference. No status in this document authorizes production
+runtime implementation by itself.
 
-## Mandatory decision closure rule
+## Mandatory closure law
 
-A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
+A decision marked `OPEN`, `DEFERRED`, `BENCHMARK REQUIRED`, `SPIKE REQUIRED`,
+or `UNDECIDED` must not be silently resolved by implementation or an AI agent.
+When a milestone reaches the trigger:
 
-When a milestone reaches the trigger for such a decision:
+1. dependent implementation stops;
+2. required benchmark, spike, research, and security evidence is produced;
+3. an ADR or explicit architecture decision records the result;
+4. human approval is obtained;
+5. implementation resumes only within the approved boundary.
 
-1. dependent implementation MUST stop;
-2. the required spike/benchmark/research must be performed;
-3. an ADR or explicit architecture decision must be produced;
-4. human approval is required;
-5. only then may dependent implementation continue.
+Implementation convenience is not an architecture decision.
 
-An implementation convenience is NOT an architecture decision.
+## Accepted foundation decisions
 
-## 1. Product, repository, and CLI naming
+### Product, repository, and CLI naming
 
-Status: DECIDED
+Status: `DECIDED`
 
-The official product name is Praetor. The repository name is praetor and the CLI executable is also praetor.
+The product, repository, and executable are `Praetor`, `praetor`, and
+`praetor`. ADR-016 separately governs meaningful identifier names; it is not
+the product-naming decision.
 
-## 2. Workflow representation
+### Workflow representation
 
-Status: DECIDED
+Status: `DECIDED`
 
-Use declarative, versioned YAML with schema validation for workflow definitions.
+Workflow definitions use declarative, versioned YAML with schema validation.
+The domain model remains representation-independent. A custom workflow DSL
+requires demonstrated limitations and an approved ADR. ADR-019 records this
+decision. M1.1 still must decide snapshot, persistence, migration, and recovery
+semantics.
 
-The domain/core must model workflows independently from YAML. YAML is an adapter/configuration representation, not a domain dependency.
+### Policy representation
 
-Do not create a custom Praetor workflow DSL unless concrete limitations of the YAML representation are demonstrated with an approved ADR.
+Status: `DECIDED`
 
-Reopen trigger: only when actual workflow requirements cannot be represented safely or maintainably with the accepted model.
+Policy definitions use declarative, versioned YAML with schema validation.
+The domain model remains representation-independent. ADR-020 and ADR-032
+record representation and the implemented local Manifest V1 semantics.
 
-## 3. Policy representation
+### Adapter loading
 
-Status: DECIDED
+Status: `DECIDED FOR INITIAL ARCHITECTURE`
 
-Use declarative, versioned YAML with schema validation for policy definitions.
+Use compile-time registration, the explicit composition root, and
+configuration-driven selection. Do not use Go plugin loading initially.
+Independently deployable adapters require a demonstrated need, protocol spike,
+ADR, and human approval. See ADR-021 and ADR-026.
 
-The domain Policy model must remain representation-independent. Initial policy configuration should remain deliberately simple and composable.
+### Sandbox and source isolation
 
-Do not create a custom policy language or complex DSL without demonstrated need and an approved ADR.
+Status: `DECIDED FOR INITIAL IMPLEMENTATION`
 
-Reopen trigger: only when concrete policy requirements exceed the accepted declarative model.
+Git worktrees provide initial source/workspace isolation under ADR-012. They
+are not hostile-code, host, process, network, environment, or credential
+containment. Any stronger boundary required by an approved execution path,
+including M1.5 quality tools, requires a security spike and ADR.
 
-## 4. Go adapter loading strategy
+### Initial AI provider and verification planner
 
-Status: DECIDED FOR INITIAL ARCHITECTURE
+Status: `DECIDED FOR CORE V0`
 
-Use compile-time adapter registration, dependency injection/composition root, and configuration-driven adapter selection.
+ADR-030 selects the sole initial `codex-cli` adapter through non-interactive
+`codex exec`, with explicit session provider/model selection. ADR-031 permits
+the separate read-only `verification-planning` role while retaining actual
+tool execution as deterministic evidence authority. Automatic routing belongs
+to M3.0; multi-provider maturity belongs to M3.1.
 
-Do not use Go plugin loading for the initial implementation.
+### First remote SCM
 
-The architecture may later evaluate out-of-process adapters using a stable protocol such as RPC/gRPC/stdio when independently deployable adapters become a real requirement.
+Status: `DECIDED`
 
-Reopen trigger: a milestone requires independently deployable third-party adapters or runtime-extensible providers that cannot reasonably be delivered through the initial composition strategy. At that point, perform a dedicated architecture spike and ADR before changing the loading model.
+Local Git remains foundational. GitHub is the first remote SCM adapter under
+M3.2, behind provider-independent SCM and Issue Tracker Ports. Authentication,
+event, identity, and idempotency details remain M3.2 gates.
 
-## 5. Sandbox / source isolation
+### Provider trust and data classification
 
-Status: DECIDED FOR INITIAL IMPLEMENTATION
+Status: `DECIDED`
 
-Use Git worktrees as the initial source/workspace isolation mechanism.
+Trust levels are `LOCAL`, `ENTERPRISE`, `EXTERNAL_APPROVED`,
+`EXTERNAL_RESTRICTED`, and `FORBIDDEN`. Data classifications are `PUBLIC`,
+`INTERNAL`, `CONFIDENTIAL`, and `RESTRICTED`. ADR-014 governs enforcement.
+Taxonomy changes require architecture review and an ADR.
 
-Important distinction: Git worktree provides source/workspace isolation. It is not by itself a security sandbox.
+### Packaging and configuration authority
 
-Maintain a Sandbox Port so the execution isolation implementation can evolve independently. Stronger process/container/OS isolation is a future adapter concern.
+Status: `DECIDED FOR INITIAL PRODUCT`
 
-Do not describe worktree isolation as sufficient protection for hostile code execution.
+Praetor initially ships as one Go executable. CONFIG, DATA, STATE, and CACHE
+remain explicit and outside governed source where applicable. Configuration
+precedence is defaults, user, project, workflow, then Change-specific, while
+higher governance authority cannot be weakened. See ADR-025.
 
-Reopen/upgrade trigger: before Praetor claims or supports execution of genuinely untrusted workloads, or when the security-hardening milestone requires stronger host/process/network boundaries. That milestone must perform an isolation/security spike before choosing the concrete container/OS strategy.
+### Append-oriented audit
 
-## 5A. First AI provider adapter
+Status: `DECIDED`; cryptographic capability deferred
 
-Status: DECIDED FOR CORE V0
+ADR-010 requires corrections as later events. Hash chaining, signatures, PKI,
+key management, and non-repudiation claims remain gated for M5.3.
 
-Use `codex-cli` through non-interactive `codex exec` as the sole concrete M0.5
-provider adapter behind the provider-independent AI Provider Port. Codex CLI
-is the initial adapter, not a permanent, universal, or privileged provider.
+## Phase 1 gates
 
-Provider and optional provider-scoped model selection are explicit runtime
-session/configuration values. Manual selection is not capability routing. M0.5
-does not implement automatic selection, fallback, ranking, trust routing,
-data-classification routing, load balancing, or multi-provider execution.
+### OPEN-M1.1-PERSISTENCE — Durable Change and artifact authority
+
+Status: `OPEN — DECISION REQUIRED BEFORE M1.1 IMPLEMENTATION`
+
+M1.1 must decide:
+
+- artifact identity, schema, versioning, digest, and reference graph;
+- the local Artifact Store and durable Change representation;
+- declarative workflow loading plus immutable workflow snapshot identity;
+- workflow-version migration and re-evaluation rules;
+- crash consistency, partial-write detection, corruption, recovery, and store
+  migration behavior;
+- local concurrency, locking, cancellation, and interrupted-operation recovery;
+- artifact/audit ordering and transaction boundary;
+- source-linked artifact inspection/read-model freshness and rebuild semantics;
+- large/binary artifact reference and retention behavior;
+- XDG DATA/STATE/CACHE placement.
 
-A future OpenAI native HTTP/SDK integration is a separate adapter behind the
-same port and may coexist with `codex-cli`. See ADR-030.
+Required evidence: candidate comparison, failure-injection prototype, recovery
+matrix, multi-process behavior, migration example, threat review, ADR, and
+human approval. Do not begin M1.1 runtime implementation before closure.
 
-Reopen trigger: changing the first integration mechanism or credential
-boundary. Automatic routing remains governed by M1.3; multi-provider maturity
-remains governed by M1.4.
+### OPEN-M1.2-REPOSITORY-MODEL — Repository intelligence and risk model
 
-## 5B. AI-assisted verification planning
+Status: `OPEN — DECISION REQUIRED BEFORE AFFECTED M1.2 SLICES`
 
-Status: DECIDED FOR CORE V0
+Decide the RepositoryModel boundary/version, source-fingerprint and staleness
+semantics, deterministic versus heuristic fact representation, confidence and
+KnowledgeGap model, RiskProfile taxonomy/aggregation, and derived cache versus
+durable ImpactReport boundary.
+
+Required evidence: representative heterogeneous repository corpus, analyzer
+coverage, stale-model behavior, incremental rebuild measurements, ADR where
+the canonical contract or authority is material, and human approval.
+
+### OPEN-M1.3-SPEC-PLAN — Specification and ChangePlan governance
 
-M0.6 uses language/toolchain-independent verification discovery. Explicit
-repository declarations and deterministic inference retain their provenance
-and generally outrank AI inference. When evidence is ambiguous, a separate
-read-only AI role named exactly `verification-planning` may propose structured
-verification candidates and a VerificationPlan.
+Status: `OPEN — DECISION REQUIRED BEFORE M1.3 IMPLEMENTATION`
 
-The planning role has its own `ExecutionAttemptId` and fresh context, distinct
-from the `implementation` attempt. It cannot mutate source, declare semantic
-correctness, approve/reject the Change, or produce deterministic success
-evidence. Structured plan validation precedes process execution; arbitrary AI
-shell text is not executable authority. Only actual Verification Engine tool
-execution produces deterministic evidence. See ADR-031.
+Decide canonical Specification and ChangePlan schemas and versions,
+Specification/Plan identity and digest semantics, completeness validation,
+human-provided versus AI-proposed authority, required plan approval, mutation
+and downstream invalidation, state-machine evolution, Specification Pack
+composition, whether `engineering/specs/` is an approved canonical location,
+and whether the candidate authority chain is accepted:
 
-Core V0 may reuse the explicitly selected `codex-cli` adapter without
-requiring a second provider. This does not introduce automatic selection,
-routing, fallback, ranking, or multi-provider operation.
+```text
+ChangeIntent -> ImpactReport -> SpecificationDigest -> PlanDigest
+-> Proposal/Patch -> EvidenceSet -> PolicyDecision -> ReviewResult
+-> HumanDecision -> Canonical Apply
+```
 
-Reopen trigger: granting planner write authority, merging it with final
-review/approval, allowing unvalidated shell execution, or treating AI output
-as deterministic evidence.
+Required evidence: representative workflow fixtures, invalidation/recovery
+matrix, requirement -> spec -> change -> evidence -> policy traceability
+fixtures, ADR, and human approval. The path, pack, and chain remain
+`TARGET/CANDIDATE` until then. Any traceability projection must expose source,
+freshness, and gaps while remaining subordinate to authoritative artifacts.
 
-## 6. First remote SCM
+### OPEN-M1.4-REVIEW-AUTHORITY — Identity, review, and local exception authority
 
-Status: DECIDED
+Status: `OPEN — DECISION REQUIRED BEFORE M1.4 IMPLEMENTATION`
 
-Local Git remains the first and foundational SCM implementation.
+Decide the minimum local ActorIdentity and ActorRole model, identity strength,
+maker-checker comparison, AI/human reviewer semantics, ReviewResult authority,
+review disagreement/rework, stale-review invalidation, and bounded local
+policy-exception grant/rejection authority.
 
-GitHub is the first remote SCM integration after Core V0.
+Do not pull enterprise RBAC/SSO into M1.4 or treat provider/model/role labels as
+identity. Review, rework, exception, blocker, and available-action state must
+be understandable and inspectable, while presentation never creates authority.
+Required evidence includes self-review denial, stale review, exception-scope,
+identity-spoofing, authority-chain, redaction, and interaction tests plus an ADR
+and human approval.
 
-SCM ports must remain provider-independent. Do not embed GitHub concepts into the domain/core.
+### Cross-cutting Phase 1 acceptance concerns
 
-Additional SCM integrations require their own roadmap justification but do not require redesign of the core port.
+Source-linked knowledge views, governance presentation, and runtime operability
+are not independent roadmap milestones. M1.1 owns durable inspection,
+freshness/rebuild decisions for its artifact read models, and recovery/local
+concurrency. M1.3 owns Specification/Change traceability views. M1.4 owns
+review/rework/exception interaction acceptance. M1.5 owns bounded execution and
+security boundaries for its quality tools. M2.1 later owns memory retrieval and
+Context Pack query projections. No projection or presentation establishes
+authority, and Git worktree isolation is not hostile-code containment.
 
-## 6A. M1.8 quality/security tool portfolio and assurance model
+### OPEN-M1.5-QUALITY-MODEL — Quality/security capability and assurance model
 
-Status: DEFERRED
+Status: `DEFERRED TO M1.5 — DECISION AND SPIKE REQUIRED`
 
-M1.8 — Quality Intelligence + Security Verification is approved roadmap scope,
-but no mandatory vendor, final scanner portfolio, deployment topology, or
-assurance/evidence-strength taxonomy is selected now. These choices require
-representative capability needs and operational evidence at M1.8.
+M1.5 owns the current-run verification foundation for SAST, SCA, secrets,
+conditional DAST, IaC, container/image, coverage, practical mutation, and
+lint/static quality. Decide:
 
-Praetor should prefer adequate open-source, locally executable, or
-self-hostable tooling and should reuse approved user infrastructure rather
-than duplicate it. Proprietary/managed products remain optional adapters. An
-approved fallback must report materially lower or different assurance rather
-than impersonating the preferred capability. DAST remains conditional on
-applicability and an authorized runnable target/environment.
+- normalized finding and severity relationship to M1.0;
+- capability applicability, availability, authorization, execution, and
+  finding/result representation;
+- assurance taxonomy and provenance;
+- Quality Gate composition;
+- fallback/native boundary and non-equivalence;
+- initial tool portfolio and adapter contracts;
+- cancellation, bounded execution, and resource constraints;
+- scanner credential, network, process, deployment, supply-chain, diagnostic,
+  and execution-isolation boundaries.
 
-Decision trigger: before M1.8 implementation needs a final assurance taxonomy,
-introduces a meaningful external dependency/service, or chooses consequential
-scanner execution, credential, network, or deployment boundaries. Produce the
-appropriate capability comparison, architecture/security evidence, ADR where
-material, and human approval.
+External tools produce evidence; Policy Engine decides governance consequence.
+No vendor is mandatory. `UNAVAILABLE`, `NOT_APPLICABLE`, and `NOT_AUTHORIZED`
+must not become PASS. The exact runtime enum/model is intentionally undecided.
 
-## 7. Audit cryptographic evolution
+Required evidence: representative capability/tool comparison, assurance and
+fallback matrix, authorized-target analysis for DAST, architecture/security
+review, ADR where material, and human approval.
 
-Status: DECIDED / DEFERRED CAPABILITY
+## Phase 2 gates
 
-Audit remains append-oriented.
+### OPEN-M2.0-MEMORY-STORE — Canonical Project Memory
 
-The audit model should be designed so hash chaining/tamper-evidence can be introduced without redesigning event identity or history.
+Status: `BENCHMARK REQUIRED — UNDECIDED`
 
-Cryptographic signatures, PKI, key management and signed-event verification are not Core V0 requirements.
+ADR-008 requires canonical memory to remain separate from query and AI
+projections. Before M2.0 persistence, benchmark at minimum JSON, YAML, TOML,
+Markdown, XML, and any justified compact/versioned candidate against:
 
-Trigger: before enterprise-grade tamper-evident or non-repudiation guarantees are claimed or required.
+- schema expressiveness and validation;
+- provenance and lifecycle metadata;
+- deterministic parsing and round-trip fidelity;
+- human readability, Git diff/merge/conflict behavior, and append/supersession;
+- canonicalization and accidental mutation risk;
+- Go tooling maturity;
+- token use and model parse/generation accuracy across representative
+  providers;
+- malformed-output recovery, latency, and operating complexity.
 
-At that point: perform a security/crypto design spike and ADR before implementation.
+Use realistic records and produce the benchmark dataset, methodology, results,
+recommendation, ADR update, and human approval. Also decide record identity,
+store topology, Project Registry association, and promotion consistency.
 
-## 8. Provider trust levels
+### OPEN-M2.1-RETRIEVAL — Index, retrieval, and Context Pack contract
 
-Status: DECIDED
+Status: `OPEN`; ADR-009 remains `PROPOSED`
 
-Use the following trust taxonomy:
+Decide local projection technology, structural/FTS ranking, query explanation,
+token accounting, Context Pack identity/digest, AI projection contract, and
+scope/classification filtering. Benchmark relevance, interactive latency, and
+token use. Embeddings remain optional and cannot become canonical authority.
 
-- LOCAL
-- ENTERPRISE
-- EXTERNAL_APPROVED
-- EXTERNAL_RESTRICTED
-- FORBIDDEN
+### OPEN-M2.2-INVALIDATION — Fingerprints and memory lifecycle
 
-Provider routing and governance must be able to constrain execution based on these levels.
+Status: `OPEN`; structural conflict first
 
-This taxonomy must not be changed silently by implementation. Any future taxonomy change requires architecture review and an ADR.
+Decide source/evidence fingerprint granularity, invalidation and revalidation
+rules, structural equivalence/conflict basis, and lifecycle transitions.
+ADR-011 remains authoritative for revisability. Semantic conflict detection is
+separately deferred under ADR-023.
 
-## 9. Data classification
+### OPEN-M2.3-SHARED-MEMORY — Shared storage and concurrency
 
-Status: DECIDED
+Status: `OPEN — DECISION REQUIRED BEFORE M2.3 IMPLEMENTATION`
 
-Use:
+Decide shared Project Memory topology, deterministic record/contributor
+identity, synchronization, merge and conflict recovery, repository movement or
+reassociation triggers, and separation between storage permissions and
+Praetor promotion authority. Required evidence includes two-clone and
+multi-process merge benchmarks.
 
-- PUBLIC
-- INTERNAL
-- CONFIDENTIAL
-- RESTRICTED
+## Phase 3 gates
 
-Provider routing and policy enforcement may use data classification together with provider trust levels.
+### OPEN-M3.0-ROUTING — Capability and policy routing
 
-No provider may receive data whose classification violates the configured governance boundary.
+Status: `OPEN IMPLEMENTATION CONTRACT`; taxonomies already decided
 
-Any future taxonomy change requires explicit architecture review.
+Decide capability schema, role requirement matching, classification derivation,
+routing precedence, explicit manual override behavior, and fail-closed unknown
+metadata. Do not change ADR-014 taxonomies silently.
 
-## 10. Packaging
+### OPEN-M3.1-MULTI-PROVIDER — Second adapter, health, and fallback
 
-Status: DECIDED FOR INITIAL PRODUCT
+Status: `OPEN`
 
-Praetor will initially ship as a single Go executable: praetor.
+Select a second adapter only after reviewing its dependency and credential
+boundary. Decide provider health observations, retry/fallback semantics,
+capability non-equivalence, and per-attempt provenance. Every fallback must
+re-pass M3.0 routing.
 
-Configuration, runtime state, cache and project data live in explicit data/config directories rather than being embedded in the binary.
+### OPEN-M3.2-SCM — GitHub SCM and issue integration
 
-Container images or other distribution formats may be introduced later as additional packaging options.
+Status: `OPEN`; GitHub-first direction decided
 
-Trigger: when deployment/integration requirements justify containerized or managed distribution.
+Decide authentication/scopes, webhook versus polling, remote actor and artifact
+identity, event idempotency, retry/reconciliation, rate-limit behavior, and
+commit/PR authority. GitHub types remain adapter-local.
 
-The single-binary architecture must not prevent later packaging options.
+### OPEN-M3.3-EXTERNAL-EVIDENCE — CI identity, trust, and freshness
 
-## 11. Memory conflict authority
+Status: `OPEN`
 
-Status: DECIDED
+Decide CI producer/artifact identity, authentication, freshness, raw-artifact
+retention, retry/deduplication, and reconciliation with local evidence.
+External evidence cannot satisfy a different source or patch identity.
 
-Canonical memory conflicts that cannot be deterministically proven equivalent require human authority.
+## Phase 4 gates
 
-The system may automatically resolve only deterministic equivalence or unambiguous non-conflicting cases.
+### OPEN-M4.0-QUALITY-INTELLIGENCE
 
-Conflicting authoritative knowledge must enter an explicit disputed/conflict state rather than allowing an AI model to silently select the winner.
+Status: `OPEN`
 
-Semantic AI judgment may assist but does not possess canonical authority.
+Decide quality baseline authority, metric-version compatibility, comparison
+windows, assurance composition, retention, and the acceptable operating cost
+of richer mutation/history analysis.
 
-## 12. Configuration precedence
+### OPEN-M4.1-ARCHITECTURE-RULES
 
-Status: DECIDED
+Status: `OPEN`
 
-Adopt the conceptual precedence:
+Decide architecture-rule representation, source and approval authority,
+applicability, tool normalization, and drift semantics. Repository text and AI
+output cannot create active rules by themselves.
 
-built-in defaults < user configuration < project configuration < workflow configuration < Change-specific configuration
+### OPEN-M4.2-DIFF-RISK
 
-However, configuration precedence MUST NOT bypass governance authority.
+Status: `OPEN — BENCHMARK REQUIRED BEFORE HEURISTIC AUTHORITY`
 
-A lower-level configuration cannot weaken a higher-authority non-overridable policy.
+Decide historical signal representation, related-test confidence, DiffRisk
+synthesis, policy consequence, and retention. Benchmark precision, recall,
+false-positive operating cost, and explanatory quality on real project
+history. Risk never overrides deterministic evidence by itself.
 
-Example: if organization governance forbids an external provider, project or Change configuration cannot re-enable it.
+### OPEN-M4.3-POSTMORTEM
 
-Document the distinction between CONFIGURATION PRECEDENCE and GOVERNANCE AUTHORITY.
+Status: `OPEN`
 
-## 13. Hosted organization memory / persistence
+Decide Postmortem schema, causal confidence and KnowledgeGap representation,
+sensitive incident handling, and memory/policy candidate authority. No
+candidate is activated automatically.
 
-Status: DEFERRED
+## Phase 5 gates
 
-Do not design or implement a hosted/distributed persistence architecture now.
+### OPEN-M5.0-ORGANIZATION-MEMORY
 
-The existing local/project architecture must not assume a particular future hosted database or topology.
+Status: `DEFERRED — SPIKE AND ADR REQUIRED`
 
-Decision trigger: before implementation of hosted/shared Organization Memory or an organization-scale control plane.
+ADR-017 permits governed Project-to-Organization promotion but defers hosted
+persistence. Decide workload/collaboration, promotion authority, logical
+organization/tenant scope, consistency, security, and repository-backed
+persistence. M5.0 remains non-hosted by default.
 
-Required before implementation:
+If hosted multi-tenant persistence is proposed, implementation must stop until
+M5.2 identity and M5.4 control-plane decisions are approved and sequencing is
+updated.
 
-- workload and collaboration requirements
-- consistency requirements
-- tenancy model
-- security/trust requirements
-- persistence architecture spike
-- ADR
-- human approval
+### OPEN-M5.1-POLICY-INHERITANCE
 
-Dependent implementation must stop until the decision is approved.
+Status: `OPEN`
 
-## 14. GUI / server control plane
+Decide organization policy authority, inheritance, non-overridable rules,
+local/project precedence, exception roles, distribution consistency, offline
+behavior, and stale policy handling. ADR-025's governance-authority principle
+remains binding.
 
-Status: DEFERRED
+### Enterprise identity / RBAC / SSO
 
-Praetor remains CLI-first.
+Status: `OPEN — M5.2`
 
-Core V0 and early post-V0 capabilities must not require GUI or a server control plane.
+Decide identity protocol/provider, principal and role taxonomy, tenant
+membership, authentication/session strength, token handling, revocation,
+offline behavior, and audit linkage. Local Praetor use must not require
+enterprise identity.
 
-Decision trigger: only when a concrete capability requires shared remote orchestration, multi-user coordination, persistent service execution, or a user experience that cannot reasonably be delivered through CLI operation.
+### Advanced audit, retention, and signing
 
-Before implementation:
+Status: `DEFERRED — SECURITY/CRYPTO SPIKE REQUIRED FOR M5.3`
 
-- define use case
-- determine whether a service is actually necessary
-- define control-plane responsibilities
-- security/threat analysis
-- ADR
-- human approval
+Before stronger integrity or signing claims, decide retention/legal semantics,
+export format, integrity construction, algorithms, PKI/KMS, key custody,
+rotation, verification, and exact assurance claims. Do not invent custom
+cryptography or claim non-repudiation prematurely.
 
-Do not build a server merely to prepare for hypothetical future use.
+### Hosted control plane / GUI
 
-## 15. Semantic memory conflict detection
+Status: `DEFERRED AND CONDITIONAL — M5.4`
 
-Status: DEFERRED / SPIKE REQUIRED
+M5.4 may proceed only if a concrete workload requires shared remote
+orchestration that local/CLI architecture cannot reasonably provide. Required
+before implementation: use case, workload, topology, tenancy, API, persistence,
+identity, SLOs, threat model, deployment spike, ADR, and human approval. A GUI
+requires its own demonstrated need. A valid outcome is that no control plane is
+justified.
 
-Initial conflict detection should prefer deterministic mechanisms such as:
+## Preserved deferred decision — semantic memory conflict detection
 
-- same identity/key
-- same or overlapping provenance target
-- overlapping validity
-- incompatible canonical values
-- explicit structural contradiction rules
+Status: `DEFERRED / SPIKE REQUIRED`; see ADR-023
 
-Ambiguous authoritative conflicts become DISPUTED and require human resolution.
+Structural conflict detection comes first. Semantic/embedding/LLM contradiction
+detection requires a representative conflict dataset, false-positive and
+false-negative measurement, provider/model-independence analysis, cost and
+latency evidence, human-review behavior, ADR, and human approval. It can assist
+but cannot possess canonical conflict authority.
 
-Semantic/embedding/LLM-based contradiction detection is not selected yet.
+## Preserved deferred decision — repository correlation and reassociation
 
-Decision trigger: after structural conflict detection exists and real conflict cases show that semantic detection is necessary.
+Status: `DEFERRED`
 
-Required before implementation:
-
-- representative conflict dataset
-- false-positive measurement
-- false-negative measurement
-- provider/model independence analysis
-- cost/latency analysis
-- human-review behavior
-- spike report
-- ADR
-- human approval
-
-Do not silently use embeddings or LLM similarity as canonical conflict authority.
-
-## 16. Canonical project memory serialization
-
-Status: BENCHMARK REQUIRED — UNDECIDED
-
-Do not choose the canonical memory format now.
-
-## 17. Repository fingerprint correlation / reassociation
-
-Status: DEFERRED
-
-C02 does not require a repository fingerprint. Repository move detection, clone association, fork association, and mirror correlation are not required by M0.1 and remain explicitly out of scope for this milestone.
-
-Introduce a repository fingerprint only when a concrete future requirement requires repository correlation or reassociation. Until then, repository association remains operational metadata only and does not become project identity.
-
-Candidate formats should include at minimum:
-
-- JSON
-- YAML
-- TOML
-- Markdown
-- XML
-- another compact/versioned representation if justified
-
-The canonical representation is not required to be the same representation sent to an AI provider.
-
-Preserve the architectural separation:
-
-Canonical Memory -> Local Query Projection -> Context Pack / AI Projection
-
-Storage representation is not the same as prompt representation.
-
-Decision trigger: immediately before the milestone that implements canonical Project Memory persistence.
-
-Dependent canonical-memory persistence MUST NOT begin before this decision is complete.
-
-Benchmark must evaluate at minimum:
-
-- schema expressiveness
-- schema validation
-- provenance representation
-- lifecycle metadata representation
-- deterministic parsing
-- round-trip fidelity
-- human readability
-- Git diff quality
-- Git merge behavior
-- conflict behavior
-- append/supersession semantics
-- accidental mutation risk
-- tooling/library maturity in Go
-- canonicalization/stable serialization behavior
-- token usage across representative AI providers
-- model parsing accuracy
-- model generation accuracy
-- malformed-output recovery
-- latency where material
-- operational complexity
-
-Use a representative corpus of realistic Praetor memory records, not toy examples.
-
-Produce:
-
-- docs/research/memory-format-benchmark/README.md
-- docs/research/memory-format-benchmark/methodology.md
-- docs/research/memory-format-benchmark/dataset/
-- docs/research/memory-format-benchmark/results/
-- docs/research/memory-format-benchmark/recommendation.md
-
-Then create or update the appropriate ADR.
-
-Human approval is mandatory before the canonical format is marked DECIDED.
-
-## Decision rule for this repository
-
-These questions must remain explicit design decisions until benchmarked, reviewed, or formally approved. They may be sequenced into the roadmap, but they must not be silently decided by implementation.
-
-The revised roadmap makes a deliberate distinction:
-
-- Core V0 is proof of the governed change loop.
-- memory, routing, and org-scale systems follow only after that proof is established.
+ProjectId remains a persistent opaque logical identity and is not derived from
+repository location or fingerprint. Introduce correlation/reassociation only
+when M2.3 or another concrete requirement demonstrates the need, followed by
+architecture review and an ADR where material.

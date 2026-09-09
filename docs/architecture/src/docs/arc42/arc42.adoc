@@ -33,6 +33,7 @@ include::chapters/12-glossary.adoc[]
 
 == Appendices
 include::appendices/requirements-catalog.adoc[]
+include::appendices/traceability.adoc[]
 include::appendices/change-state-machine.adoc[]
 include::appendices/memory-model.adoc[]
 include::appendices/policy-model.adoc[]

@@ -1,0 +1,27 @@
+== ADR-023: Defer Semantic Memory Conflict Authority
+
+*Status:* DEFERRED / SPIKE REQUIRED
+
+=== Context
+
+Structural identity, provenance overlap, validity, and explicit contradiction
+rules can identify many memory conflicts deterministically. Semantic or
+embedding similarity can introduce provider dependence and false authority.
+
+=== Decision
+
+M2.2 implements deterministic structural duplicate, conflict, supersession,
+and dispute handling first. Ambiguous authoritative conflicts require human
+resolution. Semantic/embedding/LLM analysis may not select canonical truth.
+
+=== Consequences
+
+The initial conflict model remains explainable and provider-independent.
+Semantic assistance remains optional and non-authoritative even if later
+approved.
+
+=== Reopen / Review Trigger
+
+After structural handling exists, real cases must justify a representative
+dataset, false-positive/negative measurement, provider-independence analysis,
+cost/latency evidence, human-review design, ADR, and human approval.

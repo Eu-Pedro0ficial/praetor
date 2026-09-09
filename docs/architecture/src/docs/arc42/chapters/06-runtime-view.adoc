@@ -1,5 +1,11 @@
 == Runtime View
 
+Scenarios 1 through 4 describe the target governed pipeline; the milestone
+subsections identify executable historical subsets. Scenarios 5 through 9 are
+future unless their steps are explicitly attributed to an implemented
+milestone. The traceability ledger remains authoritative for lifecycle and
+ownership.
+
 === Scenario 1 — Attach to an Existing Legacy Project
 
 [plantuml, "{plantUMLDir}dynamic-project-attach", png]
@@ -22,7 +28,8 @@ include::../diagrams/dynamic-project-attach.puml[]
 . Workflow Engine creates a Change.
 . Context Pack Builder retrieves relevant project and organization knowledge under a token/context budget.
 . Repository Intelligence and Impact Engine identify likely affected symbols/modules and expected change surface.
-. Specification Engine generates or validates a specification.
+. Specification Engine generates or validates a specification and its
+  Specification Pack when the M1.3 workflow requires one.
 . Planner role proposes a plan.
 . Policy Engine evaluates whether the plan requires approval, violates constraints, or attempts protected operations.
 . If required, an authorized human approves before implementation becomes available.
@@ -171,7 +178,7 @@ discard.
 
 The planning provider may be `codex-cli` with a separately captured model or
 provider default, but M0.6 neither routes automatically nor requires a second
-provider. Verification planning is not the mature M1.1 semantic Reviewer and
+provider. Verification planning is not the mature M1.4 semantic Reviewer and
 cannot declare the patch correct.
 
 ==== M0.7 Explicit Human Disposition Subset
@@ -265,6 +272,36 @@ verification, approval alone, and session close never apply source.
 
 Policy evaluation performs no Change transition and no source mutation.
 
+==== M1.3 Target Specification Pack Authority
+
+. Normalize a requirement into a candidate Specification Pack.
+. Validate completeness, provenance, identity, version, and governing source
+  links using the approved future schema.
+. Require any configured human Specification/Plan approval before
+  implementation.
+. Bind proposal, evidence, policy, review, and disposition to the exact
+  approved digests.
+. Invalidate downstream authority when a requirement, Specification, or Plan
+  changes.
+
+The candidate `engineering/specs/` location and this authority chain remain
+future and decision-gated; no current runtime behavior implements them.
+
+==== Cross-Cutting Target Inspection, Presentation, and Operability
+
+. M1.1 exposes durable artifact inspection and recovers safely across local
+  concurrency and interruption.
+. M1.3 projects source-linked Specification/Change traceability while retaining
+  freshness and knowledge gaps.
+. M1.4 renders the exact review state, blocker, consequence, rework, and
+  available human action without creating a new authority.
+. M1.5 bounds cancellation, resources, credentials, network/process exposure,
+  and diagnostics for quality/security tool execution.
+
+These are acceptance concerns of approved milestones, not separate roadmap
+milestones. Their representation and operating boundaries remain subject to
+the owning milestone gates.
+
 === Scenario 5 — Memory Candidate Promotion
 
 [plantuml, "{plantUMLDir}dynamic-memory-promotion", png]
@@ -298,9 +335,9 @@ A human rejects a PR because the change violates a local convention not yet form
 
 Repeated, validated project-level knowledge may become a candidate for Organization Memory. Promotion is governed separately and may require a higher authority. Organization policies can flow downward to projects, with explicit project exceptions where allowed.
 
-=== Scenario 9 — M1.8 Composed Quality and Security Gate
+=== Scenario 9 — M1.5 Composed Quality and Security Gate
 
-. The runtime identifies applicable advanced quality/security capabilities and
+. The runtime identifies applicable current-run quality/security capabilities and
   prefers an approved existing integration when one is available.
 . Otherwise, mature policy may select an approved local/open-source capability
   fallback whose lower or different assurance is retained explicitly. This

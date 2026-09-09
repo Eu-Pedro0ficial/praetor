@@ -84,7 +84,7 @@ Examples:
 
 ### 5. Security validation
 Applicable configured checks are part of the governance path and should not be
-treated as optional after the fact. M1.8 matures broad quality/security
+treated as optional after the fact. M1.5 matures broad quality/security
 capability integration; M0.6 implements only the minimum V0 verification gate.
 
 Examples:
@@ -120,7 +120,10 @@ Every validation stage emits normalized evidence with:
 AI planning provenance and semantic findings remain separate
 non-deterministic evidence. Provider completion is not a test result.
 
-The governance layer decides the effect of evidence on workflow state. The validation tool does not silently decide acceptance. The mature first-class Policy Engine introduced post-V0 progressively owns generalized policy evaluation, while V0 uses minimal deterministic governance rules to control workflow consequences.
+The governance layer decides the effect of evidence on workflow state. The
+validation tool does not silently decide acceptance. The M1.0 first-class
+Policy Engine now owns generalized local policy evaluation, while the
+historical V0 gate used minimal deterministic governance rules.
 
 ## Gate semantics
 
@@ -148,7 +151,9 @@ The V0 validation set is intentionally minimal but sufficient:
 6. audit completeness
 7. proof that canonical source remains untouched until human decision
 
-This is enough to prove the core thesis without building a large validation platform prematurely. V0 relies on minimal deterministic governance rules; the mature first-class Policy Engine remains a post-V0 capability that progressively owns generalized policy evaluation.
+This was enough to prove the core thesis without building a large validation
+platform prematurely. V0 relied on minimal deterministic governance rules;
+M1.0 subsequently completed the first-class local Policy Engine.
 
 ## Validation anti-patterns to avoid
 
@@ -172,9 +177,9 @@ Validation evidence must be stored in a way that allows later inspection of:
 
 This supports replay, historical review, and operational learning.
 
-## M1.8 quality/security evidence direction
+## M1.5 quality/security verification foundation
 
-M1.8 extends the same evidence authority across replaceable quality/security
+M1.5 extends the same evidence authority across replaceable quality/security
 adapters. It may combine deterministic local checks, existing infrastructure
 or CI/service evidence, and AI semantic findings through the mature Policy
 Engine. Evidence must preserve capability source, availability, applicability,
@@ -191,6 +196,18 @@ A milestone progresses only when all are true:
 - failed validation prevents acceptance
 - the same evidence can be reopened from the audit history
 - human authority remains the final option through an explicit exception path
+
+Documentation closure also requires the normative traceability validator:
+
+```bash
+python3 scripts/validate_traceability.py
+python3 scripts/validate_traceability.py --self-test
+```
+
+Every changed requirement, first-class component/port, reference pipeline
+stage, quality capability, owner, lifecycle, or evidence link must be reflected
+in the canonical ledger. Roadmap prose and C4 lifecycle tags are reconciled
+views, not independent ownership matrices.
 
 ## Acceptance of validation as product capability
 

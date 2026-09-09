@@ -7,3 +7,20 @@
 *Decision:* Use AsciiDoc/arc42, PlantUML C4 views and docToolchain wrapper.
 
 *Consequences:* Docs-as-code, reproducible rendering, architecture drift can be reviewed in Git.
+
+=== Human-Approved Traceability Governance Addendum
+
+Roadmap V2 adopts
+`src/docs/arc42/appendices/traceability.adoc` as normative documentation. Every
+MUST requirement has exactly one primary milestone owner; every first-class
+component/port has lifecycle and ownership; every reference pipeline stage
+remains represented; and milestone closure updates implementation/validation
+references and reviews arc42/C4 lifecycle drift.
+
+New requirements require ownership or explicit approved deferral in the same
+documentation change. Removal requires explicit supersession authority.
+`scripts/validate_traceability.py` mechanically validates the canonical ledger,
+and inverse lookup must derive from that ledger rather than a duplicate matrix.
+
+This addendum extends documentation governance without changing the original
+choice of AsciiDoc, arc42, PlantUML/C4, or docToolchain.

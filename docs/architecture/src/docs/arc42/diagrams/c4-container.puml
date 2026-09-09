@@ -1,19 +1,23 @@
 @startuml
 !include <C4/C4_Container>
+AddElementTag("AS-IS", $bgColor="#2E7D32", $fontColor="#FFFFFF", $legendText="AS-IS")
+AddElementTag("PARTIAL", $bgColor="#B26A00", $fontColor="#FFFFFF", $legendText="PARTIAL")
+AddElementTag("TARGET", $bgColor="#2457A7", $fontColor="#FFFFFF", $legendText="TARGET")
+AddElementTag("DEFERRED", $bgColor="#6A5A78", $fontColor="#FFFFFF", $legendText="DEFERRED")
 LAYOUT_WITH_LEGEND()
 title C4 Level 2 — Container View
-Person(engineer, "Engineer")
+Person(engineer, "Engineer", $tags="AS-IS")
 System_Boundary(system, "Governed AI Software Engineering Runtime") {
-  Container(cli, "CLI", "Go", "Primary local interface; inbound adapter.")
-  Container(core, "Governance Core", "Go", "Change/workflow, policy, repository intelligence, routing, verification coordination, memory orchestration, audit.")
-  ContainerDb(index, "Local Memory Index", "SQLite + FTS (proposed)", "Derived query projection; not canonical Git storage.")
-  Container(sandbox, "Sandbox / Isolated Worktree", "Git worktree / source-workspace isolation", "Produces proposed patch without directly accepting source mutation; stronger sandboxing remains future work.")
+  Container(cli, "CLI", "Go", "Primary local interface; inbound adapter.", $tags="AS-IS")
+  Container(core, "Governance Core", "Go", "Implemented governance kernel plus target specification, review, knowledge, routing, memory, and quality responsibilities.", $tags="PARTIAL")
+  ContainerDb(index, "Local Memory Index", "Technology undecided", "Target derived query projection; never canonical memory.", $tags="TARGET")
+  Container(sandbox, "Isolated Proposal Worktree", "Git worktree", "Current source/workspace isolation; stronger containment requires the owning capability gate.", $tags="AS-IS")
 }
-System_Ext(ai, "AI Providers", "External/local model runtimes")
-System_Ext(src, "Source Repository / SCM", "Git + hosting")
-System_Ext(mem, "Project/Organization Memory Repository", "Separate Git repository")
-System_Ext(tools, "Deterministic Engineering Tools", "Tests, analyzers, scanners")
-System_Ext(idp, "Identity / Approval Sources", "Local/Git identity initially; enterprise later")
+System_Ext(ai, "AI Providers", "Current codex-cli adapter; additional providers are target", $tags="PARTIAL")
+System_Ext(src, "Source Repository / SCM", "Current local Git; remote SCM is target", $tags="PARTIAL")
+System_Ext(mem, "Project/Organization Memory Repository", "Target separate canonical repository; format benchmark required", $tags="TARGET")
+System_Ext(tools, "Deterministic Engineering Tools", "Current bounded tests; analyzer/scanner portfolio is target", $tags="PARTIAL")
+System_Ext(idp, "Identity / Approval Sources", "Local provenance exists; authenticated enterprise identity is target", $tags="PARTIAL")
 Rel(engineer, cli, "Runs commands / approves")
 Rel(cli, core, "Invokes use cases")
 Rel(core, index, "Builds/queries")

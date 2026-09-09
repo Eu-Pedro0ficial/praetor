@@ -9,9 +9,46 @@ Architecture documentation is part of the product and should evolve with impleme
 . TBD decisions remain marked until explicitly resolved.
 . Examples must not silently become contracts unless an ADR/spec declares them as such.
 . Source code and documentation should use the same domain vocabulary.
-. Every release milestone should review the arc42 sections for drift.
+. Every milestone closure must review arc42/C4 lifecycle state for drift.
 . Generated HTML/PDF output is a build artifact; the AsciiDoc/PlantUML source is canonical documentation.
+. The normative traceability ledger is
+  `traceability.adoc`; inverse views are derived rather than copied.
+. Every MUST requirement has exactly one primary owner; supporting owners are
+  allowed.
+. Every first-class component/port and reference pipeline stage remains
+  represented with lifecycle and ownership.
+. A milestone cannot become complete without stable implementation and
+  validation references in the ledger.
+. New requirements receive an owner or explicit approved deferral in the same
+  documentation change. Removal requires explicit supersession authority.
+. Traceability references use stable package, file, command, or test identifiers
+  rather than volatile line numbers.
+
+==== Architecture Lifecycle Vocabulary
+
+The architecture uses one coherent model rather than duplicated AS-IS and
+TARGET documents:
+
+* `AS-IS` — implemented capability matches the documented responsibility;
+* `PARTIAL` — an executable subset exists and its maturity milestone is named;
+* `TARGET` — approved future capability with an owner;
+* `DEFERRED` — implementation is not approved until a decision gate closes;
+* `SUPERSEDED` — retained only for historical traceability.
+
+Component descriptions record lifecycle, available-since milestone, maturity
+owner, decision gate, and stable implementation/validation evidence where
+applicable. Present-tense prose must not make a TARGET capability appear
+implemented.
 
 ==== docToolchain
 
 The project uses the docToolchain wrapper (`dtcw`) so contributors can generate documentation without committing a full tool distribution. HTML and PDF are generated from the same AsciiDoc source. PlantUML diagrams are rendered through Asciidoctor Diagram.
+
+The canonical closure checks are:
+
+[source,shell]
+----
+python3 scripts/validate_traceability.py
+cd docs/architecture
+./scripts/build-docs.sh
+----

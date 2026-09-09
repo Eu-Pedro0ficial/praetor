@@ -1,22 +1,26 @@
 @startuml
 !include <C4/C4_Deployment>
-title C4 Deployment — Local Developer Workstation
+AddElementTag("AS-IS", $bgColor="#2E7D32", $fontColor="#FFFFFF", $legendText="AS-IS")
+AddElementTag("PARTIAL", $bgColor="#B26A00", $fontColor="#FFFFFF", $legendText="PARTIAL")
+AddElementTag("TARGET", $bgColor="#2457A7", $fontColor="#FFFFFF", $legendText="TARGET")
+LAYOUT_WITH_LEGEND()
+title C4 Deployment — Local Developer Workstation [CURRENT + TARGET]
 Deployment_Node(dev, "Developer Workstation", "Linux/macOS/Windows") {
-  Container(cli, "Runtime CLI", "Go binary")
-  ContainerDb(index, "Memory Query Projection", "SQLite + FTS")
+  Container(cli, "Runtime CLI", "Go binary", $tags="AS-IS")
+  ContainerDb(index, "Memory Query Projection", "Technology undecided", $tags="TARGET")
   Deployment_Node(workspace, "Workspace") {
-    Container(srcLocal, "Source clone", "Git working copy")
-    Container(memLocal, "Memory clone", "Separate Git working copy")
+    Container(srcLocal, "Source clone", "Git working copy", $tags="AS-IS")
+    Container(memLocal, "Memory clone", "Separate canonical working copy", $tags="TARGET")
   }
   Deployment_Node(isolated, "Isolated Execution") {
-    Container(sandbox, "Agent Sandbox", "Git worktree/container")
+    Container(sandbox, "Isolated Proposal Worktree", "Git worktree; stronger containment is future", $tags="AS-IS")
   }
 }
 Deployment_Node(remote, "Remote / Enterprise Services") {
-  System_Ext(srcRemote, "Source SCM")
-  System_Ext(memRemote, "Memory Git Remote")
-  System_Ext(ai, "Allowed AI Provider(s)")
-  System_Ext(tools, "Optional remote CI/scanners")
+  System_Ext(srcRemote, "Source SCM", $tags="TARGET")
+  System_Ext(memRemote, "Memory Remote", $tags="TARGET")
+  System_Ext(ai, "Allowed AI Provider(s)", $tags="PARTIAL")
+  System_Ext(tools, "Optional remote CI/scanners", $tags="TARGET")
 }
 Rel(cli, index, "queries")
 Rel(cli, srcLocal, "reads/applies accepted changes")
