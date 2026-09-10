@@ -227,6 +227,27 @@ output. Direct/contextual help, `?`, and completion tests prove non-mutation.
 Real wide and narrow PTY inspection complements unit tests for border, prompt,
 readline, completion, persistence, reset, and existing-command behavior.
 
+==== M1.1 Target Durability Validation
+
+M1.1 acceptance must prove the ADR-033 through ADR-038 authority boundary with
+isolated XDG directories and temporary real Git repositories. Required suites
+cover artifact immutability/ownership/digests/relations/bindings; exact
+WorkflowSnapshot bytes and unsupported-schema behavior; WAL/FULL/foreign-key
+configuration; ExpectedRevision one-winner/one-stale concurrency; typed bounded
+busy outcomes; artifact/Change limits and free-space checks; all-or-none Change,
+artifact, operation and audit commits; independently readable verified backup;
+legacy audit migration idempotency/rollback/cutover; and fail-closed corruption
+diagnosis.
+
+Real process kill/restart tests interrupt every durable authority boundary and
+prove QS-019: reopening reveals the exact fully committed transition or no
+transition, never a partially committed success. Real Git saga fixtures prove
+PRE explicit retry, POST verified finalization, AMBIGUOUS human blocking,
+completed-result replay, and drift/corruption reporting. Project attach and
+inspection must remain read-only, bounded, and non-eager while surfacing
+incomplete operations and blockers. Governed repositories must remain free of
+runtime metadata.
+
 ==== M1.5 Quality and Security Verification Foundation
 
 M1.5 broadens replaceable evidence adapters for applicable SAST, SCA, secret,

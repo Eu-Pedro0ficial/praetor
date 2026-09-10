@@ -146,9 +146,9 @@ unchanged.
 - Internal slices: A artifact/change model and store; B workflow
   snapshot/recovery/migration; C inspection CLI and crash/restart E2E.
 - Dependencies: M1.0 and Core V0.
-- Decision gates: artifact identity/schema/store, workflow
-  snapshot/version/migration, crash consistency/recovery, and artifact/audit
-  transaction boundary.
+- Decision gates: closed by human approval and ADR-033 through ADR-038 after
+  the M1.1 evidence spike; exact implementation mechanics remain constrained
+  by those decisions.
 - Boundary: user-local XDG persistence; no runtime metadata in governed source;
   no distributed database.
 - Acceptance: a Change can be restarted, inspected, and resumed without
@@ -498,10 +498,9 @@ M0.0 -> M0.1 -> M0.2 -> M0.3 -> M0.4 -> M0.5 -> M0.6 -> M0.7 -> M0.8
 
 ## Architecture and benchmark gates
 
-Every gate is maintained in `OPEN_DECISIONS.md`. The immediate M1.1 gates are
-artifact identity/schema/store, workflow snapshot/version/migration,
-crash-consistency/recovery, and the artifact/audit transaction boundary.
-M1.1 implementation must not begin until those decisions are approved.
+Every gate is maintained in `OPEN_DECISIONS.md`. The M1.1 architecture gate is
+closed by ADR-033 through ADR-038 and human approval after the required spike.
+This decision closure does not itself implement M1.1.
 
 Later mandatory gates include the Project Memory serialization benchmark,
 semantic conflict evidence before semantic authority, quality assurance/tool
@@ -512,8 +511,8 @@ audit claims.
 ## Implementation sequence status
 
 M0.0 through M1.0 are implemented. M1.1 runtime implementation has not begun.
-Roadmap V2 documentation approval and reconciliation do not close any M1.1
-architecture gate.
+Its architecture authority is decided; its components remain `TARGET` or
+`PARTIAL` until implementation and validation evidence exist.
 
 ## Key decisions preserved
 

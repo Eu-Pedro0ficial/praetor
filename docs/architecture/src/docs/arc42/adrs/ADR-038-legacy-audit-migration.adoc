@@ -1,0 +1,78 @@
+== ADR-038: Legacy Audit Migration
+
+*Status:* DECIDED
+
+=== Context
+
+The accepted Core V0 audit writer stores append-oriented JSONL in the global
+XDG DATA `audit.log`. M1.1 moves active audit authority into each Project's
+SQLite database without erasing history, creating dual active writers, or
+silently accepting malformed legacy records.
+
+=== Decision
+
+Migration is explicit, locked, validated, idempotent, and rollback-safe. For
+every imported event it preserves EventId, timestamp, event type, ordering and
+legacy sequence, authorized raw JSON bytes, and the source-log digest. It never
+silently drops a malformed or incomplete event. Duplicate import is harmless,
+and any failed target import rolls back while the legacy source remains
+unchanged.
+
+Cross-project progress is inspectable through a migration manifest/high-water
+concept. All Project imports validate before the JSONL writer is retired.
+After success, the legacy `audit.log` is non-active historical migration
+evidence and not a competing writer. Removal awaits a future approved retention
+policy. This ADR intentionally does not prescribe the manifest's final physical
+schema.
+
+=== Alternatives Considered
+
+Rejected alternatives were best-effort import, deletion or rewrite of the
+legacy log, dual active writing, per-event loss on malformed input, non-atomic
+target import, opaque cross-project progress, and inventing a permanent
+manifest schema before implementation evidence requires it.
+
+=== Consequences
+
+Historical audit provenance survives the topology change and retries are safe.
+Migration must coordinate all registered Projects before writer retirement and
+retains an inactive legacy file until retention authority exists.
+
+=== Invariants
+
+* Migration never mutates the legacy source.
+* Imported ordering, identity, authorized bytes, and source digest are preserved.
+* A Project import is complete or rolled back.
+* The legacy writer is retired only after all Project imports validate.
+* No authoritative audit record is deleted under M1.1.
+
+=== Security Implications
+
+The migration locks and validates file type, permissions, and content before
+use. Target database and progress evidence inherit the restrictive per-user
+storage boundary. Preserving authorized raw JSON does not authorize new raw
+provider transcripts, prompts, credentials, secrets, or unbounded source.
+
+=== Migration and Compatibility
+
+This ADR is the compatibility bridge from the global JSONL writer to the
+per-Project SQLite AuditLedger. Future legacy-file removal or event retention
+requires separate authority; future schema migrations preserve the imported
+legacy provenance.
+
+=== Validation Evidence
+
+The disposable migration prototype preserved the required legacy fields and
+source digest, treated duplicate import as harmless, and rolled back the target
+on injected failure while leaving the source unchanged.
+
+=== Implementation Boundary
+
+This ADR does not implement migration, select a final migration-manifest table,
+choose an exact schema integer, delete `audit.log`, or alter the current writer.
+
+=== Reopen / Review Triggers
+
+Reopen if legacy records cannot be mapped without semantic loss, registered
+Projects cannot be assigned deterministically, writer retirement requires a
+different cutover, or retention/deletion authority is approved.

@@ -1,0 +1,144 @@
+== ADR-034: Per-Project SQLite Persistence and Atomic Authority Commit
+
+*Status:* DECIDED
+
+=== Context
+
+M1.1 needs local crash-consistent authority across Change snapshots, artifacts,
+bindings, operation outcomes, and audit events without an external service or
+runtime files in governed source. The store must support ordinary local
+concurrency, bounded artifacts, verified backup, and fail-closed corruption
+handling.
+
+=== Decision
+
+Praetor uses one embedded SQLite database per Project under XDG DATA:
+
+[source,text]
+----
+$XDG_DATA_HOME/praetor/
+  project-registry.json
+  projects/<validated ProjectId>/change-store.sqlite3
+----
+
+There is no process-global database, external database/service, or persistence
+inside governed source. The initial driver is `modernc.org/sqlite` v1.58.0,
+which embedded SQLite 3.53.4 in the approved spike. Its exact compatible module
+graph is pinned through Go module resolution, upgrades are validated, SQLite
+correctness/security updates are tracked, and driver details remain inside the
+persistence adapter. `github.com/mattn/go-sqlite3` remains a possible future
+alternative only if Praetor adopts CGO-oriented distribution.
+
+SQLite 3.53.4 is the tested initial boundary, not an eternal exact-version
+requirement; compatible security and correctness upgrades remain possible only
+after validation against the relied-upon behavior.
+
+Every opened store requires and verifies:
+
+* `PRAGMA foreign_keys = ON`;
+* `PRAGMA journal_mode = WAL`, with no silent journal fallback;
+* `PRAGMA synchronous = FULL`;
+* `PRAGMA busy_timeout = 5000`.
+
+Connection-scoped settings are applied and verified on every relevant
+connection. Writes use short transactions; no transaction spans provider,
+tool, or Git execution. Bounded `SQLITE_BUSY` becomes a typed retryable or
+conflict result. The database requires an approved local filesystem with
+SQLite-compatible locking semantics.
+
+`ChangeStore`, `ArtifactStore`, and `AuditLedger` are distinct logical
+application responsibilities backed by one physical per-Project transactional
+SQLite adapter. A narrow application-owned atomic authority commit, named
+conceptually `DurableChangeCommitter`, checks the expected Change revision and
+commits the candidate snapshot/revision, new artifacts and relations, Change
+bindings, operation result/state, and required audit events as one all-or-none
+transaction. It is not a generic unit-of-work callback, `Repository<T>`, ORM,
+SQL-leaking abstraction, or God Store. Change is not reconstructed exclusively
+through event sourcing.
+
+M1.1 stores artifact payloads as SQLite BLOBs. The normal expected size is at
+most 1 MiB; artifacts above 10 MiB require the explicit large-artifact path and
+warning; the hard per-artifact limit is 50 MiB; and one Change may hold at most
+100 MiB in aggregate. Known violations are rejected before write. Project quota
+is byte-accounted, configurable, and free-space-aware; this decision does not
+set a universal value. Backup and migration space are checked before
+consequential operations.
+
+Ordinary backups may use the SQLite Online Backup API. A destructive
+persistence migration requires a verified backup, maintenance/exclusive
+semantics where necessary, independent readability and application-invariant
+checks, safe publication, and restrictive permissions. Raw copying active
+`.sqlite`, `-wal`, or `-shm` files is not a supported backup contract.
+
+Corruption handling is `FAIL CLOSED + DIAGNOSE + PRESERVE EVIDENCE`.
+Validation includes, as relevant, store-schema compatibility,
+`foreign_key_check`, SQLite integrity, content and immutable-record digests,
+required relations and bindings, WorkflowSnapshot identity, and operation /
+recovery coherence. No destructive automatic repair is allowed; irreparable
+canonical corruption requires a verified restore or human intervention.
+
+=== Alternatives Considered
+
+Rejected alternatives were a global database, one database per logical store,
+an external service, repository-local state, event sourcing as the sole Change
+authority, filesystem blobs for M1.1, `synchronous=NORMAL`, silent WAL fallback,
+generic transaction frameworks, ORM adoption, and raw live-file backup.
+
+=== Consequences
+
+One database supplies an atomic local authority boundary and simple deployment.
+`modernc` has materially greater module-cache/build footprint than `mattn`, and
+`FULL` is materially slower than `NORMAL`, but both costs are accepted for the
+initial CGO-free durability boundary. Large BLOBs require explicit memory and
+space discipline.
+
+=== Invariants
+
+* There is exactly one active authority database per registered Project.
+* A required authoritative transition is wholly committed or wholly absent.
+* Logical stores do not become independent physical authorities.
+* No DB transaction remains open across an external effect.
+* Known hard artifact and Change bounds are enforced before write.
+* Backup and corruption handling never fabricate or silently repair authority.
+
+=== Security Implications
+
+Project directories and database/backup files use restrictive user-only
+permissions. Praetor rejects unexpected symlinks and file types, validates the
+ADR-027 ProjectId before path construction, and never uses ChangeId or
+ArtifactId as path segments. Network filesystems are unapproved. This protects
+against accidental/path-based misuse and cross-project confusion, not root,
+developer-account compromise, or an arbitrary hostile same-user process.
+
+=== Migration and Compatibility
+
+Persistence-schema migration is distinct from workflow migration. Compatible
+SQLite/driver upgrades require the same invariant and recovery suite. A
+destructive schema migration cannot proceed without its verified backup. Exact
+tables and schema-version integers remain implementation details.
+
+=== Validation Evidence
+
+The disposable spike ran its full suite with `modernc.org/sqlite` v1.58.0 and
+SQLite 3.53.4. WAL plus FULL allowed a concurrent reader/writer; FULL was
+materially slower than NORMAL and was accepted. SIGKILL before COMMIT exposed
+no partial authoritative transaction. Online Backup and `VACUUM INTO` produced
+independently valid snapshots. A 100 MiB BLOB worked technically but showed
+unacceptable normal-operation memory amplification, supporting the 50 MiB hard
+artifact limit.
+
+=== Implementation Boundary
+
+This ADR authorizes the later M1.1 adapter dependency and constrains its
+behavior. It does not add that dependency now, choose exact SQL, implement a
+quota default, or implement any runtime code.
+
+=== Reopen / Review Triggers
+
+Reopen if modernc cost becomes operationally unacceptable, platform support or
+required SQLite behavior fails, deployment requirements become CGO-oriented,
+normal workloads repeatedly exceed 10 MiB or legitimately exceed 50 MiB,
+project databases routinely become multi-gigabyte, memory/backup/checkpoint
+cost is unacceptable, streaming is required, or a remote/shared Change store
+is approved. Hybrid SQLite metadata plus content-addressed filesystem blobs is
+only a future reopen option.

@@ -1,0 +1,82 @@
+== ADR-035: Exact Workflow Snapshot and Compatibility
+
+*Status:* DECIDED
+
+=== Context
+
+ADR-019 selects declarative versioned YAML, but a durable Change must retain
+the exact workflow authority under which it began. Reloading a current file or
+normalizing parsed YAML would permit silent authority substitution.
+
+=== Decision
+
+Every Change binds an immutable `WorkflowSnapshot` containing `WorkflowId`,
+`WorkflowVersion`, `WorkflowDigest`, workflow schema version, and the exact
+authoritative YAML bytes. `WorkflowDigest` is SHA-256 over those exact bytes;
+it is integrity identity, not a signature or non-repudiation claim. The same
+WorkflowId and WorkflowVersion with a different digest is a conflict. Parsed or
+normalized workflow data is derived representation only.
+
+M1.1 loads only embedded, schema-validated Core V0 workflow YAML. This proves
+ADR-019 representation, snapshotting, persistence, reload, and compatibility
+without introducing project-authored files, path discovery, arbitrary Change
+overrides, project-workflow precedence, or a workflow-authoring surface. A
+future governed workflow source may produce the same snapshot contract only
+after its own decision.
+
+Praetor never automatically migrates an in-flight Change to a different
+workflow. Persistence-schema migration, workflow-definition-schema migration,
+and in-flight Change workflow migration are separate concerns. Existing
+Changes stay bound to their exact original bytes. An unsupported old workflow
+schema remains inspectable as bytes and metadata but cannot advance or fall
+back to a current definition. Future human-authorized rebinding requires a
+separate architecture decision.
+
+=== Alternatives Considered
+
+Rejected alternatives were current-definition reload, digesting normalized
+YAML, silent same-version replacement, automatic in-flight migration, fallback
+to the newest workflow, and premature project-authored workflow configuration.
+
+=== Consequences
+
+Recovery is reproducible and workflow drift cannot silently alter authority.
+Exact bytes consume modest durable space, and unsupported old schemas may leave
+a Change inspectable but blocked until an approved compatibility path exists.
+
+=== Invariants
+
+* A Change advances only under its exact committed WorkflowSnapshot.
+* Workflow identity/version reuse with different bytes is a conflict.
+* Normalized parsing never replaces the authoritative bytes or digest.
+* Unsupported workflow schemas remain inspectable and cannot advance.
+
+=== Security Implications
+
+Exact-byte validation prevents configuration substitution from silently
+granting transitions. SHA-256 supplies integrity comparison only and makes no
+authenticity, signing, or non-repudiation claim.
+
+=== Migration and Compatibility
+
+Schema evolution must identify which of the three migration classes it affects.
+M1.1 performs no automatic in-flight workflow migration. Project-authored
+workflow sources and rebinding remain future decisions.
+
+=== Validation Evidence
+
+The disposable spike changed the source workflow definition after a Change was
+recorded and demonstrated that persisted exact bytes and their digest remained
+stable and recoverable.
+
+=== Implementation Boundary
+
+This ADR does not choose an authoring UI, project path, override precedence,
+future schema migration algorithm, or Go/YAML adapter structure. Runtime remains
+`TARGET`.
+
+=== Reopen / Review Triggers
+
+Reopen for project-authored workflows, workflow precedence, a required
+human-authorized rebinding flow, an integrity algorithm change, or evidence that
+exact-byte snapshots cannot represent approved workflow authority.

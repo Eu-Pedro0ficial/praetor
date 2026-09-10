@@ -33,12 +33,18 @@
 |R-028 |Engineering knowledge projection becomes a competing authority |Contradictory requirements or decisions |source-linked rebuildable views, explicit freshness, and no canonical promotion by inference
 |R-029 |Governance presentation shows an action or outcome more strongly than its authority |Accidental approval or false confidence |render exact authority and blockers; presentation never manufactures evidence or decisions
 |R-030 |Runtime failure handling overstates worktree isolation or hides partial failure |Security exposure or false completion |M1.1 recovery evidence, M1.5 bounded-tool boundaries, and truthful failure state
+|R-031 |Change, artifact and audit stores diverge into competing authorities |Unreconstructible or contradictory Change state |One physical per-Project transaction adapter with logically separated responsibilities and typed atomic authority commit
+|R-032 |Unknown external completion is replayed automatically |Duplicate or unsafe canonical/provider/tool effect |Durable operation reservation, immutable request digest, exact postcondition classification and human handling for ambiguity
+|R-033 |SQLite artifact payloads amplify memory or exhaust local storage |Runtime failure or unusable backup/migration |1/10/50 MiB artifact policy, 100 MiB Change bound, configurable free-space-aware project quota and hybrid-storage reopen trigger
+|R-034 |Corruption or migration silently rewrites authority |Loss of provenance or false successful state |Fail closed, preserve evidence, verified backup, application invariants and idempotent rollback-safe legacy audit migration
 |===
 
 === Known Architectural Debt at Baseline
 
-With implementation complete through M1.0, the principal remaining
-debt is **decision debt**, not an unimplemented V0 loop. Canonical application
+With implementation complete through M1.0, the principal remaining debt is
+**future-gate and implementation debt**, not an unimplemented V0 loop. M1.1
+durability decisions are closed, but their runtime is not implemented.
+Canonical application
 is deliberately local and working-tree-only. Its adapter lock coordinates one
 process; concurrent external Git writers are detected by repeated preflight or
 post-application proof but are not claimed to be prevented by a repository-wide

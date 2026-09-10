@@ -53,7 +53,7 @@ application model.
 
 ==== Workflow Engine
 
-The Workflow Engine is the orchestration authority. It evaluates the current Change state, workflow definition, policies, approvals and generated artifacts to determine which operations are allowed.
+The Workflow Engine is the orchestration authority. It evaluates the current Change state, exact bound WorkflowSnapshot, policies, approvals and generated artifacts to determine which operations are allowed. M1.1 retains the original embedded Core V0 YAML bytes, identity, version, schema version, and digest; it never substitutes a current definition or automatically migrates an in-flight Change.
 
 It MUST NOT encode provider-specific behavior. It coordinates ports such as Agent Execution, Repository, Verification, Memory, Audit and Approval.
 
@@ -75,6 +75,26 @@ The Change aggregate preserves intent and state. Candidate concepts include:
 * Approval
 * Exception
 * Postmortem
+
+ADR-033 fixes durable identity as `(ProjectId, ChangeId)` and leaves the
+accepted state machine unchanged. M1.1 target persistence adds immutable
+versioned Artifact records, immutable relations, append-only supersession, and
+versioned current bindings. ArtifactId is opaque and independent from payload
+digest; every M1.1 artifact belongs to exactly one Project and Change.
+
+==== Durable Change Persistence
+
+M1.1's logical ChangeStore, ArtifactStore, and AuditLedger responsibilities are
+backed by one physical per-Project SQLite adapter under XDG DATA. A narrow typed
+authority commit atomically checks ExpectedRevision and writes the Change
+revision, artifact records/relations/bindings, operation outcome, and audit
+events. External effects never run inside that transaction. These components
+remain `TARGET`/`PARTIAL` until runtime evidence exists.
+
+Read-only application use cases expose bounded durable Change, workflow,
+artifact, audit, and recovery diagnosis without automatically migrating,
+repairing, or advancing authority. Approval Port maturity remains M1.4;
+M1.1 persists references to existing HumanDecision artifacts only.
 
 ==== Specification Engine
 
@@ -263,7 +283,13 @@ include::../diagrams/c4-memory-components.puml[]
 
 ==== Audit Ledger
 
-Receives append-oriented events for commands, runs, inputs, outputs, model/provider identity, hashes, state transitions, approvals, memory promotions, policy outcomes and exceptions.
+Receives append-oriented events for commands, runs, bounded governed output
+references/provenance, model/provider identity, hashes, state transitions,
+approvals, memory promotions, policy outcomes and exceptions. It is logically
+separate from Change and Artifact stores while sharing the one M1.1 physical
+transactional adapter. It is not canonical artifact storage and excludes raw
+provider conversations/streams, arbitrary prompts, credentials, secrets, and
+unbounded repository bodies.
 
 ==== Approval Gate
 
@@ -309,7 +335,7 @@ The initial architectural port catalog includes:
 |Test Runner Port |Run selected tests and return structured outcomes
 |Security Scanner Port |Run SAST/dependency/container checks
 |Secret Scanner Port |Prevent secrets from entering source/memory artifacts
-|Artifact Store Port |Persist change artifacts and evidence
+|Artifact Store Port |Persist immutable project-and-Change-scoped artifact records, payloads, relations, supersession and versioned bindings
 |Memory Store Port |Read/write canonical memory records through governed operations
 |Memory Index Port |Query local projections and full-text index
 |Embedding Port |Optional semantic indexing/retrieval

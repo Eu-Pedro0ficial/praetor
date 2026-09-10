@@ -59,12 +59,14 @@ without provider conversation state.
 
 **Dependencies:** M1.0 and the completed Core V0 loop.
 
-**Requirements:** Primary FR-005, FR-037, NFR-004, and NFR-007. Supports
-FR-038, FR-045, NFR-003, NFR-008, and QS-011.
+**Requirements:** Primary FR-005, FR-037, NFR-004, NFR-007, and QS-019.
+Supports FR-038, FR-045, NFR-003, NFR-008, and QS-011.
 
 **Components, artifacts, and ports:** Change Domain, Workflow Engine, Artifact
-Store Port, Audit Ledger, Approval Port, durable Change record,
-ArtifactReference, artifact identity/version/digest, and WorkflowSnapshot.
+Store Port, Audit Ledger, durable Change record, ArtifactReference, artifact
+identity/version/digest, WorkflowSnapshot, and durable references to existing
+HumanDecision artifacts. Approval Port maturity and approval/review/exception
+authority remain owned by M1.4.
 
 **Boundaries and non-goals:** Persistence is user-local XDG data and never
 runtime metadata in governed source. No distributed database, hosted service,
@@ -86,10 +88,11 @@ chat history. Corrupt, partial, mismatched, or unsupported data fails clearly
 and safely. Traceability rows gain stable implementation and validation
 references.
 
-**Decision and spike gates:** Artifact identity/schema/store; workflow
-snapshot/version/migration; crash consistency/recovery; local concurrency and
-locking; artifact/audit transaction boundary; fault-injection comparison of
-the candidate local store.
+**Decision and spike gates:** Closed by human approval after the disposable
+evidence spike. ADR-033 through ADR-038 govern artifact/Change authority,
+per-Project SQLite and atomic commits, exact workflow snapshots, local
+concurrency/idempotency/recovery, external-effect coordination, and legacy
+audit migration. Exact implementation mechanics remain bounded by those ADRs.
 
 **Downstream capabilities:** Every later Roadmap V2 milestone.
 

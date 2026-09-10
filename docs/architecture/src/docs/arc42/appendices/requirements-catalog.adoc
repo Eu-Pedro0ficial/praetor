@@ -41,7 +41,7 @@
 |FR-034 |Retrieve memory structurally by path/symbol/domain/dependency before optional semantic retrieval |Should
 |FR-035 |Promote validated Project Memory to Organization Memory through governed workflow |Should
 |FR-036 |Distribute organization policies/knowledge to projects with explicit exceptions where allowed |Should
-|FR-037 |Audit commands, actors, runs, providers, models, source commits, memory snapshots and outputs |Must
+|FR-037 |Audit commands, actors, runs, providers, models, source commits, memory snapshots, governed output artifacts/references, and bounded execution provenance; exclude raw conversations/streams/transcripts, arbitrary prompts, credentials, secrets, and unbounded repository bodies |Must
 |FR-038 |Use append-oriented correction rather than destructive audit history mutation |Must
 |FR-039 |Allow memory records to be superseded/deprecated/disputed/rejected/stale |Must
 |FR-040 |Report explicit knowledge gaps |Must

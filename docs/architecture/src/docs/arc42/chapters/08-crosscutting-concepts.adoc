@@ -25,6 +25,27 @@ Hash/fingerprint candidates include prompt/spec hash, workflow hash, policy hash
 
 Audit is append-oriented. Correction is represented by a later event, not deletion of history. Exact cryptographic immutability is DEFERRED, but the model must permit signed commits/event signatures later.
 
+M1.1 moves active audit authority from global XDG DATA JSONL into the one
+per-Project SQLite adapter through the explicit idempotent ADR-038 migration.
+Audit records governed artifact references and bounded execution provenance,
+not raw provider conversations/streams, arbitrary prompts, credentials,
+secrets, or unbounded repository bodies.
+
+=== M1.1 Durable Authority and Local Persistence
+
+Durable Change identity is `(ProjectId, ChangeId)`. Artifacts use opaque
+generated identities independent from content digests, immutable versions and
+relations, append-only supersession, and versioned Change bindings. The exact
+WorkflowSnapshot bytes and digest remain authoritative for the lifetime of the
+Change; recovery never substitutes the current workflow.
+
+Logical ChangeStore, ArtifactStore, and AuditLedger responsibilities share one
+per-Project SQLite transaction boundary under XDG DATA. ExpectedRevision and a
+scoped OperationId/RequestDigest prevent stale or changed retries. External
+effects remain sagas outside database transactions; canonical Git mutation adds
+a short XDG STATE OS lock and exact PRE/POST proof. Recovery is explicit,
+audited, and orthogonal to ChangeState.
+
 === Architecture Decision Closure
 
 A decision marked DEFERRED or BENCHMARK/SPIKE REQUIRED MUST NOT be silently resolved by an implementation task or AI agent.
@@ -186,3 +207,8 @@ Telemetry must not leak source, secrets, prompts or memory beyond configured dat
 === Error Handling
 
 Failures are explicit domain outcomes when meaningful. Provider timeout, invalid structured output, sandbox failure, analyzer failure and policy violation are different categories and should not collapse into generic “agent failed.” Retry policy must be role/tool aware and never repeat consequential operations without idempotency safeguards.
+
+M1.1 additionally distinguishes stale revision, bounded busy/conflict,
+incomplete operation, uncertain external effect, source divergence, artifact
+corruption/missing data, and incompatible store. Attach and inspection diagnose
+these conditions but never repair or advance authority implicitly.

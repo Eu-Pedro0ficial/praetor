@@ -149,7 +149,8 @@ acceptance, while `REVIEW` remains unsatisfied until M1.4.
 `policy show`, `policy list`, `policy evaluate`, and `policy exception` expose
 bounded inspection. Exceptions are auditable candidates only and never grant,
 consume, or bypass policy. Runtime audit and locks remain under existing XDG
-boundaries. M1.1 runtime implementation has not started.
+boundaries. ADR-033 through ADR-038 decide the M1.1 durability architecture;
+M1.1 runtime implementation has not started.
 
 Approved Phase 1 begins with the completed M1.0 Policy Engine. Its future
 sequence is M1.1 durable Change/artifact foundation, M1.2 repository

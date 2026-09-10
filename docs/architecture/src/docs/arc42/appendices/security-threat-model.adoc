@@ -57,6 +57,9 @@ Primary assets include:
 |Sensitive memory retention |Secrets/incidents become durable |secret/PII scan, classification, redaction, retention policy
 |Terminal escape injection |Repository or status text contains controls or ANSI escapes |Neutralize invalid UTF-8/control characters, truncate by grapheme display width, and emit ANSI only from a fixed palette
 |Presentation preference tampering |Malformed, oversized, linked, or broadly readable user config alters rendering |Bounded strict parsing, safe defaults/failure, link and permission checks, private atomic writes, and no governance authority
+|Cross-Project durable-state confusion |Unvalidated identifiers select another Project's store or filesystem object |One validated ProjectId directory under XDG DATA/STATE; ChangeId and ArtifactId never become paths; exact Project/Change ownership checks
+|Local store corruption or partial authority |Crash, bad relation, digest mismatch, or incompatible schema appears valid |Atomic authority commit, integrity/application checks, fail closed, diagnose, preserve evidence, and restore only from verified backup or explicit human action
+|Unknown external effect replay |A crash hides whether Git/provider/tool execution completed |Durable reservation and request digest, exact adapter-specific PRE/POST/AMBIG evidence, no automatic replay of uncertain effects
 |===
 
 ==== Prompt Injection Posture
@@ -191,6 +194,29 @@ bounded linkage and sanitized failures, never raw patch/source, prompts,
 credentials, arbitrary environment, provider output, or workspace paths.
 `REJECT` uses a non-application closure path and requires canonical source to
 remain unchanged.
+
+==== M1.1 Local Durable Storage and Recovery Boundary
+
+The decided target uses one per-Project SQLite database beneath XDG DATA and a
+short Project-scoped mutation lock beneath XDG STATE. Project directories,
+database, backup, lock, and migration evidence use restrictive user-only
+permissions; unexpected symlinks/file types and unvalidated ProjectIds are
+rejected. ChangeId and ArtifactId never form paths. SQLite requires a tested
+local filesystem; network filesystems remain unapproved.
+
+Required WAL/FULL/foreign-key/busy settings are applied and verified. Corruption
+checks extend beyond SQLite integrity to schema version, foreign keys, artifact
+and immutable-record digests, required relations/bindings, WorkflowSnapshot,
+and operation/recovery coherence. Failure closes authority access and preserves
+evidence; there is no destructive automatic repair.
+
+Inspection is bounded and read-only. Audit/operation results retain governed
+references and minimal structured provenance rather than raw provider
+conversations/streams, arbitrary prompts, credentials, secrets, or unbounded
+source bodies. These controls protect against path misuse, accidental
+cross-project confusion, and cooperating Praetor-process races; they do not
+claim resistance to root, a compromised developer account, or an arbitrary
+hostile same-user process.
 
 ==== M1.5 External Quality/Security Tool Boundary
 

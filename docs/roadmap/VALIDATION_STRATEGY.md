@@ -177,6 +177,21 @@ Validation evidence must be stored in a way that allows later inspection of:
 
 This supports replay, historical review, and operational learning.
 
+## M1.1 durability and recovery validation
+
+M1.1 must exercise ADR-033 through ADR-038 with isolated XDG directories and
+temporary real Git repositories. Contract/integration suites cover immutable
+artifact ownership and bindings, exact WorkflowSnapshots, required SQLite
+configuration, ExpectedRevision concurrency, all-or-none authority commits,
+bounded BLOB/quota handling, independently valid backup, corruption diagnosis,
+read-only inspection, and idempotent rollback-safe legacy audit migration.
+
+A real crash/kill/restart matrix interrupts every durable authority boundary
+and proves QS-019: restart reveals either the exact complete transition or no
+transition. External-effect tests separately prove Git PRE, POST, and AMBIGUOUS
+classification, never automatic replay of uncertain completion. Validation
+also proves no runtime metadata enters governed repositories.
+
 ## M1.5 quality/security verification foundation
 
 M1.5 extends the same evidence authority across replaceable quality/security

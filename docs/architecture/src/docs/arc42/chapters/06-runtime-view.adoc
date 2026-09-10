@@ -272,6 +272,29 @@ verification, approval alone, and session close never apply source.
 
 Policy evaluation performs no Change transition and no source mutation.
 
+==== M1.1 Target Durable Authority and Recovery
+
+. Project attach validates the per-Project SQLite store's metadata,
+  compatibility, required pragmas, and indexed incomplete operations without
+  eagerly hashing every artifact or mutating authority.
+. Change creation binds `(ProjectId, ChangeId)` to the exact embedded Core V0
+  WorkflowSnapshot bytes, identity/version/schema, and digest.
+. Each authoritative transition supplies ExpectedRevision and atomically
+  commits the new Change revision, immutable artifacts/relations, versioned
+  bindings, operation result, and required audit events, or commits none.
+. Read-only inspection reconstructs exact Change/workflow/artifact/audit
+  authority and reports recovery blockers without migration or repair.
+. A consequential external operation commits its durable reservation before
+  the effect. Canonical Git mutation then takes a short Project lock under XDG
+  STATE, revalidates PRE, applies once, validates POST, and records completion
+  while exclusion remains held.
+. After interruption, explicit recovery classifies PRE, POST, AMBIGUOUS,
+  divergence, corruption, or incompatibility. It never automatically repeats
+  an unknown external effect or invents a successful Change transition.
+
+These are decided target semantics under ADR-033 through ADR-038; no M1.1
+runtime behavior is implemented by this documentation.
+
 ==== M1.3 Target Specification Pack Authority
 
 . Normalize a requirement into a candidate Specification Pack.
@@ -290,7 +313,7 @@ future and decision-gated; no current runtime behavior implements them.
 ==== Cross-Cutting Target Inspection, Presentation, and Operability
 
 . M1.1 exposes durable artifact inspection and recovers safely across local
-  concurrency and interruption.
+  concurrency and interruption under ADR-033 through ADR-037.
 . M1.3 projects source-linked Specification/Change traceability while retaining
   freshness and knowledge gaps.
 . M1.4 renders the exact review state, blocker, consequence, rework, and

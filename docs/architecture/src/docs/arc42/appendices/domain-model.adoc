@@ -216,6 +216,35 @@ dirty SourceSnapshot digest, and completion time/result digest before
 canonical source unchanged. Both terminal paths then clean the session-owned
 workspace.
 
+===== M1.1 Target Durable Authority
+
+ADR-033 preserves the existing state machine and identifies a durable Change
+by `(ProjectId, ChangeId)`, with opaque project-scoped ChangeId. Recovery
+conditions are not Change states.
+
+An M1.1 `Artifact` has an opaque generated ArtifactId independent from its
+ContentDigest and belongs to exactly one Project and Change. Its versioned
+envelope/payload and parent/dependency relations are immutable. A modification
+creates another Artifact; supersession is append-only; and a committed Change
+revision advances exact role bindings. Existence, integrity, schema validity,
+binding, disposition, freshness, supersession, and availability remain
+separate dimensions. Specification/ChangePlan authority semantics remain M1.3.
+
+`WorkflowSnapshot` authority contains WorkflowId, WorkflowVersion,
+WorkflowDigest, workflow schema version, and exact embedded Core V0 YAML bytes.
+The digest is SHA-256 over exact bytes. Parsed workflow models are derived;
+same identity/version with a different digest conflicts; unsupported old schema
+remains inspectable and cannot advance. There is no automatic in-flight
+workflow migration.
+
+`ExpectedRevision` guards each durable Change successor. Consequential work
+uses a Project-unique opaque OperationId bound to immutable RequestDigest and,
+for Change operations, ChangeId. Orthogonal recovery conditions describe
+incomplete/uncertain effects, source divergence, corruption, or incompatibility
+without altering ChangeState. The one per-Project SQLite adapter supplies
+logical ChangeStore, ArtifactStore, and AuditLedger responsibilities plus a
+typed all-or-none authority commit.
+
 Potential value objects/entities:
 
 [cols="1,3",options="header"]
@@ -226,7 +255,10 @@ Potential value objects/entities:
 |ChangeIntent |Normalized human/issue intent and acceptance objective
 |SourceSnapshot |Project association + repository root and deterministic source-state reference used as input
 |MemorySnapshot |Stable reference/fingerprint of relevant canonical memory state
-|WorkflowSnapshot |Workflow identity/version/hash
+|WorkflowSnapshot |Exact workflow identity/version/schema version/YAML bytes and SHA-256 digest
+|Artifact |Immutable versioned Project/Change-scoped payload envelope with opaque identity and content digest
+|ArtifactBinding |Versioned Change-revision binding from an artifact role to an exact artifact revision
+|Operation |Scoped consequential-operation reservation, request digest, bounded outcome and recovery linkage
 |PolicySnapshot |Applicable policy set identity/version/hash
 |RiskProfile |Data/operational/architecture/security risk classification
 |ChangeSurface |Expected/possible/protected/actual source scope

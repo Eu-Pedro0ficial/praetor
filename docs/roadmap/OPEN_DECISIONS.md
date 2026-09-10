@@ -36,8 +36,8 @@ Status: `DECIDED`
 Workflow definitions use declarative, versioned YAML with schema validation.
 The domain model remains representation-independent. A custom workflow DSL
 requires demonstrated limitations and an approved ADR. ADR-019 records this
-decision. M1.1 still must decide snapshot, persistence, migration, and recovery
-semantics.
+decision, and ADR-035 records the exact M1.1 snapshot and compatibility
+semantics. Project-authored workflow sources remain a future gate.
 
 ### Policy representation
 
@@ -112,25 +112,39 @@ key management, and non-repudiation claims remain gated for M5.3.
 
 ### OPEN-M1.1-PERSISTENCE — Durable Change and artifact authority
 
-Status: `OPEN — DECISION REQUIRED BEFORE M1.1 IMPLEMENTATION`
+Status: `CLOSED — HUMAN APPROVED`
 
-M1.1 must decide:
+The gate is retained as decision history. ADR-033 through ADR-038 decide:
 
-- artifact identity, schema, versioning, digest, and reference graph;
-- the local Artifact Store and durable Change representation;
-- declarative workflow loading plus immutable workflow snapshot identity;
-- workflow-version migration and re-evaluation rules;
-- crash consistency, partial-write detection, corruption, recovery, and store
-  migration behavior;
-- local concurrency, locking, cancellation, and interrupted-operation recovery;
-- artifact/audit ordering and transaction boundary;
-- source-linked artifact inspection/read-model freshness and rebuild semantics;
-- large/binary artifact reference and retention behavior;
-- XDG DATA/STATE/CACHE placement.
+- project-scoped durable Change identity, immutable versioned artifacts,
+  append-only supersession/current bindings, and bounded read-only inspection;
+- one per-Project SQLite authority store under XDG DATA, the initial
+  `modernc.org/sqlite` v1.58.0 driver, WAL/FULL settings, bounded BLOBs,
+  verified backup, corruption handling, and a typed atomic authority commit;
+- exact immutable embedded Core V0 WorkflowSnapshots and no automatic
+  in-flight workflow migration;
+- ExpectedRevision concurrency, scoped OperationId idempotency, orthogonal
+  recovery conditions, and explicit audited recovery;
+- durable reservation plus a short XDG STATE OS lock and exact PRE/POST saga
+  semantics for canonical Git mutation; and
+- explicit idempotent migration from global JSONL audit into per-Project
+  SQLite audit authority.
 
-Required evidence: candidate comparison, failure-injection prototype, recovery
-matrix, multi-process behavior, migration example, threat review, ADR, and
-human approval. Do not begin M1.1 runtime implementation before closure.
+The human-approved evidence was a disposable candidate/failure-injection spike:
+`modernc.org/sqlite` v1.58.0 with SQLite 3.53.4 passed the full suite; WAL/FULL
+reader/writer, real SIGKILL-before-COMMIT, one-winner/one-stale revision,
+bounded-BLOB, independently valid backup, rollback-safe/idempotent audit
+migration, exact workflow-byte recovery, and real-Git PRE/POST/AMBIG scenarios
+were exercised. FULL's measured cost and modernc's dependency footprint were
+accepted for the initial durability boundary.
+
+Reopen under the triggers in ADR-033 through ADR-038, including a materially
+unacceptable driver/platform cost, workload thresholds requiring hybrid blob
+storage, project-authored workflows/rebinding, retention/deletion authority,
+remote/shared storage, distributed coordination, or inadequate external-effect
+postconditions. Exact SQL tables, migration sequence integer, private Go helper
+organization, final CLI spelling, a universal project quota default, and future
+platform performance tuning are implementation details rather than blockers.
 
 ### OPEN-M1.2-REPOSITORY-MODEL — Repository intelligence and risk model
 

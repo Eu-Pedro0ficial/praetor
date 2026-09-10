@@ -1,0 +1,86 @@
+== ADR-036: Local Concurrency, Idempotency, and Recovery
+
+*Status:* DECIDED
+
+=== Context
+
+Multiple local processes and crashes must not turn stale work, retries, or
+incomplete external operations into a fabricated successful Change transition.
+Recovery must remain operational and inspectable without changing domain state.
+
+=== Decision
+
+SQLite writes use short transactions and `ExpectedRevision` optimistic Change
+concurrency while allowing concurrent readers. Exactly one writer can commit
+from a given revision; another receives a semantic stale-writer conflict.
+Consequential durable/external operations first receive durable reservations.
+Praetor holds no database lock across provider, tool, or Git execution and adds
+no distributed lock, expiring lease, or project-wide long-lived transaction.
+
+Each consequential operation has an opaque Praetor-owned `OperationId` unique
+inside the Project authority store. A Change-scoped operation also binds its
+`ChangeId`; a project-scoped canonical-source operation need not invent a fake
+Change-local identity. The operation binds an immutable `RequestDigest`.
+Repeating the same OperationId and digest resolves the recorded outcome;
+reusing the ID with another digest fails; and obsolete ExpectedRevision fails.
+Read-only inspection needs no OperationId. M1.1 does not delete authoritative
+operation records before a future approved retention policy. Results contain
+bounded structured outcome/provenance and authoritative references, never
+arbitrary raw provider transcripts or output.
+
+Recovery conditions are orthogonal operational facts such as clean, incomplete
+operation, uncertain external effect, diverged source, corrupt/missing artifact,
+or incompatible store. Project attach validates store metadata/compatibility,
+discovers indexed incomplete operations, and reports blockers without eagerly
+loading or hashing every artifact and without authority mutation. Inspection never
+repairs. Recovery mutation is an explicit use case with its own audit event.
+
+=== Alternatives Considered
+
+Rejected alternatives were last-writer-wins, long database locks across
+effects, distributed locks, expiring leases, automatic replay on attach,
+recovery-as-ChangeState, unbounded idempotency output, and eager full-store
+artifact hashing.
+
+=== Consequences
+
+Stale writers and retries are explicit and bounded; attach remains practical.
+Callers must carry expected revisions and operation identities, and incomplete
+operations require deliberate diagnosis or recovery.
+
+=== Invariants
+
+* One expected Change revision yields at most one committed successor.
+* An OperationId never authorizes a different RequestDigest.
+* Unknown or incomplete outcomes never imply success or automatic replay.
+* Attach and inspection do not mutate authority.
+* Recovery state never changes the ADR-004 workflow vocabulary.
+
+=== Security Implications
+
+Bounded stored outcomes reduce secret and transcript retention. Explicit
+project/change scoping prevents cross-project retry confusion. This local model
+does not claim protection from a hostile process with the same OS-user rights.
+
+=== Migration and Compatibility
+
+Operation records remain with Change/audit history until retention/deletion is
+separately approved. Schema migration must preserve operation identity,
+request digest, expected revision, outcome, and recovery coherence.
+
+=== Validation Evidence
+
+The disposable spike produced one winner and one stale conflict from two writers
+using the same ExpectedRevision. Kill/restart tests showed no partially
+committed success and made incomplete operations available for classification.
+
+=== Implementation Boundary
+
+This ADR does not prescribe exact error type names, tables, retry count, helper
+layout, presentation command names, distributed coordination, or retention.
+
+=== Reopen / Review Triggers
+
+Reopen for remote/shared Change storage, distributed coordination, an approved
+retention/deletion policy, materially different local concurrency needs, or a
+recovery action that cannot be expressed as an explicit audited use case.

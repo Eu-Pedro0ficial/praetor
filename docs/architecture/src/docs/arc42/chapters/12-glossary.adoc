@@ -8,9 +8,11 @@
 |Agent |Role-scoped AI executor. An agent is not an authority and is not synonymous with a provider.
 |Agent Router |Component that maps role requirements and governance constraints to a compatible provider/model adapter.
 |Approval |Explicit authorization from an actor with the required authority for a state transition or exception.
+|Artifact |Immutable versioned record and payload belonging to one Project and Change; its opaque ArtifactId is distinct from its content digest.
 |Audit Ledger |Append-oriented event history describing commands, runs, artifacts, decisions, actors and hashes.
 |Canonical Memory |Durable accepted memory records representing project/organization engineering knowledge.
 |Change |Primary auditable work aggregate representing one requested software evolution/fix.
+|ChangeId |Opaque project-scoped identifier; `(ProjectId, ChangeId)` is durable Change identity and neither value is derived from source paths or Git state.
 |Change Surface |Expected, possible, protected and actual files/symbols/modules affected by a Change.
 |Context Pack |Task-scoped projection of repository/memory/policy knowledge assembled for one AI role invocation.
 |Developer Sovereignty |Principle that the engineering process and authorized humans retain final authority over consequential actions.
@@ -23,6 +25,7 @@
 |Memory Snapshot |Reference/fingerprint identifying the memory state used for an execution.
 |Minimum Necessary Change |Optimization principle minimizing modification surface while satisfying correctness and constraints.
 |Policy |Executable or governable engineering invariant that can allow, deny, require review/approval, or mark advisory findings.
+|OperationId |Opaque Project-scoped identity for a consequential operation, bound to an immutable request digest and durable result/recovery record.
 |Port |Core-owned interface describing a capability required from external systems.
 |Project |The logical governed software-engineering project. It is distinct from any repository checkout, worktree, Git remote, source revision, or repository location.
 |ProjectId |Opaque generated logical identifier for a Project. It is persistent local identity and is not derived from filesystem path, repository location, Git remote, Git HEAD, Git history, repository fingerprint, or machine identity.
@@ -32,6 +35,7 @@
 |Provenance |Evidence of origin: actor, command, source commit, memory snapshot, model, input/output and hashes.
 |Repository Archaeology |Initial/incremental discovery process that reconstructs structure, dependencies, testing, integrations and legacy constraints.
 |Repository Model |Structured representation of a source repository used for impact, retrieval and validation.
+|Recovery Condition |Orthogonal operational diagnosis such as incomplete effect, divergence, corruption, or incompatibility; never a ChangeState.
 |Role |Logical agent responsibility such as Planner, Implementer or Security Reviewer.
 |Run |One execution attempt of a workflow step/tool/agent.
 |Sandbox |Architectural isolation boundary for proposed changes. The current implementation is Git worktree source/workspace isolation; stronger containment requires the gate of the approved capability that needs it.
@@ -39,4 +43,5 @@
 |Specification Pack |M1.3 target versioned bundle of requirements, constraints, acceptance criteria, provenance, and lifecycle linked to an exact Change authority chain.
 |State Machine |Explicit allowed progression of a Change rather than agent-controlled free-form progression.
 |Workflow |Versioned engineering process defining stages, contracts, gates and allowed transitions.
+|WorkflowSnapshot |Exact immutable workflow identity, version, schema version, YAML bytes, and SHA-256 integrity digest bound to a Change.
 |===

@@ -26,7 +26,8 @@ No completed milestone changes meaning under Roadmap V2.
 * M1.5 — Quality + Security Verification Foundation.
 
 M1.0's accepted local Manifest V1 Policy Engine scope remains unchanged;
-M1.1 onward is target planning and has not begun.
+M1.1 architecture is decided by ADR-033 through ADR-038, but its runtime and
+M1.2 onward remain target delivery and have not begun.
 
 M1.3 prepares versioned Specification Packs and
 requirement -> spec -> change -> evidence -> policy traceability.
@@ -69,7 +70,8 @@ remain decision-gated.
 
 ==== Explicit Anti-Roadmap
 
-Do not start M1.1 before its gate closes, skip directly to M1.1 implementation
-during documentation work, or begin by implementing every provider, every
-language, a GUI, vector database, distributed control plane, or custom DSL.
+Do not treat the closed M1.1 architecture gate as implemented behavior, skip
+directly to runtime implementation during documentation work, or begin by
+implementing every provider, every language, a GUI, vector database,
+distributed control plane, or custom DSL.
 Roadmap prose does not silently close an ADR, benchmark, spike, or human gate.

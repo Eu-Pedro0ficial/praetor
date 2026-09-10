@@ -35,7 +35,7 @@ VALID_MILESTONES = {
 EXPECTED_REQUIREMENTS = {
     *(f"FR-{number:03d}" for number in range(1, 46)),
     *(f"NFR-{number:03d}" for number in range(1, 19)),
-    *(f"QS-{number:03d}" for number in range(1, 19)),
+    *(f"QS-{number:03d}" for number in range(1, 20)),
 }
 MUST_REQUIREMENTS = {
     *(f"FR-{number:03d}" for number in range(1, 23)),

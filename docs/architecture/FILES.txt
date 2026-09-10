@@ -35,6 +35,12 @@
 ./src/docs/arc42/adrs/ADR-030-codex-cli-first-ai-provider-adapter.adoc
 ./src/docs/arc42/adrs/ADR-031-ai-assisted-verification-planning.adoc
 ./src/docs/arc42/adrs/ADR-032-local-project-policy-engine-and-governance-semantics.adoc
+./src/docs/arc42/adrs/ADR-033-durable-change-and-artifact-authority.adoc
+./src/docs/arc42/adrs/ADR-034-per-project-sqlite-persistence-and-atomic-authority-commit.adoc
+./src/docs/arc42/adrs/ADR-035-exact-workflow-snapshot-and-compatibility.adoc
+./src/docs/arc42/adrs/ADR-036-local-concurrency-idempotency-and-recovery.adoc
+./src/docs/arc42/adrs/ADR-037-external-effect-saga-and-canonical-mutation-coordination.adoc
+./src/docs/arc42/adrs/ADR-038-legacy-audit-migration.adoc
 ./src/docs/arc42/appendices/change-state-machine.adoc
 ./src/docs/arc42/appendices/competitive-landscape.adoc
 ./src/docs/arc42/appendices/configuration-model.adoc

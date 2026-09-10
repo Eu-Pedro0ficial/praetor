@@ -16,8 +16,8 @@ The domain/core models workflow semantics independently from YAML; YAML is an
 adapter/configuration representation. A custom Praetor workflow DSL requires
 demonstrated limitations, an ADR, and human approval.
 
-This decision does not select M1.1's workflow snapshot persistence, migration,
-re-evaluation, or crash-recovery semantics. Those remain open Roadmap V2 gates.
+ADR-035 now governs M1.1's exact WorkflowSnapshot, embedded Core V0 source,
+compatibility, and no-automatic-in-flight-migration semantics.
 
 === Consequences
 

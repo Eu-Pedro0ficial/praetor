@@ -33,6 +33,12 @@ include::../adrs/ADR-029-hierarchical-contextual-command-shell.adoc[]
 include::../adrs/ADR-030-codex-cli-first-ai-provider-adapter.adoc[]
 include::../adrs/ADR-031-ai-assisted-verification-planning.adoc[]
 include::../adrs/ADR-032-local-project-policy-engine-and-governance-semantics.adoc[]
+include::../adrs/ADR-033-durable-change-and-artifact-authority.adoc[]
+include::../adrs/ADR-034-per-project-sqlite-persistence-and-atomic-authority-commit.adoc[]
+include::../adrs/ADR-035-exact-workflow-snapshot-and-compatibility.adoc[]
+include::../adrs/ADR-036-local-concurrency-idempotency-and-recovery.adoc[]
+include::../adrs/ADR-037-external-effect-saga-and-canonical-mutation-coordination.adoc[]
+include::../adrs/ADR-038-legacy-audit-migration.adoc[]
 
 ADR-024 is intentionally unallocated. The former registry-only entry duplicated
 ADR-008's benchmark gate and had no ADR file.

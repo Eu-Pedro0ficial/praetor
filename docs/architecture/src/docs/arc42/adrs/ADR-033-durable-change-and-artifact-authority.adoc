@@ -1,0 +1,97 @@
+== ADR-033: Durable Change and Artifact Authority
+
+*Status:* DECIDED
+
+=== Context
+
+M1.1 must make Change authority reconstructible without an AI conversation while
+preserving the accepted Change aggregate and state machine. Artifact identity,
+immutability, relationships, current bindings, and inspection must not collapse
+into paths, mutable status fields, content hashes, or audit events.
+
+=== Decision
+
+A durable Change is identified by `(ProjectId, ChangeId)`. `ProjectId` remains
+the opaque generated identity governed by ADR-027, currently UUIDv7, while
+`ChangeId` is opaque and project-scoped. Neither identity depends on a path,
+checkout, Git history, branch, remote, or `HEAD`. `ChangeId` and `ArtifactId`
+never form filesystem paths. M1.1 does not introduce a global Change UUID.
+
+The accepted Change state machine in ADR-004 remains unchanged. Recovery and
+infrastructure conditions are orthogonal operational state, never a
+`RECOVERY_REQUIRED` or equivalent Change state.
+
+Artifacts are immutable, versioned records. Each has an opaque generated
+`ArtifactId` independent of its `ContentDigest`; the former identifies a
+provenance-bearing record and the latter validates payload content. Committed
+payloads and parent/dependency relationships are immutable. Modification
+creates a new artifact, supersession is append-only, and a new committed Change
+revision moves versioned role bindings to the current artifact revision.
+
+Every M1.1 Change artifact belongs to exactly one Project and one Change.
+Cross-Change shared canonical artifacts are excluded. Existence, integrity,
+schema validity, binding, disposition, freshness, supersession, and
+availability remain separate concepts rather than one mutable artifact-status
+enumeration. M1.1 establishes these mechanics; M1.3 remains authority owner for
+Specification and ChangePlan completeness, approval, staleness, and
+invalidation.
+
+Presentation-neutral read use cases list and load durable Changes; show exact
+identity, state, revision, and workflow binding; list artifact metadata and
+relationships; retrieve explicitly requested bounded content; show audit
+history; and diagnose incomplete operations and recovery blockers. Inspection
+is read-only: it neither migrates, repairs, advances state, nor emits unbounded
+content by default, and it exposes relevant provenance and freshness.
+
+=== Alternatives Considered
+
+Rejected alternatives were a global Change UUID, path- or Git-derived identity,
+content-address-as-artifact-identity, mutable artifacts, a generic status enum,
+shared M1.1 artifacts across Changes, exclusive event-sourced reconstruction,
+and CLI-specific inspection contracts.
+
+=== Consequences
+
+Authority can be reconstructed from exact durable records independently of
+provider sessions. New versions and bindings add storage and invariant-checking
+cost, and retained superseded records require a future retention decision.
+
+=== Invariants
+
+* `(ProjectId, ChangeId)` selects at most one logical Change in a Project store.
+* A committed artifact payload, envelope, and dependency relation never mutate.
+* Each Change binding names an exact artifact revision.
+* Recovery conditions never alter the accepted Change-state vocabulary.
+* Audit history references authority but is not canonical artifact storage.
+
+=== Security Implications
+
+Opaque identifiers prevent caller-controlled path construction. Bounded,
+explicit content inspection reduces accidental disclosure; provenance does not
+authorize raw provider transcripts, prompts, credentials, secrets, or
+unbounded source bodies.
+
+=== Migration and Compatibility
+
+Existing process-local Changes are not silently invented as durable Changes.
+M1.1 persistence migration must preserve any authority it imports and fail
+closed on ambiguous identity or linkage. M1.3 may extend bindings and semantics
+without replacing this identity and immutability contract.
+
+=== Validation Evidence
+
+The disposable M1.1 spike demonstrated stable immutable artifact envelopes and
+bindings, exact workflow-byte recovery, and crash-boundary reconstruction in
+which only a complete committed authority transition was visible.
+
+=== Implementation Boundary
+
+This ADR decides domain and application persistence semantics, not Go types,
+SQL table layout, migration integers, private helpers, or final CLI command
+spelling. All M1.1 runtime capability remains `TARGET` until implemented.
+
+=== Reopen / Review Triggers
+
+Reopen for a required global/cross-Project Change identity, shared canonical
+artifacts, mutable payload authority, cross-Change artifact ownership, a new
+Change-state model, or inspection that must acquire write authority.

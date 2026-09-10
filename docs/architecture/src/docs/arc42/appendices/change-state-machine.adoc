@@ -72,6 +72,16 @@ The proposal workspace's `active`, `retained`, `rejected` and `cleaned`
 operational labels describe temporary resource handling only. They neither add
 Change states nor bypass aggregate transitions.
 
+==== M1.1 Durable Recovery Boundary
+
+ADR-033 preserves the executable state table unchanged. M1.1 persists Change
+revisions and their exact artifact/workflow authority, but conditions such as
+incomplete operation, uncertain external effect, source divergence, artifact
+corruption, or incompatible store remain orthogonal recovery state. No
+`RECOVERY_REQUIRED` or equivalent domain state is introduced. A transition is
+recovered as the exact complete atomic commit or as absent; repair/recovery is
+an explicit audited use case and never an attach/inspection side effect.
+
 ==== Longer-Term Candidate Lifecycle
 
 The following diagram remains a candidate vocabulary for later milestones. It

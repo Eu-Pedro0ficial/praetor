@@ -1,0 +1,93 @@
+== ADR-037: External Effect Saga and Canonical Mutation Coordination
+
+*Status:* DECIDED
+
+=== Context
+
+Git, providers, and tools cannot participate in the SQLite authority
+transaction. A crash can therefore occur before, during, or after an external
+effect. Canonical source also needs short multi-process exclusion without
+claiming control over arbitrary external writers.
+
+=== Decision
+
+External effects use durable saga semantics. For canonical Git mutation,
+Praetor combines a durable Project mutation reservation in SQLite, a short
+Project-scoped OS lock under XDG STATE, and exact source PRE/POST inspection:
+
+. commit the durable reservation;
+. acquire the Project OS lock;
+. reinspect the exact PRE condition;
+. mutate canonical source only from PRE;
+. inspect the resulting source;
+. commit durable completion while exclusion remains held;
+. release the OS lock.
+
+After a crash the reservation survives and the process-owned OS lock
+disappears. Explicit recovery classifies durable and source reality. The lock
+does not control arbitrary same-user or external Git writers, so source digest
+and precondition checks remain mandatory.
+
+For a reserved Git apply, PRE is not replayed automatically; an explicit retry
+may be authorized. POST may be finalized by explicit recovery without
+reapplication only after exact postcondition verification. AMBIGUOUS blocks
+and requires human remediation. `COMPLETED + POST` resolves the existing
+result; `COMPLETED + non-POST` reports drift or corruption. Unknown completion
+never causes automatic repeated execution.
+
+Provider and tool effects follow the same principle, but each adapter must
+define sufficiently trustworthy postcondition and recovery evidence before
+automatic finalization can be authorized.
+
+=== Alternatives Considered
+
+Rejected alternatives were a database transaction held across Git execution,
+only an in-process mutex, only an OS lock, automatic replay after unknown
+completion, destructive source rollback, distributed locks, and treating Git
+success output as sufficient postcondition evidence.
+
+=== Consequences
+
+Durable intent plus short exclusion makes crashes diagnosable without claiming
+atomicity with Git. Ambiguous effects deliberately stop for a human, and
+adapter-specific recovery evidence adds implementation and test cost.
+
+=== Invariants
+
+* Canonical mutation starts only from an exact verified PRE condition.
+* Durable completion is recorded only while exclusion is held and POST is exact.
+* Unknown or ambiguous completion is never automatically replayed.
+* An OS lock supplements but never replaces durable reservation and source proof.
+
+=== Security Implications
+
+Project-scoped lock paths derive only from validated ProjectId under XDG STATE
+with restrictive permissions and symlink/type checks. The design prevents
+Praetor-process races; it does not claim hostile same-user process containment.
+Errors and outcomes retain bounded provenance rather than raw source, prompts,
+credentials, or provider streams.
+
+=== Migration and Compatibility
+
+Existing M0.8 in-process coordination remains historical behavior until M1.1
+implements this target. Migrated/in-flight reservations require explicit
+classification; they are never assumed complete from legacy audit alone.
+
+=== Validation Evidence
+
+The disposable spike exercised PRE, POST, and AMBIGUOUS classifications against
+real temporary Git repositories and confirmed that restart could distinguish
+safe explicit retry, verified finalization, and human-required remediation.
+
+=== Implementation Boundary
+
+This ADR does not change Git patch semantics, implement M1.1, define CLI
+spelling, or authorize automatic provider/tool replay. Exact lock-file naming
+and private orchestration helpers are implementation details within the path
+and safety constraints.
+
+=== Reopen / Review Triggers
+
+Reopen for non-Git canonical mutation, an adapter lacking trustworthy
+postconditions, remote/shared Change stores, distributed execution, or evidence
+that the local OS lock cannot provide required platform behavior.

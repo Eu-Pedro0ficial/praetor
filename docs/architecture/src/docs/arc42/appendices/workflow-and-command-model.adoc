@@ -258,6 +258,24 @@ candidate before changing session-visible presentation. These commands cannot
 change Project, Change, provider selection, verification, decision, source, or
 audit state.
 
+==== M1.1 Target Durable Workflow
+
+M1.1 binds every Change to the exact embedded, schema-validated Core V0 YAML
+WorkflowSnapshot and persists immutable artifacts and current bindings through
+one typed ExpectedRevision authority commit. Read-only use cases list/load a
+Change, show state/revision/workflow, inspect artifact metadata/relations and
+explicit bounded content, show audit history, and diagnose incomplete
+operations without migration, repair, or transition side effects. Final shell
+command spelling remains implementation-owned.
+
+Consequential operations reserve a Project-unique OperationId and immutable
+RequestDigest. The same identity/digest resolves its existing result; a changed
+digest or stale ExpectedRevision fails. Canonical Git mutation additionally
+uses a durable reservation, short Project OS lock under XDG STATE, and exact
+PRE/POST proof. PRE can be explicitly retried but is never automatically
+replayed; verified POST may be explicitly finalized; AMBIGUOUS blocks for human
+remediation.
+
 ==== M1.3 Target Specification and ChangePlan Workflow
 
 M1.3 may add commands only after the Specification/Plan authority gate closes.
@@ -290,17 +308,27 @@ Each may select different mandatory gates. A dependency upgrade may require depe
 
 ==== Workflow Versioning
 
-Because workflows influence source changes, the workflow definition/version/hash is part of execution provenance. A Change begun under workflow version X should not silently continue under X+1 without an explicit migration or re-evaluation rule.
+Because workflows influence source changes, exact definition bytes,
+identity/version/schema version and SHA-256 digest are authority and execution
+provenance. A Change never silently continues under another definition.
 
-Workflow definitions use declarative, versioned YAML with schema validation. The domain model remains independent from YAML; a custom Praetor workflow DSL is not the default and requires demonstrated limitations plus an approved ADR.
+Workflow definitions use declarative, versioned YAML with schema validation.
+M1.1 admits only the embedded Core V0 definition and performs no automatic
+in-flight migration; unsupported old schemas remain inspectable but cannot
+advance or fall back. The domain model remains independent from YAML. Project
+workflow sources, rebinding, and a custom DSL require later decisions.
 
 ==== Pause / Resume
 
-Change state should be durable enough that a developer or another authorized developer can resume a Change without reconstructing an LLM chat history. Required context is rebuilt from canonical artifacts, source snapshot and memory.
+Change state is rebuilt from the exact committed Change revision,
+WorkflowSnapshot, artifact bindings, source snapshot, bounded provenance, and
+other authorized durable references, never from an LLM chat history.
 
 ==== Idempotency
 
-Commands that can be retried should distinguish between pure/rebuildable operations and consequential mutations. For example, rebuilding the local memory index is idempotent; applying a patch or creating a remote PR requires explicit idempotency keys/state checks.
+Read-only inspection needs no OperationId. Consequential operations use the
+scoped identity/request-digest and recovery semantics in ADR-036 and ADR-037;
+unknown external completion never causes automatic repeated execution.
 
 ==== Human Interaction Principle
 

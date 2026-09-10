@@ -112,8 +112,9 @@ enforced through the existing human-decision and canonical-application gates.
 
 Persist and recover Change state, workflow authority, artifacts, evidence, and
 audit links outside governed source. The artifact/store/recovery decision gate
-must close before runtime implementation begins. Recovery, local concurrency,
-and source-linked artifact inspection stay within this durability boundary.
+is closed by ADR-033 through ADR-038 after the approved evidence spike.
+Recovery, local concurrency, and source-linked artifact inspection stay within
+this durability boundary; runtime implementation has not begun.
 
 ### Step 13 — M1.2 repository intelligence, impact, and risk
 
