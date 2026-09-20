@@ -11,11 +11,14 @@ import (
 	"time"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/aiprovider/codexcli"
+	sqliteadapter "github.com/Eu-Pedro0ficial/praetor/internal/adapters/persistence/sqlite"
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
+	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 )
 
@@ -79,6 +82,86 @@ type compositionProvider struct {
 	descriptor aiprovider.ProviderDescriptor
 }
 
+type attachmentValidationStore struct {
+	authority.Store
+	called *bool
+	err    error
+}
+
+func (store *attachmentValidationStore) ValidateAttachment() error {
+	*store.called = true
+	return store.err
+}
+
+func TestProductionAttachValidatesAuthorityBeforeRuntimeStartup(t *testing.T) {
+	dataHome := filepath.Join(t.TempDir(), "xdg")
+	t.Setenv("XDG_DATA_HOME", dataHome)
+	registration := project.Registration{ProjectId: compositionProjectId, RepositoryRoot: t.TempDir(), SchemaVersion: 1, CreatedAt: time.Now().UTC()}
+	container := New()
+	container.RepositoryDiscovery = func(string) (repository.Context, error) {
+		return repository.Context{Root: registration.RepositoryRoot}, nil
+	}
+	container.ProjectRegistration = func(string) (project.Registration, error) { return registration, nil }
+	baseFactory := container.DurableStoreFactory
+	called := false
+	injected := errors.New("injected attachment corruption")
+	container.DurableStoreFactory = func(dataDirectory string, value project.Registration) (authority.Store, error) {
+		store, err := baseFactory(dataDirectory, value)
+		if err != nil {
+			return nil, err
+		}
+		return &attachmentValidationStore{Store: store, called: &called, err: injected}, nil
+	}
+	if _, err := container.NewInteractiveSession(registration.RepositoryRoot); !errors.Is(err, injected) {
+		t.Fatalf("attachment validation error = %v", err)
+	}
+	if !called {
+		t.Fatal("production attachment skipped durable authority validation")
+	}
+	events, err := sqliteadapter.ReadAuditEvents(filepath.Join(dataHome, "praetor"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("failed attachment emitted startup authority: %#v", events)
+	}
+}
+
+func TestOrdinaryAttachDoesNotImplicitlyMigrateLegacyAudit(t *testing.T) {
+	dataHome := filepath.Join(t.TempDir(), "xdg")
+	t.Setenv("XDG_DATA_HOME", dataHome)
+	dataDirectory := filepath.Join(dataHome, "praetor")
+	if err := os.MkdirAll(dataDirectory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dataDirectory, "audit.log"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	registration := project.Registration{ProjectId: compositionProjectId, RepositoryRoot: t.TempDir(), SchemaVersion: 1, CreatedAt: time.Now().UTC()}
+	container := New()
+	container.RepositoryDiscovery = func(string) (repository.Context, error) {
+		return repository.Context{Root: registration.RepositoryRoot}, nil
+	}
+	container.ProjectRegistration = func(string) (project.Registration, error) { return registration, nil }
+	session, err := container.NewInteractiveSession(registration.RepositoryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatal(err)
+	}
+	manifest := filepath.Join(dataDirectory, "audit-migration-v1.json")
+	if _, err := os.Stat(manifest); !os.IsNotExist(err) {
+		t.Fatalf("ordinary attach implicitly published migration manifest: %v", err)
+	}
+	if err := container.MigrateLegacyAudit(); err != nil {
+		t.Fatalf("explicit legacy migration failed: %v", err)
+	}
+	if _, err := os.Stat(manifest); err != nil {
+		t.Fatalf("explicit migration did not publish manifest: %v", err)
+	}
+}
+
 func (provider *compositionProvider) Descriptor() aiprovider.ProviderDescriptor {
 	return provider.descriptor
 }
@@ -124,7 +207,7 @@ func TestNewChangeWorkflowPersistsChangeAuditLinkage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("audit.ResolveDataDir() error = %v", err)
 	}
-	events, err := audit.Read(dataDirectory)
+	events, err := sqliteadapter.ReadAuditEvents(dataDirectory)
 	if err != nil {
 		t.Fatalf("audit.Read() error = %v", err)
 	}
@@ -267,7 +350,7 @@ func TestNewRepositoryIntelligencePersistsM03AuditLinkage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("audit.ResolveDataDir() error = %v", err)
 	}
-	events, err := audit.Read(dataDirectory)
+	events, err := sqliteadapter.ReadAuditEvents(dataDirectory)
 	if err != nil {
 		t.Fatalf("audit.Read() error = %v", err)
 	}
@@ -422,7 +505,7 @@ func TestNewProposalServicePersistsBoundedM04AuditMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("audit.ResolveDataDir() error = %v", err)
 	}
-	events, err := audit.Read(dataDirectory)
+	events, err := sqliteadapter.ReadAuditEvents(dataDirectory)
 	if err != nil {
 		t.Fatalf("audit.Read() error = %v", err)
 	}

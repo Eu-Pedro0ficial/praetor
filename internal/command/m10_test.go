@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	sqliteadapter "github.com/Eu-Pedro0ficial/praetor/internal/adapters/persistence/sqlite"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/composition"
@@ -208,7 +209,7 @@ func TestPolicyEvaluationAndExceptionCandidateAreAuditedWithoutGrant(t *testing.
 	if !strings.Contains(output.String(), "Latest retained policy evaluation:") || !strings.Contains(output.String(), "Exception candidate:") {
 		t.Fatalf("policy inspection output = %q", output.String())
 	}
-	events, err := audit.Read(dataDirectory)
+	events, err := sqliteadapter.ReadAuditEvents(dataDirectory)
 	if err != nil {
 		t.Fatal(err)
 	}

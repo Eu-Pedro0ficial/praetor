@@ -1,7 +1,9 @@
 package audit
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -332,6 +334,70 @@ func TestAppendConcurrentWritersProduceStableHistory(t *testing.T) {
 			t.Fatalf("duplicate event id %q", event.EventID)
 		}
 		seen[event.EventID] = true
+	}
+}
+
+func TestWaitingLegacyWriterCannotAppendAfterMigrationRetirement(t *testing.T) {
+	directory := t.TempDir()
+	if _, err := Append(directory, EventInitialization, "proj-1", "/tmp/repo", nil); err != nil {
+		t.Fatal(err)
+	}
+	legacyPath := filepath.Join(directory, ledgerFile)
+	before, err := os.ReadFile(legacyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	migrationHoldingLock := make(chan struct{})
+	finishMigration := make(chan struct{})
+	migrationDone := make(chan error, 1)
+	go func() {
+		migrationDone <- MigrateLegacy(directory, func(records []LegacyRecord, sourceDigest string) error {
+			close(migrationHoldingLock)
+			<-finishMigration
+			if len(records) != 1 || records[0].Sequence != 1 || !bytes.Equal(records[0].RawJSON, bytes.TrimSuffix(before, []byte{'\n'})) || sourceDigest == "" {
+				return errors.New("migration did not receive exact legacy authority")
+			}
+			return nil
+		})
+	}()
+	<-migrationHoldingLock
+
+	// The writer observes no retirement marker, then actually collides with
+	// migration's lock before the cut can proceed.
+	writerBeforeLock := make(chan error, 1)
+	writerWaitingOnLock := make(chan struct{})
+	writerDone := make(chan error, 1)
+	go func() {
+		_, appendError := appendEventWithLockHooks(directory, EventConfiguration, "proj-1", "", "/tmp/repo", nil, func() {
+			_, markerError := os.Stat(filepath.Join(directory, retirementFile))
+			writerBeforeLock <- markerError
+		}, func() { close(writerWaitingOnLock) })
+		writerDone <- appendError
+	}()
+	if markerError := <-writerBeforeLock; !os.IsNotExist(markerError) {
+		close(finishMigration)
+		t.Fatalf("writer did not start before retirement: %v", markerError)
+	}
+	<-writerWaitingOnLock
+	close(finishMigration)
+	if err := <-migrationDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-writerDone; err == nil || !strings.Contains(err.Error(), "legacy audit writer is retired") {
+		t.Fatalf("writer waiting at migration cut appended: %v", err)
+	}
+	after, err := os.ReadFile(legacyPath)
+	if err != nil || !bytes.Equal(after, before) {
+		t.Fatalf("retired legacy source changed: %q err=%v", after, err)
+	}
+	if err := ValidateRetiredLegacy(directory); err != nil {
+		t.Fatalf("retired source digest invalid: %v", err)
+	}
+	if err := MigrateLegacy(directory, func([]LegacyRecord, string) error {
+		return errors.New("idempotent migration unexpectedly repeated import")
+	}); err != nil {
+		t.Fatalf("idempotent migration retry failed: %v", err)
 	}
 }
 

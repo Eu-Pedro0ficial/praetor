@@ -508,6 +508,7 @@ func sidebarRows(layout preferences.Layout, status command.StatusSnapshot) []sid
 			sidebarRow{text: "STATUS", color: layout.Colors.Accent},
 			semanticStatusRow("Verify", status.Verification),
 			statusRow("Decision", status.HumanDecision),
+			semanticStatusRow("Recovery", status.Recovery),
 			semanticStatusRow("Session", status.Session),
 			semanticStatusRow("Git", status.GitRepository),
 		)

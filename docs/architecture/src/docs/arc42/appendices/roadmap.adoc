@@ -16,18 +16,18 @@ closure, and terminal presentation.
 
 No completed milestone changes meaning under Roadmap V2.
 
-==== Phase 1 — Governed Engineering Runtime — M1.0 COMPLETE; M1.1–M1.5 TARGET
+==== Phase 1 — Governed Engineering Runtime — M1.0 COMPLETE; M1.1 PENDING RE-AUDIT; M1.2–M1.5 TARGET
 
 * M1.0 — Mature Policy Engine — `COMPLETE`;
-* M1.1 — Durable Change + Artifact Foundation;
+* M1.1 — Durable Change + Artifact Foundation — `PENDING INDEPENDENT CLOSURE RE-AUDIT`;
 * M1.2 — Repository Intelligence + Impact + Risk;
 * M1.3 — Specification + Change Plan Governance;
 * M1.4 — Review Engine + Maker-Checker Authority;
 * M1.5 — Quality + Security Verification Foundation.
 
-M1.0's accepted local Manifest V1 Policy Engine scope remains unchanged;
-M1.1 architecture is decided by ADR-033 through ADR-038, but its runtime and
-M1.2 onward remain target delivery and have not begun.
+M1.0's accepted local Manifest V1 Policy Engine scope remains unchanged. M1.1
+implements the ADR-033 through ADR-038 durable authority foundation. M1.2
+onward remain target delivery and have not begun.
 
 M1.3 prepares versioned Specification Packs and
 requirement -> spec -> change -> evidence -> policy traceability.

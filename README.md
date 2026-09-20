@@ -45,7 +45,8 @@ See:
 
 Core V0 complete.
 
-M0.0 through M1.0 are complete. The local governed-change loop now connects
+M0.0 through M1.0 are complete. M1.1 is implemented and awaiting independent
+closure re-audit. The local governed-change loop now connects
 Project identity, bounded source scope, isolated proposal production,
 deterministic verification, explicit local-human disposition, canonical
 application or rejection closure, and append-oriented audit history.
@@ -104,8 +105,8 @@ transition. The actor provenance is exactly `local-interactive-human`; it
 describes local process interaction, not authenticated personal identity.
 M0.7 remains authorization-only: it stops at `approved` or `rejected`, keeps
 the proposal for the active session, and never applies the patch by itself.
-Session-local decision state is not resumable; durable audit remains outside
-the governed repository.
+The live proposal workspace remains session-owned. M1.1 subsequently makes the
+decision artifact and audit authority durable outside the governed repository.
 
 M0.8 adds explicit `change apply` for `APPROVE` and `change close` for
 `REJECT`. Application first rechecks exact Change, Project, workspace,
@@ -149,11 +150,35 @@ acceptance, while `REVIEW` remains unsatisfied until M1.4.
 `policy show`, `policy list`, `policy evaluate`, and `policy exception` expose
 bounded inspection. Exceptions are auditable candidates only and never grant,
 consume, or bypass policy. Runtime audit and locks remain under existing XDG
-boundaries. ADR-033 through ADR-038 decide the M1.1 durability architecture;
-M1.1 runtime implementation has not started.
+boundaries.
 
-Approved Phase 1 begins with the completed M1.0 Policy Engine. Its future
-sequence is M1.1 durable Change/artifact foundation, M1.2 repository
+M1.1 makes Change, artifact, exact WorkflowSnapshot, operation, and audit
+authority durable in one per-Project SQLite store beneath XDG DATA. Immutable
+artifacts retain evidence, policy and human decisions, patch/source authority,
+and canonical application results. ExpectedRevision commits, scoped operation
+identity, WAL/FULL durability, explicit PRE/POST/AMBIGUOUS Git recovery, an XDG
+STATE mutation lock, legacy JSONL audit migration, corruption checks, verified
+backup, and bounded inspection commands provide crash/restart continuity without
+placing Praetor metadata in governed source.
+
+Successful lifecycle authority commits the required Change revision,
+artifacts/bindings, operation result, and audit records together. A fresh
+runtime reconstructs proposal, verification/evidence, policy, and human
+decision projections from those artifacts and safely reattaches only the exact
+retained Git worktree. Historical unsupported WorkflowSnapshot schemas remain
+inspectable but cannot execute. Legacy JSONL cutover is an explicit operation,
+never an ordinary-attach side effect; payloads above the 1 MiB normal limit
+likewise require explicit large-artifact authorization and remain subject to
+the 50 MiB artifact and 100 MiB Change limits.
+
+Use `change list`, `change show`, `change select`, `change artifacts`, `change
+history`, `change diagnose`, `change content`, and explicit `change recover` to
+inspect or recover supported durable authority. Recovery never silently repeats
+an uncertain external effect.
+
+Approved Phase 1 includes the completed M1.0 Policy Engine and the implemented
+M1.1 durable Change/artifact foundation, pending independent closure re-audit.
+Its future sequence begins with M1.2 repository
 intelligence, M1.3 Specification and ChangePlan governance, M1.4 independent
 review, and M1.5 quality and security verification foundation. M1.3 plans
 future Specification Packs and the candidate `engineering/specs/` location;

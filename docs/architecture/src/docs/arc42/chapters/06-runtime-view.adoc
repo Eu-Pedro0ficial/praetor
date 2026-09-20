@@ -272,11 +272,12 @@ verification, approval alone, and session close never apply source.
 
 Policy evaluation performs no Change transition and no source mutation.
 
-==== M1.1 Target Durable Authority and Recovery
+==== M1.1 Durable Authority and Recovery
 
 . Project attach validates the per-Project SQLite store's metadata,
-  compatibility, required pragmas, and indexed incomplete operations without
-  eagerly hashing every artifact or mutating authority.
+  compatibility, required pragmas, structural authority, and recovery
+  conditions without eagerly hashing every historical artifact, repairing
+  authority, or implicitly migrating legacy audit.
 . Change creation binds `(ProjectId, ChangeId)` to the exact embedded Core V0
   WorkflowSnapshot bytes, identity/version/schema, and digest.
 . Each authoritative transition supplies ExpectedRevision and atomically
@@ -284,16 +285,23 @@ Policy evaluation performs no Change transition and no source mutation.
   bindings, operation result, and required audit events, or commits none.
 . Read-only inspection reconstructs exact Change/workflow/artifact/audit
   authority and reports recovery blockers without migration or repair.
+. Selecting an in-flight Change in a fresh process validates bound artifact
+  kind, ownership, digest, schema, and dependency linkage; it reconstructs the
+  proposal/evidence/policy/human-decision projection and reattaches only the
+  exact retained Git worktree under the controlled temporary-workspace layout.
 . A consequential external operation commits its durable reservation before
   the effect. Canonical Git mutation then takes a short Project lock under XDG
   STATE, revalidates PRE, applies once, validates POST, and records completion
   while exclusion remains held.
 . After interruption, explicit recovery classifies PRE, POST, AMBIGUOUS,
   divergence, corruption, or incompatibility. It never automatically repeats
-  an unknown external effect or invents a successful Change transition.
+  an unknown external effect or invents a successful Change transition. For an
+  already completed operation, its immutable structured Result must match the
+  independently proven exact POST before terminal Change/ApplicationResult
+  authority can be published.
 
-These are decided target semantics under ADR-033 through ADR-038; no M1.1
-runtime behavior is implemented by this documentation.
+These semantics are implemented under ADR-033 through ADR-038. Later workflow,
+review, repository-intelligence, and memory capabilities remain outside M1.1.
 
 ==== M1.3 Target Specification Pack Authority
 

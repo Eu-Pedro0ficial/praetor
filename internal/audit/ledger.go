@@ -3,6 +3,7 @@ package audit
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,7 @@ const (
 	schemaVersion     = 1
 	ledgerFile        = "audit.log"
 	lockFile          = "audit.lock"
+	retirementFile    = "audit-migration-v1.json"
 	lockTimeout       = 5 * time.Second
 	lockRetryInterval = 10 * time.Millisecond
 
@@ -53,6 +55,8 @@ const (
 	EventChangeClosureRecorded            = "CHANGE_CLOSURE_RECORDED"
 	EventPolicyDecisionRecorded           = "POLICY_DECISION_RECORDED"
 	EventPolicyExceptionCandidateRecorded = "POLICY_EXCEPTION_CANDIDATE_RECORDED"
+	EventArtifactCommitted                = "ARTIFACT_COMMITTED"
+	EventOperationRecovered               = "OPERATION_RECOVERED"
 )
 
 // Event is one append-oriented local runtime audit record.
@@ -65,6 +69,20 @@ type Event struct {
 	RepositoryRoot string         `json:"RepositoryRoot"`
 	SchemaVersion  int            `json:"SchemaVersion"`
 	Metadata       map[string]any `json:"Metadata,omitempty"`
+}
+
+// LegacyRecord preserves the exact historical JSONL bytes and order.
+type LegacyRecord struct {
+	Event    Event
+	RawJSON  []byte
+	Sequence uint64
+}
+
+type retirementManifest struct {
+	SchemaVersion int       `json:"SchemaVersion"`
+	SourceDigest  string    `json:"SourceDigest"`
+	EventCount    int       `json:"EventCount"`
+	CompletedAt   time.Time `json:"CompletedAt"`
 }
 
 // ResolveDataDir resolves the local durable data directory for Praetor metadata.
@@ -97,7 +115,31 @@ func newEventID() (string, error) {
 	return "evt-" + hex.EncodeToString(randomBytes[:]), nil
 }
 
+// NewEvent creates and validates a bounded audit event for a non-legacy
+// durable ledger adapter. It does not write the historical JSONL ledger.
+func NewEvent(eventType, projectID, changeID, repositoryRoot string, metadata map[string]any, occurredAt time.Time) (Event, error) {
+	if occurredAt.IsZero() {
+		return Event{}, errors.New("audit timestamp is required")
+	}
+	eventID, err := newEventID()
+	if err != nil {
+		return Event{}, err
+	}
+	event := Event{EventID: eventID, EventType: eventType, Timestamp: occurredAt.UTC(), ProjectID: projectID, ChangeID: changeID, RepositoryRoot: repositoryRoot, SchemaVersion: schemaVersion, Metadata: metadata}
+	if err := validateEvent(event); err != nil {
+		return Event{}, fmt.Errorf("validate audit event: %w", err)
+	}
+	return event, nil
+}
+
+// ValidateEvent validates an event before a durable adapter accepts it.
+func ValidateEvent(event Event) error { return validateEvent(event) }
+
 func acquireLock(dataDirectory string, lockOperation int, timeout time.Duration) (*os.File, error) {
+	return acquireLockWithContention(dataDirectory, lockOperation, timeout, nil)
+}
+
+func acquireLockWithContention(dataDirectory string, lockOperation int, timeout time.Duration, onContention func()) (*os.File, error) {
 	if err := os.MkdirAll(dataDirectory, 0o755); err != nil {
 		return nil, fmt.Errorf("create data dir %q: %w", dataDirectory, err)
 	}
@@ -117,6 +159,10 @@ func acquireLock(dataDirectory string, lockOperation int, timeout time.Duration)
 		if !errors.Is(lockError, syscall.EAGAIN) && !errors.Is(lockError, syscall.EWOULDBLOCK) {
 			_ = lockFileHandle.Close()
 			return nil, fmt.Errorf("acquire audit lock %q: %w", lockPath, lockError)
+		}
+		if onContention != nil {
+			onContention()
+			onContention = nil
 		}
 		if time.Now().After(deadline) {
 			_ = lockFileHandle.Close()
@@ -148,12 +194,23 @@ func AppendChange(dataDirectory string, eventType string, projectID string, chan
 }
 
 func appendEvent(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (Event, error) {
+	return appendEventWithLockHooks(dataDirectory, eventType, projectID, changeID, repositoryRoot, metadata, nil, nil)
+}
+
+// appendEventWithLockHooks retains private synchronization seams for the
+// migration race regression; production callers pass no hooks.
+func appendEventWithLockHooks(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any, beforeLock, onContention func()) (Event, error) {
 	if strings.TrimSpace(dataDirectory) == "" {
 		resolved, err := ResolveDataDir()
 		if err != nil {
 			return Event{}, err
 		}
 		dataDirectory = resolved
+	}
+	if _, err := os.Stat(filepath.Join(dataDirectory, retirementFile)); err == nil {
+		return Event{}, errors.New("legacy audit writer is retired; use the Project AuditLedger")
+	} else if !os.IsNotExist(err) {
+		return Event{}, fmt.Errorf("inspect legacy audit retirement: %w", err)
 	}
 	if strings.TrimSpace(eventType) == "" {
 		return Event{}, errors.New("audit event type is required")
@@ -164,12 +221,22 @@ func appendEvent(dataDirectory string, eventType string, projectID string, chang
 	if strings.TrimSpace(repositoryRoot) == "" {
 		return Event{}, errors.New("audit RepositoryRoot is required")
 	}
+	if beforeLock != nil {
+		beforeLock()
+	}
 
-	lockFileHandle, err := acquireLock(dataDirectory, syscall.LOCK_EX, lockTimeout)
+	lockFileHandle, err := acquireLockWithContention(dataDirectory, syscall.LOCK_EX, lockTimeout, onContention)
 	if err != nil {
 		return Event{}, err
 	}
 	defer releaseLock(lockFileHandle)
+	// Migration publishes retirement while holding this same lock. A writer
+	// that checked before waiting must recheck after it acquires exclusion.
+	if _, err := os.Stat(filepath.Join(dataDirectory, retirementFile)); err == nil {
+		return Event{}, errors.New("legacy audit writer is retired; use the Project AuditLedger")
+	} else if !os.IsNotExist(err) {
+		return Event{}, fmt.Errorf("inspect legacy audit retirement: %w", err)
+	}
 
 	if _, err := readLedger(dataDirectory); err != nil {
 		return Event{}, err
@@ -219,6 +286,102 @@ func appendEvent(dataDirectory string, eventType string, projectID string, chang
 	return event, nil
 }
 
+// MigrateLegacy executes one exclusive, validated migration callback and then
+// atomically retires the JSONL writer. The source ledger is never modified.
+func MigrateLegacy(dataDirectory string, migrate func([]LegacyRecord, string) error) error {
+	if migrate == nil {
+		return errors.New("legacy audit migration callback is required")
+	}
+	lock, err := acquireLock(dataDirectory, syscall.LOCK_EX, lockTimeout)
+	if err != nil {
+		return err
+	}
+	defer releaseLock(lock)
+	manifestPath := filepath.Join(dataDirectory, retirementFile)
+	if _, err := os.Stat(manifestPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	records, sourceDigest, err := readLegacyRecords(dataDirectory)
+	if err != nil {
+		return err
+	}
+	if err := migrate(records, sourceDigest); err != nil {
+		return err
+	}
+	legacyPath := filepath.Join(dataDirectory, ledgerFile)
+	if _, err := os.Stat(legacyPath); os.IsNotExist(err) {
+		file, createError := os.OpenFile(legacyPath, os.O_CREATE|os.O_WRONLY, 0o600)
+		if createError != nil {
+			return fmt.Errorf("create empty legacy audit evidence: %w", createError)
+		}
+		if closeError := file.Close(); closeError != nil {
+			return closeError
+		}
+	}
+	manifest := retirementManifest{SchemaVersion: 1, SourceDigest: sourceDigest, EventCount: len(records), CompletedAt: time.Now().UTC()}
+	payload, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return err
+	}
+	payload = append(payload, '\n')
+	temporary := manifestPath + ".tmp"
+	if err := os.WriteFile(temporary, payload, 0o600); err != nil {
+		return fmt.Errorf("write audit migration manifest: %w", err)
+	}
+	if err := os.Rename(temporary, manifestPath); err != nil {
+		return fmt.Errorf("publish audit migration manifest: %w", err)
+	}
+	return nil
+}
+
+func readLegacyRecords(dataDirectory string) ([]LegacyRecord, string, error) {
+	path := filepath.Join(dataDirectory, ledgerFile)
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			empty := sha256.Sum256(nil)
+			return nil, "sha256:" + hex.EncodeToString(empty[:]), nil
+		}
+		return nil, "", err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return nil, "", fmt.Errorf("legacy audit source is not a regular file")
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		return nil, "", fmt.Errorf("legacy audit source permissions %04o are not user-restricted", info.Mode().Perm())
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+	sum := sha256.Sum256(data)
+	sourceDigest := "sha256:" + hex.EncodeToString(sum[:])
+	if len(data) == 0 {
+		return nil, sourceDigest, nil
+	}
+	if data[len(data)-1] != '\n' {
+		return nil, "", fmt.Errorf("audit ledger %q has an incomplete trailing event", path)
+	}
+	lines := bytes.Split(data[:len(data)-1], []byte{'\n'})
+	records := make([]LegacyRecord, 0, len(lines))
+	for index, line := range lines {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var event Event
+		if err := json.Unmarshal(line, &event); err != nil {
+			return nil, "", fmt.Errorf("decode audit ledger line %d: %w", index+1, err)
+		}
+		if err := validateEvent(event); err != nil {
+			return nil, "", fmt.Errorf("audit ledger line %d: %w", index+1, err)
+		}
+		records = append(records, LegacyRecord{Event: event, RawJSON: append([]byte(nil), line...), Sequence: uint64(index + 1)})
+	}
+	return records, sourceDigest, nil
+}
+
 // Read reads the append-only audit ledger and returns all well-formed events.
 func Read(dataDirectory string) ([]Event, error) {
 	if strings.TrimSpace(dataDirectory) == "" {
@@ -235,6 +398,11 @@ func Read(dataDirectory string) ([]Event, error) {
 		}
 		return nil, fmt.Errorf("inspect audit data dir %q: %w", dataDirectory, err)
 	}
+	if _, err := os.Stat(filepath.Join(dataDirectory, retirementFile)); err == nil {
+		return nil, fmt.Errorf("legacy audit is retired; read durable audit through the persistence adapter")
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
 
 	lockFileHandle, err := acquireLock(dataDirectory, syscall.LOCK_SH, lockTimeout)
 	if err != nil {
@@ -243,6 +411,36 @@ func Read(dataDirectory string) ([]Event, error) {
 	defer releaseLock(lockFileHandle)
 
 	return readLedger(dataDirectory)
+}
+
+// ValidateRetiredLegacy proves that retained migration evidence is unchanged.
+func ValidateRetiredLegacy(dataDirectory string) error {
+	payload, err := os.ReadFile(filepath.Join(dataDirectory, retirementFile))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var manifest retirementManifest
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		return fmt.Errorf("decode audit retirement manifest: %w", err)
+	}
+	if manifest.SchemaVersion != 1 {
+		return fmt.Errorf("unsupported audit retirement schema %d", manifest.SchemaVersion)
+	}
+	if _, err := readLedger(dataDirectory); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(filepath.Join(dataDirectory, ledgerFile))
+	if err != nil {
+		return fmt.Errorf("read retained legacy audit evidence: %w", err)
+	}
+	sum := sha256.Sum256(data)
+	if actual := "sha256:" + hex.EncodeToString(sum[:]); actual != manifest.SourceDigest {
+		return fmt.Errorf("retained legacy audit source digest mismatch")
+	}
+	return nil
 }
 
 func readLedger(dataDirectory string) ([]Event, error) {
@@ -336,6 +534,9 @@ func eventRequiresChangeId(eventType string) bool {
 		EventChangeClosureRecorded,
 		EventPolicyDecisionRecorded,
 		EventPolicyExceptionCandidateRecorded:
+		// M1.1 artifact envelopes are Change-scoped authority.
+		fallthrough
+	case EventArtifactCommitted, EventOperationRecovered:
 		return true
 	default:
 		return false

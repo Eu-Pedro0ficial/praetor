@@ -68,12 +68,17 @@ workflow sources and rebinding remain future decisions.
 The disposable spike changed the source workflow definition after a Change was
 recorded and demonstrated that persisted exact bytes and their digest remained
 stable and recoverable.
+M1.1 runtime tests additionally inspect an integrity-valid unsupported
+historical snapshot and reject both ordinary transition and explicit POST
+recovery without advancing Change authority (`internal/adapters/persistence/
+sqlite/store_test.go`; `internal/command/m11_test.go`).
 
 === Implementation Boundary
 
 This ADR does not choose an authoring UI, project path, override precedence,
-future schema migration algorithm, or Go/YAML adapter structure. Runtime remains
-`TARGET`.
+future schema migration algorithm, or Go/YAML adapter structure. The embedded
+Core V0 snapshot and compatibility boundary are implemented in M1.1; milestone
+closure remains subject to independent re-audit.
 
 === Reopen / Review Triggers
 

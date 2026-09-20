@@ -23,6 +23,11 @@ inside the Project authority store. A Change-scoped operation also binds its
 Change-local identity. The operation binds an immutable `RequestDigest`.
 Repeating the same OperationId and digest resolves the recorded outcome;
 reusing the ID with another digest fails; and obsolete ExpectedRevision fails.
+For a completed canonical Git operation, the bounded structured Result records
+the exact POST proof (HEAD, patch digest, changed paths, and unchanged index).
+Explicit recovery decodes that immutable Result and requires semantic agreement
+with independently proven canonical POST before terminal authority can commit;
+missing, malformed, or contradictory results fail closed.
 Read-only inspection needs no OperationId. M1.1 does not delete authoritative
 operation records before a future approved retention policy. Results contain
 bounded structured outcome/provenance and authoritative references, never
@@ -53,6 +58,7 @@ operations require deliberate diagnosis or recovery.
 * One expected Change revision yields at most one committed successor.
 * An OperationId never authorizes a different RequestDigest.
 * Unknown or incomplete outcomes never imply success or automatic replay.
+* A completed canonical outcome cannot be reinterpreted or replaced during recovery.
 * Attach and inspection do not mutate authority.
 * Recovery state never changes the ADR-004 workflow vocabulary.
 

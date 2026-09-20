@@ -87,6 +87,18 @@ func ResolveDataDir() (string, error) {
 	return filepath.Join(homeDir, ".local", "share", "praetor"), nil
 }
 
+// ResolveStateDir resolves transient operational state separately from DATA.
+func ResolveStateDir() (string, error) {
+	if envPath := strings.TrimSpace(os.Getenv("XDG_STATE_HOME")); envPath != "" {
+		return filepath.Join(envPath, "praetor"), nil
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve user home dir: %w", err)
+	}
+	return filepath.Join(homeDir, ".local", "state", "praetor"), nil
+}
+
 // RegistryPath returns the JSON file path used for the local Project Registry V1.
 func RegistryPath() (string, error) {
 	dataDir, err := ResolveDataDir()

@@ -16,9 +16,10 @@ When a milestone reaches a deferred or benchmark trigger, the milestone must sto
 
 This rule is part of the delivery gate, not an optional policy note.
 
-Current implementation status: M0.0 through M1.0 are complete. The Core V0
+Current implementation status: M0.0 through M1.0 are complete. M1.1 is
+implemented and awaiting independent closure re-audit. The Core V0
 release gate has passed, and the bounded post-V0 presentation milestone is
-complete. The local M1.0 Policy Engine is complete; M1.1 has not started.
+complete. The local M1.0 Policy Engine is complete; M1.2 remains future.
 
 ## Revised delivery order
 
@@ -114,7 +115,13 @@ Persist and recover Change state, workflow authority, artifacts, evidence, and
 audit links outside governed source. The artifact/store/recovery decision gate
 is closed by ADR-033 through ADR-038 after the approved evidence spike.
 Recovery, local concurrency, and source-linked artifact inspection stay within
-this durability boundary; runtime implementation has not begun.
+this durability boundary. The runtime implementation is present and awaiting
+independent closure re-audit: normal
+lifecycle authority uses typed atomic commits, fresh processes hydrate the
+governed projection from durable artifacts, completed-operation POST recovery
+finalizes under the Project lock, attach validates without implicit legacy
+migration, and unsupported historical workflow schemas remain inspectable but
+non-executable.
 
 ### Step 13 — M1.2 repository intelligence, impact, and risk
 

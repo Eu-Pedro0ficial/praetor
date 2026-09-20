@@ -216,7 +216,7 @@ dirty SourceSnapshot digest, and completion time/result digest before
 canonical source unchanged. Both terminal paths then clean the session-owned
 workspace.
 
-===== M1.1 Target Durable Authority
+===== M1.1 Durable Authority
 
 ADR-033 preserves the existing state machine and identifies a durable Change
 by `(ProjectId, ChangeId)`, with opaque project-scoped ChangeId. Recovery

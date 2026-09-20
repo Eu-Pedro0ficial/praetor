@@ -185,11 +185,20 @@ artifact ownership and bindings, exact WorkflowSnapshots, required SQLite
 configuration, ExpectedRevision concurrency, all-or-none authority commits,
 bounded BLOB/quota handling, independently valid backup, corruption diagnosis,
 read-only inspection, and idempotent rollback-safe legacy audit migration.
+The cutover regression holds the migration lock while a pre-retirement writer
+waits, then verifies that the retired JSONL source and its digest are unchanged.
 
-A real crash/kill/restart matrix interrupts every durable authority boundary
-and proves QS-019: restart reveals either the exact complete transition or no
-transition. External-effect tests separately prove Git PRE, POST, and AMBIGUOUS
-classification, never automatic replay of uncertain completion. Validation
+Real crash/kill/restart tests exercise representative durable transaction and
+canonical-effect boundaries and prove QS-019: restart reveals either the exact
+complete authority commit or the prior Change authority, never a partial
+successful transition. External-effect tests separately prove Git PRE, POST,
+and AMBIGUOUS classification, never automatic replay of uncertain completion,
+and hold Project exclusion through exact POST terminal finalization. Validation
+requires persisted completed-operation Results to agree with independently
+proven POST and rejects malformed or contradictory Results without reapplication
+or terminal authority publication. Validation
+also checks that a valid unsupported historical WorkflowSnapshot remains
+inspectable while explicit POST recovery cannot advance its Change. Validation
 also proves no runtime metadata enters governed repositories.
 
 ## M1.5 quality/security verification foundation

@@ -14,7 +14,9 @@ The project must prove a governed change loop first, then expand capability afte
 
 Current implementation status: M0.0 through M1.0 are complete. The Core V0
 release gate, bounded post-V0 presentation milestone, and local Policy Engine
-milestone have passed; M1.1 has not begun.
+milestone have passed. Under Roadmap V2, the differently scoped durable
+Change/artifact M1.1 is implemented and awaiting independent closure re-audit;
+this archived file's former M1.1 numbering remains superseded history.
 
 ## Mandatory decision closure rule
 

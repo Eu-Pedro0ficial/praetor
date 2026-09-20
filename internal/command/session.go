@@ -10,8 +10,10 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
+	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
+	"github.com/Eu-Pedro0ficial/praetor/internal/inspection"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
 	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
@@ -22,8 +24,8 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
 )
 
-// Session retains the active Project context and process-local milestone
-// capabilities for one interactive shell session.
+// Session retains the active Project context and process-owned projections for
+// one shell session; durable Change authority remains in the Project store.
 type Session struct {
 	registration              project.Registration
 	changeWorkflow            *workflow.Service
@@ -34,9 +36,12 @@ type Session struct {
 	policy                    *policy.Service
 	approval                  approval.Port
 	canonicalIntegration      *integration.Service
+	canonicalRecovery         integration.RecoveryPort
 	presentationPreferences   *preferences.Service
 	providerRegistry          *aiprovider.Registry
 	providerSelection         aiprovider.Selection
+	durableInspection         *inspection.Service
+	durableAuthority          authority.Store
 	currentChange             change.Change
 	hasCurrentChange          bool
 	currentProposal           proposal.Proposal
@@ -66,6 +71,9 @@ func NewSession(
 	presentationPreferences *preferences.Service,
 	providerRegistry *aiprovider.Registry,
 	providerSelection aiprovider.Selection,
+	durableInspection *inspection.Service,
+	durableAuthority authority.Store,
+	canonicalRecovery integration.RecoveryPort,
 ) (*Session, error) {
 	if !registration.ProjectId.IsValid() {
 		return nil, fmt.Errorf("valid active ProjectId is required")
@@ -119,6 +127,9 @@ func NewSession(
 		presentationPreferences: presentationPreferences,
 		providerRegistry:        providerRegistry,
 		providerSelection:       providerSelection,
+		durableInspection:       durableInspection,
+		durableAuthority:        durableAuthority,
+		canonicalRecovery:       canonicalRecovery,
 		modeStack:               []ModeContext{rootModeContext()},
 	}, nil
 }
@@ -225,8 +236,8 @@ func (session *Session) Registration() project.Registration {
 	return session.registration
 }
 
-// CurrentChange returns the latest Change handled in this process-local
-// session, when one exists.
+// CurrentChange returns the currently selected durable Change projection, when
+// one exists.
 func (session *Session) CurrentChange() (change.Change, bool) {
 	if session == nil || !session.hasCurrentChange {
 		return change.Change{}, false
@@ -307,35 +318,44 @@ func (session *Session) clearCurrentProposal() {
 // Close cleans any process-owned proposal workspace before the interactive
 // session ends. Canonical developer source is never repaired or overwritten.
 func (session *Session) Close() error {
-	if session == nil || !session.hasCurrentProposal {
+	if session == nil {
 		return nil
 	}
-	var transitionError error
-	if !session.hasCurrentChange ||
-		(session.currentChange.State() != change.StateApproved &&
-			session.currentChange.State() != change.StateRejected &&
-			session.currentChange.State() != change.StateAuditLocked) {
-		transitionError = session.rejectCurrentChange("interactive session closed with proposal workspace")
+	var proposalError error
+	if session.hasCurrentProposal {
+		var transitionError error
+		if !session.hasCurrentChange ||
+			(session.currentChange.State() != change.StateApproved &&
+				session.currentChange.State() != change.StateRejected &&
+				session.currentChange.State() != change.StateAuditLocked) {
+			transitionError = session.rejectCurrentChange("interactive session closed with proposal workspace")
+		}
+		var cleaned proposal.Proposal
+		var discardError error
+		if session.currentChange.State() == change.StateAuditLocked || session.canonicalMutationOccurred {
+			cleaned, discardError = session.proposalLifecycle.CleanupClosed(
+				session.currentProposal,
+				"interactive session closed after terminal canonical integration",
+			)
+		} else {
+			cleaned, discardError = session.proposalLifecycle.Discard(
+				session.currentProposal,
+				"interactive session closed",
+			)
+		}
+		if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
+			session.clearCurrentProposal()
+		} else {
+			session.setCurrentProposal(cleaned)
+		}
+		proposalError = errors.Join(transitionError, discardError)
 	}
-	var cleaned proposal.Proposal
-	var discardError error
-	if session.currentChange.State() == change.StateAuditLocked || session.canonicalMutationOccurred {
-		cleaned, discardError = session.proposalLifecycle.CleanupClosed(
-			session.currentProposal,
-			"interactive session closed after terminal canonical integration",
-		)
-	} else {
-		cleaned, discardError = session.proposalLifecycle.Discard(
-			session.currentProposal,
-			"interactive session closed",
-		)
+	var authorityError error
+	if session.durableAuthority != nil {
+		authorityError = session.durableAuthority.Close()
+		session.durableAuthority = nil
 	}
-	if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
-		session.clearCurrentProposal()
-	} else {
-		session.setCurrentProposal(cleaned)
-	}
-	return errors.Join(transitionError, discardError)
+	return errors.Join(proposalError, authorityError)
 }
 
 func (session *Session) cleanupTerminalProposal(reason string) error {

@@ -39,6 +39,7 @@ type Change struct {
 	state     ChangeState
 	createdAt time.Time
 	updatedAt time.Time
+	revision  uint64
 }
 
 // Transition records the provenance produced by one successful state change.
@@ -128,6 +129,53 @@ func New(
 		state:     StateCreated,
 		createdAt: timestamp,
 		updatedAt: timestamp,
+		revision:  1,
+	}, nil
+}
+
+// Rehydrate reconstructs a durable Change snapshot while revalidating every
+// aggregate invariant. Persistence adapters must use this boundary rather
+// than leaking storage rows into the domain.
+func Rehydrate(
+	changeId ChangeId,
+	projectId project.ProjectId,
+	intent ChangeIntent,
+	state ChangeState,
+	createdAt time.Time,
+	updatedAt time.Time,
+	revision uint64,
+) (Change, error) {
+	validatedChangeId, err := NewChangeId(string(changeId))
+	if err != nil {
+		return Change{}, err
+	}
+	if !projectId.IsValid() {
+		return Change{}, fmt.Errorf("valid ProjectId is required")
+	}
+	if string(validatedChangeId) == string(projectId) {
+		return Change{}, fmt.Errorf("ChangeId must not reuse ProjectId")
+	}
+	validatedIntent, err := NewChangeIntent(string(intent))
+	if err != nil {
+		return Change{}, err
+	}
+	if !state.isKnown() {
+		return Change{}, fmt.Errorf("unknown ChangeState %q", state)
+	}
+	if createdAt.IsZero() || updatedAt.IsZero() {
+		return Change{}, fmt.Errorf("Change timestamps are required")
+	}
+	createdAt = createdAt.UTC()
+	updatedAt = updatedAt.UTC()
+	if updatedAt.Before(createdAt) {
+		return Change{}, fmt.Errorf("Change update timestamp precedes creation")
+	}
+	if revision == 0 {
+		return Change{}, fmt.Errorf("ChangeRevision must be positive")
+	}
+	return Change{
+		changeId: validatedChangeId, projectId: projectId, intent: validatedIntent,
+		state: state, createdAt: createdAt, updatedAt: updatedAt, revision: revision,
 	}, nil
 }
 
@@ -160,6 +208,9 @@ func (change Change) CreatedAt() time.Time {
 func (change Change) UpdatedAt() time.Time {
 	return change.updatedAt
 }
+
+// Revision returns the optimistic concurrency revision of this snapshot.
+func (change Change) Revision() uint64 { return change.revision }
 
 // Transition enforces and applies one deterministic lifecycle transition.
 func (change *Change) Transition(
@@ -206,6 +257,7 @@ func (change *Change) Transition(
 	}
 	change.state = resultingState
 	change.updatedAt = timestamp
+	change.revision++
 	return transition, nil
 }
 

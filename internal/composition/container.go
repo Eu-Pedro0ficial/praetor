@@ -3,17 +3,21 @@ package composition
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/aiprovider/codexcli"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
+	sqliteadapter "github.com/Eu-Pedro0ficial/praetor/internal/adapters/persistence/sqlite"
 	projectpolicy "github.com/Eu-Pedro0ficial/praetor/internal/adapters/policy/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/verification/localexec"
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
+	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
+	"github.com/Eu-Pedro0ficial/praetor/internal/inspection"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
 	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
@@ -41,7 +45,25 @@ type ChangeAuditLoggerFunc func(dataDirectory string, eventType string, projectI
 // PresentationPreferencesFunc loads user-local rendering preferences.
 type PresentationPreferencesFunc func() (*preferences.Service, error)
 
-// Container assembles only the dependencies required by the current M1.0 runtime scope.
+// DurableStoreFactoryFunc opens one per-Project M1.1 authority store.
+type DurableStoreFactoryFunc func(string, project.Registration) (authority.Store, error)
+
+func legacyAuditLogger(dataDirectory, eventType, projectID, repositoryRoot string, metadata map[string]any) (audit.Event, error) {
+	return audit.Append(dataDirectory, eventType, projectID, repositoryRoot, metadata)
+}
+
+func legacyChangeAuditLogger(dataDirectory, eventType, projectID, changeID, repositoryRoot string, metadata map[string]any) (audit.Event, error) {
+	return audit.AppendChange(dataDirectory, eventType, projectID, changeID, repositoryRoot, metadata)
+}
+
+func sameFunction(left, right any) bool {
+	if left == nil || right == nil {
+		return false
+	}
+	return reflect.ValueOf(left).Pointer() == reflect.ValueOf(right).Pointer()
+}
+
+// Container assembles only the dependencies required by the current M1.1 runtime scope.
 type Container struct {
 	RepositoryDiscovery     RepositoryDiscoveryFunc
 	RepositoryInspection    intelligence.RepositoryInspector
@@ -49,6 +71,8 @@ type Container struct {
 	AuditLogger             AuditLoggerFunc
 	ChangeAuditLogger       ChangeAuditLoggerFunc
 	ChangeStore             *workflow.MemoryStore
+	DurableStoreFactory     DurableStoreFactoryFunc
+	DurableAuthority        authority.Store
 	WorkflowClock           workflow.Clock
 	ProposalWorkspaces      proposal.WorkspacePort
 	PatchExtraction         proposal.PatchPort
@@ -80,13 +104,12 @@ func New() Container {
 		RepositoryDiscovery:  repository.Discover,
 		RepositoryInspection: repository.Inspect,
 		ProjectRegistration:  project.EnsureRegistration,
-		AuditLogger: func(dataDirectory string, eventType string, projectID string, repositoryRoot string, metadata map[string]any) (audit.Event, error) {
-			return audit.Append(dataDirectory, eventType, projectID, repositoryRoot, metadata)
+		AuditLogger:          legacyAuditLogger,
+		ChangeAuditLogger:    legacyChangeAuditLogger,
+		ChangeStore:          workflow.NewMemoryStore(),
+		DurableStoreFactory: func(dataDirectory string, registration project.Registration) (authority.Store, error) {
+			return sqliteadapter.Open(dataDirectory, registration)
 		},
-		ChangeAuditLogger: func(dataDirectory string, eventType string, projectID string, changeID string, repositoryRoot string, metadata map[string]any) (audit.Event, error) {
-			return audit.AppendChange(dataDirectory, eventType, projectID, changeID, repositoryRoot, metadata)
-		},
-		ChangeStore: workflow.NewMemoryStore(),
 		WorkflowClock: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -120,37 +143,129 @@ func New() Container {
 	}
 }
 
-// NewInteractiveSession composes one retained shell session around the active
-// Project and the current M0.1-M1.0 application and presentation capabilities.
+// MigrateLegacyAudit explicitly performs the ADR-038 cutover. Ordinary
+// Project attachment never invokes this operation implicitly.
+func (container Container) MigrateLegacyAudit() error {
+	dataDirectory, err := project.ResolveDataDir()
+	if err != nil {
+		return err
+	}
+	registrations, err := project.LoadRegistrations(dataDirectory)
+	if err != nil {
+		return err
+	}
+	if err := sqliteadapter.MigrateLegacyAudit(dataDirectory, registrations); err != nil {
+		return fmt.Errorf("migrate legacy audit authority: %w", err)
+	}
+	return nil
+}
+
+// NewInteractiveSession composes one retained shell session around the active Project.
 func (container Container) NewInteractiveSession(path string) (*command.Session, error) {
 	registration, err := container.EnsureProjectRegistration(path)
 	if err != nil {
 		return nil, err
 	}
-	changeWorkflow, err := container.NewChangeWorkflow(registration)
+	runtime := container
+	var openedAuthority authority.Store
+	authorityHandedOff := false
+	defer func() {
+		if !authorityHandedOff && openedAuthority != nil {
+			_ = openedAuthority.Close()
+		}
+	}()
+	var durableInspection *inspection.Service
+	var canonicalRecovery integration.RecoveryPort
+	useDurableAuthority := container.DurableStoreFactory != nil &&
+		sameFunction(container.AuditLogger, AuditLoggerFunc(legacyAuditLogger)) &&
+		sameFunction(container.ChangeAuditLogger, ChangeAuditLoggerFunc(legacyChangeAuditLogger))
+	if useDurableAuthority {
+		dataDirectory, dataError := project.ResolveDataDir()
+		if dataError != nil {
+			return nil, dataError
+		}
+		store, openError := container.DurableStoreFactory(dataDirectory, registration)
+		if openError != nil {
+			return nil, openError
+		}
+		openedAuthority = store
+		if validationError := store.ValidateAttachment(); validationError != nil {
+			return nil, fmt.Errorf("validate Project authority on attach: %w", validationError)
+		}
+		if sameFunction(container.ChangeAuditLogger, ChangeAuditLoggerFunc(legacyChangeAuditLogger)) {
+			runtime.DurableAuthority = store
+		}
+		if sameFunction(container.AuditLogger, AuditLoggerFunc(legacyAuditLogger)) {
+			runtime.AuditLogger = func(_ string, eventType, projectID, repositoryRoot string, metadata map[string]any) (audit.Event, error) {
+				event, eventError := audit.NewEvent(eventType, projectID, "", repositoryRoot, metadata, time.Now().UTC())
+				if eventError != nil {
+					return audit.Event{}, eventError
+				}
+				if appendError := store.AppendAudit(event); appendError != nil {
+					return audit.Event{}, appendError
+				}
+				return event, nil
+			}
+		}
+		if sameFunction(container.ChangeAuditLogger, ChangeAuditLoggerFunc(legacyChangeAuditLogger)) {
+			runtime.ChangeAuditLogger = func(_ string, eventType, projectID, changeID, repositoryRoot string, metadata map[string]any) (audit.Event, error) {
+				event, eventError := audit.NewEvent(eventType, projectID, changeID, repositoryRoot, metadata, time.Now().UTC())
+				if eventError != nil {
+					return audit.Event{}, eventError
+				}
+				if appendError := store.AppendAudit(event); appendError != nil {
+					return audit.Event{}, appendError
+				}
+				return event, nil
+			}
+		}
+		durableInspection, err = inspection.New(store)
+		if err != nil {
+			store.Close()
+			return nil, err
+		}
+		probe, supported := runtime.CanonicalSource.(integration.RecoveryProbe)
+		if !supported {
+			return nil, fmt.Errorf("canonical source adapter does not support M1.1 recovery classification")
+		}
+		stateDirectory, stateError := project.ResolveStateDir()
+		if stateError != nil {
+			return nil, stateError
+		}
+		coordinated, coordinateError := integration.NewCoordinatedCanonical(runtime.CanonicalSource, probe, store, registration.ProjectId, stateDirectory)
+		if coordinateError != nil {
+			return nil, coordinateError
+		}
+		runtime.CanonicalSource = coordinated
+		canonicalRecovery = coordinated
+	}
+	changeWorkflow, err := runtime.NewChangeWorkflow(registration)
+	if err != nil {
+		if runtime.DurableAuthority != nil {
+			_ = runtime.DurableAuthority.Close()
+		}
+		return nil, err
+	}
+	repositoryIntelligence, err := runtime.NewRepositoryIntelligence(registration)
 	if err != nil {
 		return nil, err
 	}
-	repositoryIntelligence, err := container.NewRepositoryIntelligence(registration)
+	proposalLifecycle, err := runtime.NewProposalService(registration)
 	if err != nil {
 		return nil, err
 	}
-	proposalLifecycle, err := container.NewProposalService(registration)
-	if err != nil {
-		return nil, err
-	}
-	providerRegistry, err := container.NewProviderRegistry()
+	providerRegistry, err := runtime.NewProviderRegistry()
 	if err != nil {
 		return nil, err
 	}
 	providerSelection, err := providerRegistry.Select(
-		container.ConfiguredProvider,
-		container.ConfiguredModel,
+		runtime.ConfiguredProvider,
+		runtime.ConfiguredModel,
 	)
 	if err != nil {
 		return nil, err
 	}
-	providerExecution, err := container.NewProviderExecutionService(
+	providerExecution, err := runtime.NewProviderExecutionService(
 		registration,
 		proposalLifecycle,
 		providerRegistry,
@@ -158,26 +273,26 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
-	verificationService, err := container.NewVerificationService(registration, proposalLifecycle)
+	verificationService, err := runtime.NewVerificationService(registration, proposalLifecycle)
 	if err != nil {
 		return nil, err
 	}
-	policyService, err := container.NewPolicyService(registration)
+	policyService, err := runtime.NewPolicyService(registration)
 	if err != nil {
 		return nil, err
 	}
-	approvalService, err := container.NewApprovalService(registration, changeWorkflow, proposalLifecycle)
+	approvalService, err := runtime.NewApprovalService(registration, changeWorkflow, proposalLifecycle)
 	if err != nil {
 		return nil, err
 	}
-	integrationService, err := container.NewIntegrationService(registration, changeWorkflow, proposalLifecycle)
+	integrationService, err := runtime.NewIntegrationService(registration, changeWorkflow, proposalLifecycle)
 	if err != nil {
 		return nil, err
 	}
-	if container.PresentationPreferences == nil {
+	if runtime.PresentationPreferences == nil {
 		return nil, fmt.Errorf("presentation preference loader is not configured")
 	}
-	presentationPreferences, err := container.PresentationPreferences()
+	presentationPreferences, err := runtime.PresentationPreferences()
 	if err != nil {
 		return nil, err
 	}
@@ -194,24 +309,27 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		presentationPreferences,
 		providerRegistry,
 		providerSelection,
+		durableInspection,
+		openedAuthority,
+		canonicalRecovery,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := container.RecordInitialization(registration, map[string]any{
+	if _, err := runtime.RecordInitialization(registration, map[string]any{
 		"command": "interactive shell",
 		"phase":   "startup",
 	}); err != nil {
 		return nil, err
 	}
-	if _, err := container.RecordProjectAttach(registration, map[string]any{
+	if _, err := runtime.RecordProjectAttach(registration, map[string]any{
 		"command":  "interactive shell",
 		"attached": true,
 	}); err != nil {
 		return nil, err
 	}
-	if _, err := container.RecordConfiguration(registration, map[string]any{
+	if _, err := runtime.RecordConfiguration(registration, map[string]any{
 		"command":     "interactive shell",
 		"runtime":     "local",
 		"directory":   "data",
@@ -220,6 +338,7 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	}); err != nil {
 		return nil, err
 	}
+	authorityHandedOff = true
 	return session, nil
 }
 
@@ -335,14 +454,10 @@ func (container Container) NewIntegrationService(
 		)
 		return recordError
 	}
-	return integration.New(
-		changeWorkflow,
-		proposalLifecycle.VerifyIntegrity,
-		container.CanonicalSource,
-		integration.RepositoryInspector(container.RepositoryInspection),
-		recorder,
-		container.IntegrationClock,
-	)
+	if container.DurableAuthority != nil {
+		return integration.NewDurable(changeWorkflow, proposalLifecycle.VerifyIntegrity, container.CanonicalSource, integration.RepositoryInspector(container.RepositoryInspection), recorder, container.IntegrationClock, container.DurableAuthority, registration.RepositoryRoot)
+	}
+	return integration.New(changeWorkflow, proposalLifecycle.VerifyIntegrity, container.CanonicalSource, integration.RepositoryInspector(container.RepositoryInspection), recorder, container.IntegrationClock)
 }
 
 func canonicalIntegrationMetadata(event integration.LifecycleEvent) (map[string]any, error) {
@@ -1067,6 +1182,12 @@ func (container Container) RecordConfiguration(registration project.Registration
 // NewChangeWorkflow assembles the minimal M0.2 application service for one
 // registered repository runtime.
 func (container Container) NewChangeWorkflow(registration project.Registration) (*workflow.Service, error) {
+	if container.DurableAuthority != nil {
+		if container.WorkflowClock == nil {
+			return nil, fmt.Errorf("workflow clock dependency is not configured")
+		}
+		return workflow.NewDurable(container.DurableAuthority, registration.ProjectId, container.WorkflowClock)
+	}
 	if container.ChangeAuditLogger == nil {
 		return nil, fmt.Errorf("Change audit logger dependency is not configured")
 	}

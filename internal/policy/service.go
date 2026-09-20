@@ -52,6 +52,21 @@ func (service *Service) Load(repositoryRoot string) (PolicyBundle, error) {
 }
 
 func (service *Service) Evaluate(repositoryRoot string, projectId project.ProjectId, changeId change.ChangeId, evidence verification.EvidenceSet) (BundleDecision, error) {
+	decision, err := service.EvaluateCandidate(repositoryRoot, projectId, changeId, evidence)
+	if err != nil {
+		return BundleDecision{}, err
+	}
+	if err := service.recorder(LifecycleEvent{EventType: EventPolicyDecisionRecorded, Decision: decision, OccurredAt: decision.EvaluatedAt()}); err != nil {
+		return BundleDecision{}, fmt.Errorf("record policy decision: %w", err)
+	}
+	service.RetainDecision(decision)
+	return decision, nil
+}
+
+// EvaluateCandidate computes policy authority without publishing it. Durable
+// callers use this to include the decision, binding, audit, and Change
+// transition in one authoritative commit.
+func (service *Service) EvaluateCandidate(repositoryRoot string, projectId project.ProjectId, changeId change.ChangeId, evidence verification.EvidenceSet) (BundleDecision, error) {
 	bundle, err := service.source.Load(repositoryRoot)
 	if err != nil {
 		return BundleDecision{}, err
@@ -60,14 +75,16 @@ func (service *Service) Evaluate(repositoryRoot string, projectId project.Projec
 	if err != nil {
 		return BundleDecision{}, err
 	}
-	if err := service.recorder(LifecycleEvent{EventType: EventPolicyDecisionRecorded, Decision: decision, OccurredAt: decision.EvaluatedAt()}); err != nil {
-		return BundleDecision{}, fmt.Errorf("record policy decision: %w", err)
-	}
-	service.mutex.Lock()
-	service.decisions[changeId] = decision
-	delete(service.candidates, changeId)
-	service.mutex.Unlock()
 	return decision, nil
+}
+
+// RetainDecision caches an already committed durable decision for this
+// process. It never establishes authority by itself.
+func (service *Service) RetainDecision(decision BundleDecision) {
+	service.mutex.Lock()
+	service.decisions[decision.ChangeId()] = decision
+	delete(service.candidates, decision.ChangeId())
+	service.mutex.Unlock()
 }
 
 func (service *Service) Decision(changeId change.ChangeId) (BundleDecision, bool) {

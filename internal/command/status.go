@@ -1,5 +1,11 @@
 package command
 
+import (
+	"fmt"
+
+	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
+)
+
 // StatusSnapshot is the single presentation-neutral projection consumed by
 // both the status command and the terminal sidebar.
 type StatusSnapshot struct {
@@ -16,6 +22,7 @@ type StatusSnapshot struct {
 	VerificationAttempt string
 	HumanDecision       string
 	HumanActor          string
+	Recovery            string
 	Session             string
 }
 
@@ -29,6 +36,7 @@ func (session *Session) StatusSnapshot() StatusSnapshot {
 		Proposal:      "none",
 		Verification:  "none",
 		HumanDecision: "none",
+		Recovery:      "clean",
 		Session:       "active",
 		ProviderModel: "provider default",
 	}
@@ -66,6 +74,45 @@ func (session *Session) StatusSnapshot() StatusSnapshot {
 	if decision, ok := session.LastDecision(); ok {
 		snapshot.HumanDecision = string(decision.Kind())
 		snapshot.HumanActor = string(decision.Actor())
+	}
+	if session.durableAuthority != nil {
+		operations, err := session.durableAuthority.ListIncompleteOperations()
+		if err != nil {
+			snapshot.Recovery = "unavailable"
+		} else {
+			if session.durableInspection == nil {
+				if len(operations) > 0 {
+					snapshot.Recovery = fmt.Sprintf("%d incomplete", len(operations))
+				}
+				return snapshot
+			}
+			blockers := 0
+			changes, listError := session.durableAuthority.ListChanges()
+			if listError != nil {
+				snapshot.Recovery = "unavailable"
+				return snapshot
+			}
+			for _, current := range changes {
+				diagnoses, diagnosisError := session.durableInspection.Diagnose(current.ChangeId())
+				if diagnosisError != nil {
+					snapshot.Recovery = "unavailable"
+					return snapshot
+				}
+				for _, diagnosis := range diagnoses {
+					if diagnosis.Condition != authority.RecoveryClean && diagnosis.Condition != authority.RecoveryIncomplete {
+						blockers++
+					}
+				}
+			}
+			switch {
+			case blockers > 0 && len(operations) > 0:
+				snapshot.Recovery = fmt.Sprintf("%d incomplete, %d blocker(s)", len(operations), blockers)
+			case blockers > 0:
+				snapshot.Recovery = fmt.Sprintf("%d blocker(s)", blockers)
+			case len(operations) > 0:
+				snapshot.Recovery = fmt.Sprintf("%d incomplete", len(operations))
+			}
+		}
 	}
 	return snapshot
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	sqliteadapter "github.com/Eu-Pedro0ficial/praetor/internal/adapters/persistence/sqlite"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
@@ -309,8 +310,10 @@ func TestRegistryM04RetainsSurfaceValidPatchWithoutAdvancingValidation(t *testin
 	wantTail := []string{
 		audit.EventProposalWorkspaceCreated,
 		audit.EventChangeTransition,
+		audit.EventArtifactCommitted,
 		audit.EventPatchExtracted,
 		audit.EventPatchSurfaceValidated,
+		audit.EventArtifactCommitted,
 	}
 	for index, eventType := range wantTail {
 		event := events[len(events)-len(wantTail)+index]
@@ -494,7 +497,8 @@ func TestRegistryM04AllowsPossibleAndDeletedFilePatches(t *testing.T) {
 				t.Fatalf("classified linkage = %#v, %t", classified, ok)
 			}
 			events := readCommandAudit(t, dataDirectory)
-			if events[len(events)-1].EventType != audit.EventPatchSurfaceValidated ||
+			if events[len(events)-2].EventType != audit.EventPatchSurfaceValidated ||
+				events[len(events)-1].EventType != audit.EventArtifactCommitted ||
 				events[len(events)-1].ChangeID != test.changeId {
 				t.Fatalf("surface-valid audit = %#v", events[len(events)-1])
 			}
@@ -592,7 +596,7 @@ func TestRegistryDispatchErrorsExitAndCompletion(t *testing.T) {
 	assertSuggestions(t, registry.Complete(session, "ana"), []string{"analysis"})
 	assertSuggestions(t, registry.Complete(session, "analysis "), []string{"impact"})
 	assertSuggestions(t, registry.Complete(session, "analysis im"), []string{"impact"})
-	assertSuggestions(t, registry.Complete(session, "change "), []string{"new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard"})
+	assertSuggestions(t, registry.Complete(session, "change "), []string{"list", "show", "select", "artifacts", "history", "diagnose", "recover", "content", "new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard"})
 	assertSuggestions(t, registry.Complete(session, "change i"), []string{"isolate", "implement"})
 	if _, err := registry.Dispatch(session, "/status", io.Discard); err != nil {
 		t.Fatalf("small leading-slash compatibility alias failed: %v", err)
@@ -817,6 +821,7 @@ func prepareCommittedCommandTest(t *testing.T) (string, string, *command.Session
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "state"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	container := composition.New()
 	session, err := container.NewInteractiveSession(".")
@@ -860,7 +865,7 @@ func writeCommandFile(t *testing.T, root string, relativePath string, contents s
 
 func readCommandAudit(t *testing.T, dataDirectory string) []audit.Event {
 	t.Helper()
-	events, err := audit.Read(dataDirectory)
+	events, err := sqliteadapter.ReadAuditEvents(dataDirectory)
 	if err != nil {
 		t.Fatalf("audit.Read() error = %v", err)
 	}

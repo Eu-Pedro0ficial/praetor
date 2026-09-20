@@ -445,6 +445,124 @@ type Result struct {
 	evidence        EvidenceSet
 }
 
+// DurableStep and DurableEvidence are representation-neutral rehydration
+// inputs for the immutable verification authority persisted by M1.1.
+type DurableStep struct {
+	Id                 string
+	Kind               StepKind
+	Executable         string
+	Arguments          []string
+	WorkingDirectory   string
+	Origin             CandidateOrigin
+	Timeout            time.Duration
+	SupportingEvidence []string
+}
+
+type DurableEvidence struct {
+	StepId             string
+	Kind               StepKind
+	Executable         string
+	Arguments          []string
+	WorkingDirectory   string
+	ResolvedExecutable string
+	Origin             CandidateOrigin
+	SupportingEvidence []string
+	StartedAt          time.Time
+	CompletedAt        time.Time
+	ExitCode           int
+	HasExitCode        bool
+	Outcome            ExecutionOutcome
+	StandardOutput     string
+	StandardError      string
+	OutputTruncated    bool
+}
+
+type DurableResult struct {
+	AttemptId     VerificationAttemptId
+	EvidenceSetId string
+	ProjectId     project.ProjectId
+	ChangeId      change.ChangeId
+	WorkspaceId   proposal.WorkspaceId
+	PatchDigest   string
+	SourceDigest  source.SourceStateDigest
+	Passed        bool
+	Steps         []DurableStep
+	Evidence      []DurableEvidence
+}
+
+// RehydrateResult validates the complete durable verification authority. It
+// never reruns tools or consults current repository configuration.
+func RehydrateResult(value DurableResult) (Result, error) {
+	if err := validateVerificationAttemptId(value.AttemptId); err != nil {
+		return Result{}, err
+	}
+	if !value.ProjectId.IsValid() || value.ChangeId == "" || value.WorkspaceId == "" || value.PatchDigest == "" || value.SourceDigest == "" {
+		return Result{}, fmt.Errorf("durable verification linkage is incomplete")
+	}
+	steps := make([]VerificationStep, len(value.Steps))
+	for index, stored := range value.Steps {
+		candidate, err := NewCandidate(stored.Kind, stored.Executable, stored.Arguments, stored.WorkingDirectory, stored.Origin, stored.SupportingEvidence)
+		if err != nil {
+			return Result{}, fmt.Errorf("durable VerificationStep %d: %w", index+1, err)
+		}
+		wantId := fmt.Sprintf("step-%03d-%s", index+1, strings.TrimPrefix(candidate.Id(), "candidate-"))
+		if stored.Id != wantId || stored.Timeout <= 0 || stored.Timeout > 30*time.Minute {
+			return Result{}, fmt.Errorf("durable VerificationStep %d identity or timeout is invalid", index+1)
+		}
+		steps[index] = VerificationStep{id: stored.Id, candidate: candidate, timeout: stored.Timeout}
+	}
+	evidence := make([]Evidence, len(value.Evidence))
+	patchIntegrityCount := 0
+	for index, stored := range value.Evidence {
+		if strings.TrimSpace(stored.StepId) == "" || !isKnownStepKind(stored.Kind) || !isKnownOrigin(stored.Origin) || stored.StartedAt.IsZero() || stored.CompletedAt.Before(stored.StartedAt) || !knownExecutionOutcome(stored.Outcome) {
+			return Result{}, fmt.Errorf("durable Evidence %d is invalid", index+1)
+		}
+		supporting, err := normalizeEvidencePaths(stored.SupportingEvidence)
+		if err != nil {
+			return Result{}, err
+		}
+		if stored.Kind == KindPatchIntegrity {
+			patchIntegrityCount++
+		}
+		evidence[index] = Evidence{stepId: stored.StepId, kind: stored.Kind, executable: stored.Executable, arguments: append([]string(nil), stored.Arguments...), workingDirectory: stored.WorkingDirectory, resolvedExecutable: stored.ResolvedExecutable, origin: stored.Origin, supportingEvidence: supporting, startedAt: stored.StartedAt.UTC(), completedAt: stored.CompletedAt.UTC(), exitCode: stored.ExitCode, hasExitCode: stored.HasExitCode, outcome: stored.Outcome, standardOutput: stored.StandardOutput, standardError: stored.StandardError, outputTruncated: stored.OutputTruncated}
+	}
+	passed := len(steps) > 0 && len(evidence) == len(steps)+1 && patchIntegrityCount == 1
+	for _, item := range evidence {
+		if item.Outcome() != OutcomePass {
+			passed = false
+		}
+	}
+	if passed != value.Passed {
+		return Result{}, fmt.Errorf("durable EvidenceSet pass status is inconsistent")
+	}
+	digestInput := strings.Builder{}
+	digestInput.WriteString(string(value.AttemptId))
+	digestInput.WriteString("\x00")
+	digestInput.WriteString(value.PatchDigest)
+	for _, item := range evidence {
+		digestInput.WriteString("\x00")
+		digestInput.WriteString(item.StepId())
+		digestInput.WriteString("\x00")
+		digestInput.WriteString(string(item.Outcome()))
+	}
+	digest := sha256.Sum256([]byte(digestInput.String()))
+	wantEvidenceId := "evidence-" + hex.EncodeToString(digest[:])
+	if value.EvidenceSetId != wantEvidenceId {
+		return Result{}, fmt.Errorf("durable EvidenceSet identity mismatch")
+	}
+	set := EvidenceSet{id: value.EvidenceSetId, verificationAttemptId: value.AttemptId, projectId: value.ProjectId, changeId: value.ChangeId, workspaceId: value.WorkspaceId, patchDigest: value.PatchDigest, sourceDigest: value.SourceDigest, evidence: cloneEvidenceSlice(evidence), passed: passed}
+	return Result{attemptId: value.AttemptId, plan: VerificationPlan{steps: steps}, evidence: set}, nil
+}
+
+func knownExecutionOutcome(value ExecutionOutcome) bool {
+	switch value {
+	case OutcomePass, OutcomeFail, OutcomeTimeout, OutcomeCancelled, OutcomeExecutionError:
+		return true
+	default:
+		return false
+	}
+}
+
 func (result Result) AttemptId() VerificationAttemptId { return result.attemptId }
 func (result Result) Discovery() DiscoveryResult       { return result.discovery }
 func (result Result) Plan() VerificationPlan           { return result.plan }

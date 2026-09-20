@@ -7,7 +7,7 @@ LAYOUT_WITH_LEGEND()
 title C4 Deployment — Local Developer Workstation [CURRENT + TARGET]
 Deployment_Node(dev, "Developer Workstation", "Linux/macOS/Windows") {
   Container(cli, "Runtime CLI", "Go binary", $tags="AS-IS")
-  ContainerDb(changeStore, "Per-Project Change Authority", "SQLite change-store.sqlite3 under XDG DATA", $tags="TARGET")
+  ContainerDb(changeStore, "Per-Project Change Authority", "SQLite change-store.sqlite3 under XDG DATA", $tags="AS-IS")
   ContainerDb(index, "Memory Query Projection", "Technology undecided", $tags="TARGET")
   Deployment_Node(workspace, "Workspace") {
     Container(srcLocal, "Source clone", "Git working copy", $tags="AS-IS")

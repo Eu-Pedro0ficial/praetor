@@ -269,8 +269,9 @@ func assertM08ApprovedAudit(t *testing.T, events []audit.Event) {
 	start := eventIndex(events, audit.EventCanonicalApplicationStarted)
 	completed := eventIndex(events, audit.EventCanonicalApplicationCompleted)
 	terminal := transitionIndex(events, change.StateApproved, change.StateAuditLocked)
+	artifact := eventIndexAfter(events, audit.EventArtifactCommitted, terminal)
 	cleanup := eventIndex(events, audit.EventProposalWorkspaceDiscarded)
-	if start < 0 || completed != start+1 || terminal != completed+1 || cleanup != terminal+1 {
+	if start < 0 || completed != start+1 || terminal != completed+1 || artifact != terminal+1 || cleanup != artifact+1 {
 		t.Fatalf("approved application audit ordering start=%d completed=%d terminal=%d cleanup=%d", start, completed, terminal, cleanup)
 	}
 	metadata := events[completed].Metadata
@@ -290,6 +291,15 @@ func assertM08ApprovedAudit(t *testing.T, events []audit.Event) {
 			t.Fatalf("completion audit leaked %q: %#v", forbidden, metadata)
 		}
 	}
+}
+
+func eventIndexAfter(events []audit.Event, eventType string, after int) int {
+	for index := after + 1; index < len(events); index++ {
+		if events[index].EventType == eventType {
+			return index
+		}
+	}
+	return -1
 }
 
 func eventIndex(events []audit.Event, eventType string) int {

@@ -65,11 +65,18 @@ legacy provenance.
 The disposable migration prototype preserved the required legacy fields and
 source digest, treated duplicate import as harmless, and rolled back the target
 on injected failure while leaving the source unchanged.
+M1.1 runtime tests cover exact historical import, idempotent retry, rollback,
+and a writer that began before retirement and waits at the migration lock;
+after cutover it cannot append to the retired JSONL source
+(`internal/adapters/persistence/sqlite/store_test.go`;
+`internal/audit/ledger_test.go`).
 
 === Implementation Boundary
 
-This ADR does not implement migration, select a final migration-manifest table,
-choose an exact schema integer, delete `audit.log`, or alter the current writer.
+This ADR does not prescribe the physical migration-manifest schema or authorize
+deleting `audit.log`. M1.1 implements explicit locked migration and retires the
+legacy writer only after successful import; milestone closure remains subject
+to independent re-audit.
 
 === Reopen / Review Triggers
 

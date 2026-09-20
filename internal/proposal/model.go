@@ -336,6 +336,42 @@ func (current Proposal) withArtifact(artifact PatchArtifact) Proposal {
 	return current
 }
 
+// RehydrateProposal reconstructs a retained proposal from immutable durable
+// source, scope, and patch authority. The referenced worktree must still exist;
+// no workspace is created or repaired by hydration.
+func RehydrateProposal(workspaceId WorkspaceId, workspaceRoot string, canonicalSource source.SourceSnapshot, approvedScope source.ApprovedScope, patchContent []byte, changedPaths []string, patchDigest string, createdAt time.Time) (Proposal, error) {
+	current, err := RehydrateWorkspaceProposal(workspaceId, workspaceRoot, canonicalSource, approvedScope)
+	if err != nil {
+		return Proposal{}, err
+	}
+	workspace := current.workspace
+	workspace, err = workspace.transition(WorkspaceRetained)
+	if err != nil {
+		return Proposal{}, err
+	}
+	current.workspace = workspace
+	active := workspace
+	active.state = WorkspaceActive
+	patch, err := newPatchArtifact(active, patchContent, changedPaths, createdAt)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if patch.PatchDigest() != patchDigest {
+		return Proposal{}, fmt.Errorf("durable PatchArtifact digest mismatch")
+	}
+	return current.withArtifact(patch), nil
+}
+
+// RehydrateWorkspaceProposal reconstructs an active durable workspace before
+// a PatchArtifact has been committed.
+func RehydrateWorkspaceProposal(workspaceId WorkspaceId, workspaceRoot string, canonicalSource source.SourceSnapshot, approvedScope source.ApprovedScope) (Proposal, error) {
+	workspace, err := NewProposalWorkspace(workspaceId, canonicalSource.ProjectId(), approvedScope.ChangeId(), canonicalSource.RepositoryRoot(), workspaceRoot, canonicalSource.HeadRevision(), canonicalSource.SourceStateDigest())
+	if err != nil {
+		return Proposal{}, err
+	}
+	return newProposal(workspace, canonicalSource, approvedScope)
+}
+
 // EmptyPatchError identifies an isolated proposal with no extractable source change.
 type EmptyPatchError struct{ WorkspaceId WorkspaceId }
 

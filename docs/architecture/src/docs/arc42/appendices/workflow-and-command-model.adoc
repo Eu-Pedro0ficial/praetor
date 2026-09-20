@@ -258,15 +258,25 @@ candidate before changing session-visible presentation. These commands cannot
 change Project, Change, provider selection, verification, decision, source, or
 audit state.
 
-==== M1.1 Target Durable Workflow
+==== M1.1 Durable Workflow
 
 M1.1 binds every Change to the exact embedded, schema-validated Core V0 YAML
 WorkflowSnapshot and persists immutable artifacts and current bindings through
 one typed ExpectedRevision authority commit. Read-only use cases list/load a
 Change, show state/revision/workflow, inspect artifact metadata/relations and
 explicit bounded content, show audit history, and diagnose incomplete
-operations without migration, repair, or transition side effects. Final shell
-command spelling remains implementation-owned.
+operations without migration, repair, or transition side effects. The
+implemented commands are `change list`, `show`, `select`, `artifacts`,
+`history`, `diagnose`, `content`, and explicit `recover`.
+
+`change select` on an executable in-flight snapshot hydrates the proposal,
+Verification/EvidenceSet, PolicyDecision, and HumanDecision projections from
+their current durable bindings. It validates their identity, ownership,
+digests, schemas, and linkage into temporary projections before publishing the
+selected Change and its session caches together. Failed hydration leaves the
+previous session selection intact. An unsupported
+historical workflow remains selectable for inspection but no command may
+advance it.
 
 Consequential operations reserve a Project-unique OperationId and immutable
 RequestDigest. The same identity/digest resolves its existing result; a changed
@@ -275,6 +285,11 @@ uses a durable reservation, short Project OS lock under XDG STATE, and exact
 PRE/POST proof. PRE can be explicitly retried but is never automatically
 replayed; verified POST may be explicitly finalized; AMBIGUOUS blocks for human
 remediation.
+For a completed operation, explicit recovery additionally requires its
+persisted structured Result to agree with independently verified POST. A
+malformed or contradictory Result blocks terminal authority. Without a selected
+Change, `change diagnose` requests an explicit ChangeId rather than claiming
+Project-wide recovery is clean.
 
 ==== M1.3 Target Specification and ChangePlan Workflow
 

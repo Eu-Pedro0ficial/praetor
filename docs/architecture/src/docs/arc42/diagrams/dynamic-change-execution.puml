@@ -8,7 +8,7 @@ title Dynamic View — Governed Implementation [COMPOSITE TARGET]
 Person(engineer, "Engineer", $tags="AS-IS")
 Container(cli, "CLI", "Go", $tags="AS-IS")
 Container(core, "Workflow/Governance Core", "Go", $tags="PARTIAL")
-ContainerDb(changeStore, "Per-Project Change Authority", "SQLite", $tags="TARGET")
+ContainerDb(changeStore, "Per-Project Change Authority", "SQLite", $tags="AS-IS")
 Container(sandbox, "Isolated Proposal Worktree", "Git worktree", $tags="AS-IS")
 System_Ext(ai, "Implementer AI Provider", "Explicitly selected adapter", $tags="AS-IS")
 System_Ext(tools, "Verification Tools", "Current bounded tests; broader tools target", $tags="PARTIAL")

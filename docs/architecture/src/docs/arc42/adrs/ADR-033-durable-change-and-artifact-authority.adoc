@@ -88,7 +88,8 @@ which only a complete committed authority transition was visible.
 
 This ADR decides domain and application persistence semantics, not Go types,
 SQL table layout, migration integers, private helpers, or final CLI command
-spelling. All M1.1 runtime capability remains `TARGET` until implemented.
+spelling. M1.1 runtime capability is implemented and awaits independent
+closure re-audit; this ADR does not itself establish milestone completion.
 
 === Reopen / Review Triggers
 

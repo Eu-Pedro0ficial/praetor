@@ -77,6 +77,45 @@ type HumanDecision struct {
 	policyRequiresApproval bool
 }
 
+type DurableHumanDecision struct {
+	ProjectId              project.ProjectId
+	ChangeId               change.ChangeId
+	WorkspaceId            proposal.WorkspaceId
+	Kind                   DecisionKind
+	OccurredAt             time.Time
+	Rationale              string
+	Actor                  ActorProvenance
+	RequestedState         change.ChangeState
+	BaseRevision           string
+	SourceStateDigest      source.SourceStateDigest
+	PatchDigest            string
+	VerificationAttemptId  verification.VerificationAttemptId
+	EvidenceSetId          string
+	EvidenceCount          int
+	ChangedPathCount       int
+	PolicyEvaluationId     string
+	PolicyBundleDigest     string
+	PolicyDenied           bool
+	PolicyRequiresReview   bool
+	PolicyRequiresApproval bool
+}
+
+// RehydrateHumanDecision validates immutable durable decision authority.
+func RehydrateHumanDecision(value DurableHumanDecision) (HumanDecision, error) {
+	requested, err := resultingState(value.Kind)
+	if err != nil {
+		return HumanDecision{}, err
+	}
+	rationale, err := NewRationale(value.Rationale)
+	if err != nil {
+		return HumanDecision{}, err
+	}
+	if !value.ProjectId.IsValid() || value.ChangeId == "" || value.WorkspaceId == "" || value.OccurredAt.IsZero() || value.Actor != ActorLocalInteractiveHuman || value.RequestedState != requested || strings.TrimSpace(value.BaseRevision) == "" || strings.TrimSpace(string(value.SourceStateDigest)) == "" || strings.TrimSpace(value.PatchDigest) == "" || value.VerificationAttemptId == "" || value.EvidenceSetId == "" || value.EvidenceCount <= 0 || value.ChangedPathCount <= 0 || value.PolicyEvaluationId == "" || value.PolicyBundleDigest == "" {
+		return HumanDecision{}, fmt.Errorf("durable HumanDecision linkage is incomplete or invalid")
+	}
+	return HumanDecision{projectId: value.ProjectId, changeId: value.ChangeId, workspaceId: value.WorkspaceId, kind: value.Kind, occurredAt: value.OccurredAt.UTC(), rationale: rationale, actor: value.Actor, requestedState: value.RequestedState, baseRevision: value.BaseRevision, sourceStateDigest: value.SourceStateDigest, patchDigest: value.PatchDigest, verificationAttemptId: value.VerificationAttemptId, evidenceSetId: value.EvidenceSetId, evidenceCount: value.EvidenceCount, changedPathCount: value.ChangedPathCount, policyEvaluationId: value.PolicyEvaluationId, policyBundleDigest: value.PolicyBundleDigest, policyDenied: value.PolicyDenied, policyRequiresReview: value.PolicyRequiresReview, policyRequiresApproval: value.PolicyRequiresApproval}, nil
+}
+
 func newHumanDecision(
 	currentChange change.Change,
 	currentProposal proposal.Proposal,

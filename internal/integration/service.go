@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,6 +10,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
+	"github.com/Eu-Pedro0ficial/praetor/internal/artifact"
+	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
+	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
@@ -62,12 +66,29 @@ type Clock func() time.Time
 // Service enforces the M0.8 coherence gate, canonical application, proof,
 // append-oriented audit ordering, and existing terminal state transitions.
 type Service struct {
-	workflow  *workflow.Service
-	integrity IntegrityVerifier
-	canonical CanonicalSourcePort
-	inspector RepositoryInspector
-	recorder  LifecycleRecorder
-	clock     Clock
+	workflow       *workflow.Service
+	integrity      IntegrityVerifier
+	canonical      CanonicalSourcePort
+	inspector      RepositoryInspector
+	recorder       LifecycleRecorder
+	clock          Clock
+	durable        authority.Store
+	repositoryRoot string
+}
+
+// NewDurable composes M1.1 terminal authority over the same M0.8 validation
+// path. The concrete store remains behind the application-owned authority port.
+func NewDurable(changeWorkflow *workflow.Service, integrity IntegrityVerifier, canonical CanonicalSourcePort, inspector RepositoryInspector, recorder LifecycleRecorder, clock Clock, store authority.Store, repositoryRoot string) (*Service, error) {
+	service, err := New(changeWorkflow, integrity, canonical, inspector, recorder, clock)
+	if err != nil {
+		return nil, err
+	}
+	if store == nil || strings.TrimSpace(repositoryRoot) == "" {
+		return nil, fmt.Errorf("durable canonical authority dependencies are incomplete")
+	}
+	service.durable = store
+	service.repositoryRoot = repositoryRoot
+	return service, nil
 }
 
 // New constructs the M0.8 integration service from explicit dependencies.
@@ -119,6 +140,7 @@ func (service *Service) Apply(
 	decision approval.HumanDecision,
 ) (Result, change.Change, error) {
 	var result Result
+	var err error
 	if service == nil {
 		return result, currentChange, fmt.Errorf("canonical integration service is required")
 	}
@@ -184,7 +206,29 @@ func (service *Service) Apply(
 	if err := ctx.Err(); err != nil {
 		return fail("cancellation", fmt.Errorf("canonical application cancelled before mutation: %w", err), false)
 	}
-	proof, mutated, err := service.canonical.Apply(request)
+	var proof CanonicalProof
+	var mutated bool
+	var terminal change.Change
+	if service.durable != nil {
+		coordinated, ok := service.canonical.(coordinatedCompletion)
+		if !ok {
+			return fail("atomic-application", fmt.Errorf("durable canonical source does not support locked authority finalization"), false)
+		}
+		proof, mutated, err = coordinated.ApplyCoordinated(request, func(operation authority.Operation, lockedProof CanonicalProof) error {
+			resultingSource, inspectError := service.inspector(currentChange.ProjectId(), currentProposal.CanonicalSource().RepositoryRoot())
+			if inspectError != nil {
+				return fmt.Errorf("inspect canonical application result: %w", inspectError)
+			}
+			result, inspectError = newResult(currentChange, currentProposal, verificationResult, decision, lockedProof, resultingSource, service.clock())
+			if inspectError != nil {
+				return inspectError
+			}
+			terminal, inspectError = service.commitCanonicalCompletion(currentChange, currentProposal, verificationResult, decision, result, operation)
+			return inspectError
+		})
+	} else {
+		proof, mutated, err = service.canonical.Apply(request)
+	}
 	if err != nil {
 		return fail("atomic-application", fmt.Errorf("apply approved PatchArtifact: %w", err), mutated)
 	}
@@ -192,6 +236,9 @@ func (service *Service) Apply(
 		return fail("atomic-application", fmt.Errorf("canonical adapter returned success without mutation"), false)
 	}
 	result.canonicalMutationOccurred = true
+	if service.durable != nil {
+		return result, terminal, nil
+	}
 	resultingSource, err := service.inspector(currentChange.ProjectId(), currentProposal.CanonicalSource().RepositoryRoot())
 	if err != nil {
 		return fail("post-application-inspection", fmt.Errorf("inspect canonical application result: %w", err), true)
@@ -216,7 +263,7 @@ func (service *Service) Apply(
 	if err := service.recorder(completedEvent); err != nil {
 		return fail("completion-audit", fmt.Errorf("record canonical application completion: %w", err), true)
 	}
-	terminal, err := service.workflow.Transition(
+	terminal, err = service.workflow.Transition(
 		currentChange.ChangeId(),
 		change.StateAuditLocked,
 		"approved PatchArtifact applied and deterministically proven in canonical working tree",
@@ -225,6 +272,55 @@ func (service *Service) Apply(
 		return result, currentChange, err
 	}
 	return result, terminal, nil
+}
+
+func (service *Service) commitCanonicalCompletion(current change.Change, currentProposal proposal.Proposal, verificationResult verification.Result, decision approval.HumanDecision, result Result, operation authority.Operation) (change.Change, error) {
+	candidate := current
+	transition, err := candidate.Transition(change.StateAuditLocked, result.CompletedAt(), "approved PatchArtifact applied and deterministically proven in canonical working tree")
+	if err != nil {
+		return change.Change{}, err
+	}
+	payload, err := json.Marshal(map[string]any{"operation_id": operation.Id, "workspace_id": result.WorkspaceId(), "base_revision": result.BaseRevision(), "source_state_digest": result.SourceStateDigest(), "resulting_source_state_digest": result.ResultingSourceStateDigest(), "patch_digest": result.PatchDigest(), "verification_attempt_id": result.VerificationAttemptId(), "evidence_set_id": result.EvidenceSetId(), "decision_kind": result.DecisionKind(), "changed_paths": result.ChangedPaths(), "canonical_head": result.CanonicalHead(), "index_unchanged": result.IndexUnchanged(), "result_digest": result.ResultDigest()})
+	if err != nil {
+		return change.Change{}, err
+	}
+	id, err := artifact.GenerateId()
+	if err != nil {
+		return change.Change{}, err
+	}
+	item, err := artifact.New(id, candidate.ProjectId(), candidate.ChangeId(), artifact.KindApplicationResult, 1, 1, "application/json", result.CompletedAt(), artifact.Producer{Component: "praetor-runtime", OperationId: string(operation.Id)}, payload, false)
+	if err != nil {
+		return change.Change{}, err
+	}
+	completedMetadata, err := durableIntegrationMetadata(currentProposal, verificationResult, decision)
+	if err != nil {
+		return change.Change{}, err
+	}
+	completedMetadata["operation_id"] = operation.Id
+	completedMetadata["canonical_mutation_occurred"] = true
+	completedMetadata["event_timestamp"] = result.CompletedAt().UTC().Format(time.RFC3339Nano)
+	completedMetadata["disposition"] = "completed"
+	completedMetadata["resulting_source_state_digest"] = string(result.ResultingSourceStateDigest())
+	completedMetadata["canonical_head"] = result.CanonicalHead()
+	completedMetadata["index_unchanged"] = result.IndexUnchanged()
+	completedMetadata["canonical_result_digest"] = result.ResultDigest()
+	completed, err := audit.NewEvent(EventCanonicalApplicationCompleted, string(candidate.ProjectId()), string(candidate.ChangeId()), service.repositoryRoot, completedMetadata, result.CompletedAt())
+	if err != nil {
+		return change.Change{}, err
+	}
+	lifecycle, err := audit.NewEvent(workflow.EventChangeTransition, string(candidate.ProjectId()), string(candidate.ChangeId()), service.repositoryRoot, map[string]any{"previous_state": transition.PreviousState, "resulting_state": transition.ResultingState, "transition_timestamp": transition.OccurredAt.Format(time.RFC3339Nano), "context": transition.Context}, transition.OccurredAt)
+	if err != nil {
+		return change.Change{}, err
+	}
+	committed, err := audit.NewEvent(audit.EventArtifactCommitted, string(candidate.ProjectId()), string(candidate.ChangeId()), service.repositoryRoot, map[string]any{"artifact_ids": []string{string(id)}, "change_revision": candidate.Revision(), "operation_id": operation.Id}, result.CompletedAt())
+	if err != nil {
+		return change.Change{}, err
+	}
+	commit := authority.AuthorityCommit{ExpectedRevision: current.Revision(), Candidate: candidate, Artifacts: []artifact.Artifact{item}, Bindings: []authority.ArtifactBinding{{Role: "application-result", ArtifactId: id, Revision: candidate.Revision()}}, Operation: &operation, AuditEvents: []audit.Event{completed, lifecycle, committed}}
+	if err := service.durable.CommitAuthority(commit); err != nil {
+		return change.Change{}, err
+	}
+	return candidate, nil
 }
 
 // CloseRejected records that canonical source is still unchanged, then uses
@@ -267,6 +363,36 @@ func (service *Service) CloseRejected(
 	if event.OccurredAt.IsZero() {
 		return currentChange, fmt.Errorf("rejected Change closure timestamp is required")
 	}
+	if service.durable != nil {
+		if err := service.integrity(currentProposal); err != nil {
+			return currentChange, fmt.Errorf("rejected Change integrity changed before audit lock: %w", err)
+		}
+		candidate := currentChange
+		transition, err := candidate.Transition(change.StateAuditLocked, event.OccurredAt, "rejected Change closed with canonical source unchanged")
+		if err != nil {
+			return currentChange, err
+		}
+		closureMetadata, err := durableIntegrationMetadata(currentProposal, verificationResult, decision)
+		if err != nil {
+			return currentChange, err
+		}
+		closureMetadata["canonical_mutation_occurred"] = false
+		closureMetadata["event_timestamp"] = event.OccurredAt.UTC().Format(time.RFC3339Nano)
+		closureMetadata["disposition"] = "rejected-closure"
+		closureMetadata["canonical_source_unchanged"] = true
+		closure, err := audit.NewEvent(EventChangeClosureRecorded, string(candidate.ProjectId()), string(candidate.ChangeId()), service.repositoryRoot, closureMetadata, event.OccurredAt)
+		if err != nil {
+			return currentChange, err
+		}
+		lifecycle, err := audit.NewEvent(workflow.EventChangeTransition, string(candidate.ProjectId()), string(candidate.ChangeId()), service.repositoryRoot, map[string]any{"previous_state": transition.PreviousState, "resulting_state": transition.ResultingState, "transition_timestamp": transition.OccurredAt.Format(time.RFC3339Nano), "context": transition.Context}, transition.OccurredAt)
+		if err != nil {
+			return currentChange, err
+		}
+		if err := service.durable.CommitAuthority(authority.AuthorityCommit{ExpectedRevision: currentChange.Revision(), Candidate: candidate, AuditEvents: []audit.Event{closure, lifecycle}}); err != nil {
+			return currentChange, err
+		}
+		return candidate, nil
+	}
 	if err := service.recorder(event); err != nil {
 		return currentChange, fmt.Errorf("record rejected Change closure: %w", err)
 	}
@@ -281,6 +407,34 @@ func (service *Service) CloseRejected(
 		change.StateAuditLocked,
 		"rejected Change closed with canonical source unchanged",
 	)
+}
+
+func durableIntegrationMetadata(currentProposal proposal.Proposal, verificationResult verification.Result, decision approval.HumanDecision) (map[string]any, error) {
+	patch, ok := currentProposal.PatchArtifact()
+	if !ok {
+		return nil, fmt.Errorf("canonical lifecycle metadata requires PatchArtifact")
+	}
+	workspace := currentProposal.Workspace()
+	evidence := verificationResult.EvidenceSet()
+	if patch.WorkspaceId() != workspace.WorkspaceId() ||
+		evidence.WorkspaceId() != workspace.WorkspaceId() ||
+		decision.WorkspaceId() != workspace.WorkspaceId() {
+		return nil, fmt.Errorf("canonical lifecycle metadata linkage is inconsistent")
+	}
+	return map[string]any{
+		"workspace_id":            string(workspace.WorkspaceId()),
+		"base_revision":           patch.BaseRevision(),
+		"source_state_digest":     string(patch.SourceStateDigest()),
+		"patch_digest":            patch.PatchDigest(),
+		"changed_paths":           patch.ChangedPaths(),
+		"changed_path_count":      len(patch.ChangedPaths()),
+		"verification_attempt_id": string(evidence.VerificationAttemptId()),
+		"evidence_set_id":         evidence.Id(),
+		"evidence_count":          len(evidence.Evidence()),
+		"human_decision":          string(decision.Kind()),
+		"policy_evaluation_id":    decision.PolicyEvaluationId(),
+		"policy_bundle_digest":    decision.PolicyBundleDigest(),
+	}, nil
 }
 
 func validateDisposition(

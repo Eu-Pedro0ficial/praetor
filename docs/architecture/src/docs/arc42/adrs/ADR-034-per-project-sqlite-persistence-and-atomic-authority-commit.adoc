@@ -129,9 +129,9 @@ artifact limit.
 
 === Implementation Boundary
 
-This ADR authorizes the later M1.1 adapter dependency and constrains its
-behavior. It does not add that dependency now, choose exact SQL, implement a
-quota default, or implement any runtime code.
+This ADR authorized and constrains the M1.1 SQLite adapter dependency now used
+by the runtime. It does not prescribe exact SQL, a quota default, or future
+storage evolution; milestone closure remains subject to independent re-audit.
 
 === Reopen / Review Triggers
 

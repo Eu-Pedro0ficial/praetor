@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
+	sqliteadapter "github.com/Eu-Pedro0ficial/praetor/internal/adapters/persistence/sqlite"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/composition"
 	"github.com/reeflective/readline"
@@ -71,7 +71,7 @@ func TestAdapterRetainsProjectContextAndContinuesAfterCommandErrors(t *testing.T
 	if editor.index != len(editor.reads) {
 		t.Fatalf("shell stopped after %d of %d commands", editor.index, len(editor.reads))
 	}
-	events, err := audit.Read(dataDirectory)
+	events, err := sqliteadapter.ReadAuditEvents(dataDirectory)
 	if err != nil {
 		t.Fatalf("audit.Read() error = %v", err)
 	}
@@ -141,7 +141,7 @@ func TestReadlineEditorEnablesLiveRegistryCompletion(t *testing.T) {
 		{input: "", wantValues: []string{"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit"}},
 		{input: "ana", wantValues: []string{"analysis"}},
 		{input: "analysis ", wantValues: []string{"impact"}},
-		{input: "change ", wantValues: []string{"new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard"}},
+		{input: "change ", wantValues: []string{"list", "show", "select", "artifacts", "history", "diagnose", "recover", "content", "new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard"}},
 		{input: "policy ", wantValues: []string{"show", "list", "evaluate", "exception"}},
 		{input: "provider ", wantValues: []string{"list", "show", "select", "model"}},
 		{input: "provider select ", wantValues: []string{"codex-cli"}},

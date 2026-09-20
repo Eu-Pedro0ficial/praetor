@@ -77,7 +77,7 @@ The Change aggregate preserves intent and state. Candidate concepts include:
 * Postmortem
 
 ADR-033 fixes durable identity as `(ProjectId, ChangeId)` and leaves the
-accepted state machine unchanged. M1.1 target persistence adds immutable
+accepted state machine unchanged. M1.1 persistence adds immutable
 versioned Artifact records, immutable relations, append-only supersession, and
 versioned current bindings. ArtifactId is opaque and independent from payload
 digest; every M1.1 artifact belongs to exactly one Project and Change.
@@ -89,7 +89,8 @@ backed by one physical per-Project SQLite adapter under XDG DATA. A narrow typed
 authority commit atomically checks ExpectedRevision and writes the Change
 revision, artifact records/relations/bindings, operation outcome, and audit
 events. External effects never run inside that transaction. These components
-remain `TARGET`/`PARTIAL` until runtime evidence exists.
+are implemented; later Specification, review, identity, and retention maturity
+remain owned by their roadmap milestones.
 
 Read-only application use cases expose bounded durable Change, workflow,
 artifact, audit, and recovery diagnosis without automatically migrating,

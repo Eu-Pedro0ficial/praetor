@@ -154,6 +154,66 @@ func (adapter *Adapter) Create(request proposal.WorkspaceRequest) (proposal.Prop
 	return workspace, nil
 }
 
+// Reattach safely reclaims an existing adapter-created worktree after a
+// process restart. Durable authority supplies its identity and linkage; this
+// method independently rechecks the filesystem and Git boundaries before the
+// workspace can be extracted or removed by this adapter instance.
+func (adapter *Adapter) Reattach(workspace proposal.ProposalWorkspace) error {
+	if adapter == nil {
+		return fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	if _, exists := adapter.owned[workspace.WorkspaceId()]; exists {
+		_, err := adapter.validateOwned(workspace)
+		return err
+	}
+	temporaryRoot, err := resolveExistingDirectory(adapter.temporaryRoot, "proposal temporary root")
+	if err != nil {
+		return err
+	}
+	workspaceRoot, err := resolveExistingDirectory(workspace.Root(), "proposal workspace root")
+	if err != nil {
+		return err
+	}
+	canonicalRoot, err := resolveExistingDirectory(workspace.CanonicalRoot(), "canonical repository root")
+	if err != nil {
+		return err
+	}
+	ownerRoot := filepath.Dir(workspaceRoot)
+	if filepath.Base(workspaceRoot) != "workspace" || !strings.HasPrefix(filepath.Base(ownerRoot), "praetor-proposal-") || filepath.Dir(ownerRoot) != temporaryRoot {
+		return fmt.Errorf("proposal workspace %q is outside the controlled restart layout", workspace.WorkspaceId())
+	}
+	insideTemporaryRoot, err := pathWithin(temporaryRoot, ownerRoot)
+	if err != nil || !insideTemporaryRoot {
+		return fmt.Errorf("proposal workspace %q escaped adapter ownership boundary", workspace.WorkspaceId())
+	}
+	topLevel, err := runGit(workspaceRoot, "rev-parse", "--show-toplevel")
+	if err != nil || filepath.Clean(strings.TrimSpace(string(topLevel))) != workspaceRoot {
+		return fmt.Errorf("proposal workspace %q is not the expected Git worktree", workspace.WorkspaceId())
+	}
+	head, err := runGit(workspaceRoot, "rev-parse", "--verify", "HEAD")
+	if err != nil || strings.TrimSpace(string(head)) != workspace.BaseRevision() {
+		return fmt.Errorf("proposal workspace %q base revision changed", workspace.WorkspaceId())
+	}
+	worktrees, err := runGit(canonicalRoot, "worktree", "list", "--porcelain")
+	if err != nil || !worktreeListContains(worktrees, workspaceRoot) {
+		return fmt.Errorf("proposal workspace %q is not registered by the canonical repository", workspace.WorkspaceId())
+	}
+	adapter.temporaryRoot = temporaryRoot
+	adapter.owned[workspace.WorkspaceId()] = ownedWorkspace{ownerRoot: ownerRoot, workspaceRoot: workspaceRoot, canonicalRoot: canonicalRoot}
+	return nil
+}
+
+func worktreeListContains(output []byte, root string) bool {
+	for _, line := range strings.Split(string(output), "\n") {
+		if strings.HasPrefix(line, "worktree ") && filepath.Clean(strings.TrimPrefix(line, "worktree ")) == root {
+			return true
+		}
+	}
+	return false
+}
+
 // Extract returns a Git-native binary-capable patch and a NUL-delimited,
 // deterministic changed-path inventory. Intent-to-add updates occur only in
 // the isolated worktree index so untracked added files appear in the patch.
@@ -261,6 +321,130 @@ func (adapter *Adapter) Apply(request integration.ApplicationRequest) (integrati
 		return integration.CanonicalProof{}, true, err
 	}
 	return proof, true, nil
+}
+
+// Classify distinguishes the exact approved PRE and POST source conditions.
+// Any other observable state is deliberately AMBIGUOUS.
+func (adapter *Adapter) Classify(request integration.ApplicationRequest) (integration.ExternalCondition, error) {
+	if adapter == nil {
+		return integration.ConditionAmbiguous, fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	if err := adapter.preflightLocked(request); err == nil {
+		return integration.ConditionPRE, nil
+	}
+	if _, err := adapter.verifyAppliedLocked(request); err == nil {
+		return integration.ConditionPOST, nil
+	}
+	return integration.ConditionAmbiguous, nil
+}
+
+// PostProof returns exact deterministic proof without reapplying the patch.
+func (adapter *Adapter) PostProof(request integration.ApplicationRequest) (integration.CanonicalProof, error) {
+	if adapter == nil {
+		return integration.CanonicalProof{}, fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	return adapter.verifyAppliedLocked(request)
+}
+
+// ClassifyDurable performs restart-safe PRE/POST classification from immutable
+// persisted source and patch authority, without a proposal worktree.
+func (adapter *Adapter) ClassifyDurable(request integration.RecoveryRequest) (integration.ExternalCondition, error) {
+	if adapter == nil {
+		return integration.ConditionAmbiguous, fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	if err := verifyDurablePre(request); err == nil {
+		return integration.ConditionPRE, nil
+	}
+	if _, err := adapter.verifyDurablePost(request); err == nil {
+		return integration.ConditionPOST, nil
+	}
+	return integration.ConditionAmbiguous, nil
+}
+
+func (adapter *Adapter) PostProofDurable(request integration.RecoveryRequest) (integration.CanonicalProof, error) {
+	if adapter == nil {
+		return integration.CanonicalProof{}, fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	return adapter.verifyDurablePost(request)
+}
+
+func verifyDurablePre(request integration.RecoveryRequest) error {
+	root, err := resolveExistingDirectory(request.RepositoryRoot, "canonical repository root")
+	if err != nil {
+		return err
+	}
+	if root != filepath.Clean(request.RepositoryRoot) {
+		return fmt.Errorf("canonical repository root linkage changed")
+	}
+	head, err := runGit(root, "rev-parse", "--verify", "HEAD")
+	if err != nil || strings.TrimSpace(string(head)) != request.BaseRevision {
+		return fmt.Errorf("canonical HEAD differs from durable PRE authority")
+	}
+	status, err := runGit(root, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames")
+	if err != nil || len(status) != 0 {
+		return fmt.Errorf("canonical working tree differs from durable PRE authority")
+	}
+	if _, err := runGit(root, "diff", "--cached", "--quiet", "HEAD", "--"); err != nil {
+		return fmt.Errorf("canonical index differs from durable PRE authority")
+	}
+	tracked, err := runGit(root, "ls-files", "--cached", "-z")
+	if err != nil || !equalPathLists(splitNullTerminated(tracked), request.TrackedPaths) {
+		return fmt.Errorf("canonical tracked inventory differs from durable PRE authority")
+	}
+	if _, err := runGitInput(root, request.PatchContent, "apply", "--check", "--binary", "--whitespace=nowarn", "-"); err != nil {
+		return fmt.Errorf("durable patch is not applicable: %w", err)
+	}
+	return nil
+}
+
+func (adapter *Adapter) verifyDurablePost(request integration.RecoveryRequest) (integration.CanonicalProof, error) {
+	root, err := resolveExistingDirectory(request.RepositoryRoot, "canonical repository root")
+	if err != nil {
+		return integration.CanonicalProof{}, err
+	}
+	head, err := runGit(root, "rev-parse", "--verify", "HEAD")
+	if err != nil || strings.TrimSpace(string(head)) != request.BaseRevision {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical HEAD differs from durable POST authority")
+	}
+	if _, err := runGit(root, "diff", "--cached", "--quiet", "HEAD", "--"); err != nil {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical index differs from durable POST authority")
+	}
+	tracked, err := runGit(root, "ls-files", "--cached", "-z")
+	if err != nil || !equalPathLists(splitNullTerminated(tracked), request.TrackedPaths) {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical tracked inventory differs from durable POST authority")
+	}
+	status, err := runGit(root, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames")
+	if err != nil {
+		return integration.CanonicalProof{}, err
+	}
+	changedPaths, err := porcelainPaths(status)
+	if err != nil || !equalPathLists(changedPaths, request.ChangedPaths) {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical changed paths differ from durable patch authority")
+	}
+	canonicalPatch, err := extractCanonicalPatch(adapter.temporaryRoot, root, request.BaseRevision, request.ChangedPaths)
+	if err != nil {
+		return integration.CanonicalProof{}, err
+	}
+	if !bytes.Equal(canonicalPatch, request.PatchContent) {
+		return integration.CanonicalProof{}, fmt.Errorf("canonical diff differs from durable patch authority")
+	}
+	digest := sha256.Sum256(canonicalPatch)
+	actualDigest := fmt.Sprintf("sha256:%x", digest[:])
+	if actualDigest != request.PatchDigest {
+		return integration.CanonicalProof{}, fmt.Errorf("durable patch digest is inconsistent")
+	}
+	if _, err := runGitInput(root, request.PatchContent, "apply", "--reverse", "--check", "--binary", "--whitespace=nowarn", "-"); err != nil {
+		return integration.CanonicalProof{}, fmt.Errorf("prove durable patch reversibility: %w", err)
+	}
+	return integration.NewCanonicalProof(request.BaseRevision, actualDigest, changedPaths, true)
 }
 
 func (adapter *Adapter) preflightLocked(request integration.ApplicationRequest) error {

@@ -1,0 +1,32 @@
+schema_version: 1
+workflow_id: core-v0
+workflow_version: 1.0.0
+states:
+  - created
+  - planned
+  - isolated
+  - validated
+  - approved
+  - rejected
+  - audit-locked
+transitions:
+  - from: created
+    to: planned
+  - from: created
+    to: rejected
+  - from: planned
+    to: isolated
+  - from: planned
+    to: rejected
+  - from: isolated
+    to: validated
+  - from: isolated
+    to: rejected
+  - from: validated
+    to: approved
+  - from: validated
+    to: rejected
+  - from: approved
+    to: audit-locked
+  - from: rejected
+    to: audit-locked

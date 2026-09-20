@@ -247,7 +247,7 @@ func TestChangeImplementDirectAndContextualUseProviderPipeline(t *testing.T) {
 					t.Fatalf("enter change mode: %v", err)
 				}
 				assertSuggestions(t, registry.ContextualHelp(session, ""), []string{
-					"new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard", "help", "?", "end",
+					"list", "show", "select", "artifacts", "history", "diagnose", "recover", "content", "new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard", "help", "?", "end",
 				})
 			}
 
@@ -391,6 +391,7 @@ func prepareProviderCommandTestWithContainer(
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "state"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	container := composition.New()
 	container.AIProviders = []aiprovider.Provider{provider}

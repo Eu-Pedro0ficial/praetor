@@ -3,7 +3,8 @@
 ## Authority and lifecycle
 
 Roadmap V2 replaces only the future delivery plan. M0.0 through M1.0 remain
-completed historical facts and are not renumbered or expanded retroactively.
+completed historical facts; M1.1 is implemented but awaits independent closure
+re-audit. Their scope is not renumbered or expanded retroactively.
 Their complete accepted contracts are preserved in
 `archive/MILESTONES_V1.md`; the former future entries in that file are
 `SUPERSEDED` planning history.
@@ -45,17 +46,17 @@ linkage are implemented. Roadmap V2 does not change this accepted scope.
 **Requirements:** Primary FR-015 and FR-016. Supports FR-022, FR-045, NFR-008,
 QS-008, and QS-012.
 
-### M1.1 — Durable Change + Artifact Foundation
+### M1.1 — Durable Change + Artifact Foundation — PENDING INDEPENDENT CLOSURE RE-AUDIT
 
 **Objective:** Make Change state, generated artifacts, evidence, policy and
 human decisions, and workflow authority durable, inspectable, and recoverable
 without provider conversation state.
 
-**Internal delivery slices:**
+**Internal implementation order (not independent milestones):**
 
-- M1.1-A — artifact/change model and local store;
-- M1.1-B — workflow snapshot, recovery, and migration;
-- M1.1-C — inspection CLI and crash/restart E2E.
+- artifact/change model and local store;
+- workflow snapshot, recovery, and migration;
+- inspection CLI and crash/restart E2E.
 
 **Dependencies:** M1.0 and the completed Core V0 loop.
 
@@ -83,9 +84,11 @@ Project Memory, semantic repository model, or M1.3 state expansion is included.
   remain subordinate to authoritative artifacts.
 
 **Definition of Done:** A representative governed Change can be interrupted at
-each durable boundary, restarted, inspected, and resumed without reconstructing
-chat history. Corrupt, partial, mismatched, or unsupported data fails clearly
-and safely. Traceability rows gain stable implementation and validation
+representative durable boundaries, restarted in a new process, inspected, and
+resumed without reconstructing chat history. Corrupt, partial, or mismatched
+data fails clearly and safely; an integrity-valid unsupported historical
+WorkflowSnapshot remains inspectable while execution fails explicitly for
+incompatibility. Traceability rows gain stable implementation and validation
 references.
 
 **Decision and spike gates:** Closed by human approval after the disposable

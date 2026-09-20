@@ -9,7 +9,7 @@
 :imagesdir: images
 :plantUMLDir: {docdir}/generated-diagrams/
 :project-name: Governed AI Software Engineering Runtime
-:project-status: Core V0 Complete — M0.0 through M1.0 Complete
+:project-status: Core V0 Complete — M1.1 Pending Independent Closure Re-Audit
 
 [abstract]
 == Document Purpose

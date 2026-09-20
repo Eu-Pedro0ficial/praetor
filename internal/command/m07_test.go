@@ -246,50 +246,36 @@ func TestHumanDecisionHasNoImplicitOrProviderDrivenApprovalPath(t *testing.T) {
 	}
 }
 
-func TestMalformedExistingAuditPreventsHumanDecision(t *testing.T) {
+func TestMalformedInactiveLegacyAuditOnlyBlocksExplicitMigration(t *testing.T) {
 	_, dataDirectory, session, registry, _ := prepareValidatedDecisionCommandTest(t, nil)
 	ledgerPath, err := audit.LedgerPath()
 	if err != nil {
 		t.Fatal(err)
 	}
-	original, err := os.ReadFile(ledgerPath)
-	if err != nil {
+	if err := os.WriteFile(ledgerPath, []byte("{malformed}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := os.WriteFile(ledgerPath, original, 0o600); err != nil {
-			t.Errorf("restore malformed audit fixture: %v", err)
-		}
-	})
-	ledger, err := os.OpenFile(ledgerPath, os.O_WRONLY|os.O_APPEND, 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ledger.WriteString("{"); err != nil {
-		_ = ledger.Close()
-		t.Fatal(err)
-	}
-	if err := ledger.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := registry.Dispatch(session, "change approve", io.Discard); err == nil ||
-		!strings.Contains(err.Error(), "incomplete trailing event") {
-		t.Fatalf("approval with malformed ledger error = %v", err)
+	if _, err := registry.Dispatch(session, "change approve", io.Discard); err != nil {
+		t.Fatalf("inactive legacy ledger affected durable approval: %v", err)
 	}
 	currentChange, _ := session.CurrentChange()
-	if currentChange.State() != change.StateValidated {
-		t.Fatalf("malformed ledger allowed state %q", currentChange.State())
+	if currentChange.State() != change.StateApproved {
+		t.Fatalf("durable approval state = %q", currentChange.State())
 	}
-	if _, available := session.LastDecision(); available {
-		t.Fatal("malformed ledger produced a successful decision")
+	if _, available := session.LastDecision(); !available {
+		t.Fatal("durable approval decision was not retained")
 	}
-	if err := os.WriteFile(ledgerPath, original, 0o600); err != nil {
-		t.Fatal(err)
+	if err := composition.New().MigrateLegacyAudit(); err == nil || !strings.Contains(err.Error(), "legacy audit") {
+		t.Fatalf("explicit malformed legacy migration error = %v", err)
 	}
+	found := false
 	for _, event := range readCommandAudit(t, dataDirectory) {
 		if event.EventType == audit.EventHumanDecisionRecorded {
-			t.Fatalf("malformed-ledger decision reached audit: %#v", event)
+			found = true
 		}
+	}
+	if !found {
+		t.Fatal("durable approval decision is absent from authoritative audit")
 	}
 }
 
@@ -301,7 +287,7 @@ func TestHumanDecisionCommandsShareCentralMetadataHelpAndCompletion(t *testing.T
 		t.Fatal(err)
 	}
 	assertMetadataNames(t, registry.ContextCommands(session), []string{
-		"new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard", "help", "?", "end",
+		"list", "show", "select", "artifacts", "history", "diagnose", "recover", "content", "new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard", "help", "?", "end",
 	})
 	var output bytes.Buffer
 	if _, err := registry.Dispatch(session, "?", &output); err != nil {

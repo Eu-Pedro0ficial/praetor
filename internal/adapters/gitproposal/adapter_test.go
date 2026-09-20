@@ -169,6 +169,32 @@ func TestAdapterExtractsDeterministicGitPatches(t *testing.T) {
 	}
 }
 
+func TestAdapterSecurelyReattachesDurableWorktreeAfterRestart(t *testing.T) {
+	_, currentProposal, _, _ := retainedApplicationProposal(t, nil, func(t *testing.T, root string) {
+		writeFile(t, root, "alpha.txt", "alpha after restart\n")
+	}, []string{"alpha.txt"})
+	workspace := currentProposal.Workspace()
+	temporaryRoot := filepath.Dir(filepath.Dir(workspace.Root()))
+	restarted, err := gitproposal.New(temporaryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restarted.Extract(workspace); err == nil || !strings.Contains(err.Error(), "not owned") {
+		t.Fatalf("fresh adapter extracted before reattachment: %v", err)
+	}
+	if err := restarted.Reattach(workspace); err != nil {
+		t.Fatalf("reattach durable worktree: %v", err)
+	}
+	extracted, err := restarted.Extract(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patch, _ := currentProposal.PatchArtifact()
+	if !bytes.Equal(extracted.Content, patch.Content()) || !reflect.DeepEqual(extracted.ChangedPaths, patch.ChangedPaths()) {
+		t.Fatal("reattached workspace did not reproduce durable patch authority")
+	}
+}
+
 func TestAdapterFailsSafelyAndCleansOnlyOwnedWorkspace(t *testing.T) {
 	repositoryRoot, baseRevision := prepareGitRepository(t)
 	temporaryRoot := t.TempDir()
@@ -343,6 +369,42 @@ func TestAdapterAppliesExactRetainedPatchWorkingTreeOnly(t *testing.T) {
 				t.Fatalf("patch tempfile appeared in canonical source: %v/%v", matches, err)
 			}
 		})
+	}
+}
+
+func TestAdapterClassifiesDurableRecoveryWithoutProposalWorkspace(t *testing.T) {
+	adapter, currentProposal, repositoryRoot, _ := retainedApplicationProposal(t, nil, func(t *testing.T, root string) {
+		writeFile(t, root, "alpha.txt", "alpha recovered\n")
+	}, []string{"alpha.txt"})
+	patch, ok := currentProposal.PatchArtifact()
+	if !ok {
+		t.Fatal("fixture has no PatchArtifact")
+	}
+	snapshot := currentProposal.CanonicalSource()
+	tracked := make([]string, 0, len(snapshot.TrackedPaths()))
+	for _, path := range snapshot.TrackedPaths() {
+		tracked = append(tracked, string(path))
+	}
+	recovery := integration.RecoveryRequest{ProjectId: testProjectId, ChangeId: currentProposal.Workspace().ChangeId(), RepositoryRoot: repositoryRoot, BaseRevision: patch.BaseRevision(), SourceStateDigest: string(patch.SourceStateDigest()), TrackedPaths: tracked, ChangedPaths: patch.ChangedPaths(), PatchDigest: patch.PatchDigest(), PatchContent: patch.Content()}
+	if condition, err := adapter.ClassifyDurable(recovery); err != nil || condition != integration.ConditionPRE {
+		t.Fatalf("initial classification = %s, %v", condition, err)
+	}
+	if _, mutated, err := adapter.Apply(integration.ApplicationRequest{Proposal: currentProposal}); err != nil || !mutated {
+		t.Fatalf("Apply() mutated=%t error=%v", mutated, err)
+	}
+	if err := adapter.Remove(currentProposal.Workspace()); err != nil {
+		t.Fatal(err)
+	}
+	if condition, err := adapter.ClassifyDurable(recovery); err != nil || condition != integration.ConditionPOST {
+		t.Fatalf("restart classification = %s, %v", condition, err)
+	}
+	proof, err := adapter.PostProofDurable(recovery)
+	if err != nil || proof.PatchDigest() != patch.PatchDigest() {
+		t.Fatalf("durable proof=%#v error=%v", proof, err)
+	}
+	writeFile(t, repositoryRoot, "beta.txt", "unrelated drift\n")
+	if condition, err := adapter.ClassifyDurable(recovery); err != nil || condition != integration.ConditionAmbiguous {
+		t.Fatalf("drift classification = %s, %v", condition, err)
 	}
 }
 

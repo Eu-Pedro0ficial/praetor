@@ -199,6 +199,84 @@ type BundleDecision struct {
 	evaluatedAt           time.Time
 }
 
+type DurablePolicy struct {
+	Id                        PolicyId
+	Version                   PolicyVersion
+	Family                    PolicyFamily
+	Description               string
+	Severity                  Severity
+	Outcome                   EnforcementOutcome
+	RequiredEvidenceKind      verification.StepKind
+	NonOverridable            bool
+	ExceptionCandidateAllowed bool
+}
+
+type DurablePolicyDecision struct {
+	PolicyId      PolicyId
+	PolicyVersion PolicyVersion
+	Outcome       EnforcementOutcome
+	Reason        string
+	EvidenceIds   []string
+}
+
+type DurableBundleDecision struct {
+	Id                    string
+	ProjectId             project.ProjectId
+	ChangeId              change.ChangeId
+	WorkspaceId           proposal.WorkspaceId
+	VerificationAttemptId verification.VerificationAttemptId
+	EvidenceSetId         string
+	PatchDigest           string
+	SourceStateDigest     source.SourceStateDigest
+	BundleId              PolicyId
+	BundleVersion         PolicyVersion
+	BundleDigest          string
+	Policies              []DurablePolicy
+	Decisions             []DurablePolicyDecision
+	EvaluatedAt           time.Time
+}
+
+// RehydrateBundleDecision validates persisted policy authority without
+// consulting the current Project Policy Manifest.
+func RehydrateBundleDecision(value DurableBundleDecision) (BundleDecision, error) {
+	policies := make([]Policy, len(value.Policies))
+	byId := make(map[PolicyId]Policy, len(value.Policies))
+	for index, stored := range value.Policies {
+		item, err := NewPolicy(stored.Id, stored.Version, stored.Family, stored.Description, stored.Severity, stored.Outcome, stored.RequiredEvidenceKind, stored.NonOverridable, stored.ExceptionCandidateAllowed)
+		if err != nil {
+			return BundleDecision{}, err
+		}
+		policies[index] = item
+		byId[item.Id()] = item
+	}
+	bundle, err := NewBundle(value.BundleId, value.BundleVersion, value.BundleDigest, policies)
+	if err != nil {
+		return BundleDecision{}, err
+	}
+	if len(value.Decisions) != len(policies) {
+		return BundleDecision{}, fmt.Errorf("durable policy decision count does not match bundle")
+	}
+	decisions := make([]PolicyDecision, len(value.Decisions))
+	seen := make(map[PolicyId]bool, len(value.Decisions))
+	for index, stored := range value.Decisions {
+		rule, ok := byId[stored.PolicyId]
+		if !ok || seen[stored.PolicyId] || stored.PolicyVersion != rule.Version() || !validOutcome(stored.Outcome) || strings.TrimSpace(stored.Reason) == "" {
+			return BundleDecision{}, fmt.Errorf("durable policy decision %d is invalid", index+1)
+		}
+		seen[stored.PolicyId] = true
+		decisions[index] = PolicyDecision{policy: rule, outcome: stored.Outcome, reason: stored.Reason, evidenceIds: append([]string(nil), stored.EvidenceIds...)}
+	}
+	aggregate, err := AggregateOutcomes(decisionOutcomes(decisions))
+	if err != nil {
+		return BundleDecision{}, err
+	}
+	decision := BundleDecision{id: value.Id, projectId: value.ProjectId, changeId: value.ChangeId, workspaceId: value.WorkspaceId, verificationAttemptId: value.VerificationAttemptId, evidenceSetId: value.EvidenceSetId, patchDigest: value.PatchDigest, sourceStateDigest: value.SourceStateDigest, bundle: bundle, decisions: decisions, aggregate: aggregate, evaluatedAt: value.EvaluatedAt.UTC()}
+	if !decision.IsValid() || decision.Id() != decisionIdentity(bundle.Digest(), value.EvidenceSetId) {
+		return BundleDecision{}, fmt.Errorf("durable PolicyDecision identity or linkage is invalid")
+	}
+	return decision, nil
+}
+
 func (value BundleDecision) Id() string                   { return value.id }
 func (value BundleDecision) ProjectId() project.ProjectId { return value.projectId }
 func (value BundleDecision) ChangeId() change.ChangeId    { return value.changeId }

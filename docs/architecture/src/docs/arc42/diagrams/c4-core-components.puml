@@ -7,7 +7,7 @@ AddElementTag("DEFERRED", $bgColor="#6A5A78", $fontColor="#FFFFFF", $legendText=
 LAYOUT_WITH_LEGEND()
 title C4 Level 3 — Governance Core Components
 Container_Boundary(core, "Governance Core — Go") {
-  Component(workflow, "Workflow Engine", "Domain/Application", "Current state orchestration; durable versioned recovery is M1.1.", $tags="PARTIAL")
+  Component(workflow, "Workflow Engine", "Domain/Application", "Durable versioned Core V0 orchestration; M1.3/M1.4 maturity remains future.", $tags="PARTIAL")
   Component(change, "Change Domain", "Domain", "Current Change aggregate; durable artifacts and M1.3 authority are target.", $tags="PARTIAL")
   Component(spec, "Specification Engine", "Application", "M1.3 target Specification Packs and validation.", $tags="TARGET")
   Component(plan, "Change Planning", "Application", "M1.3 target approved ChangePlan authority.", $tags="TARGET")
@@ -19,9 +19,9 @@ Container_Boundary(core, "Governance Core — Go") {
   Component(review, "Review Engine", "Application", "M1.4 target independent maker-checker review.", $tags="TARGET")
   Component(knowledge, "Specification/Change Traceability Views", "Application", "M1.3 supporting source-linked read models; never authority.", $tags="TARGET")
   Component(governanceUx, "Governance Inspection and Actions", "Inbound/Application", "M1.4 supporting presentation; never authority.", $tags="TARGET")
-  Component(hardening, "Recovery and Bounded Execution", "Application/Adapters", "M1.1 recovery plus M1.5 quality-tool boundaries.", $tags="TARGET")
+  Component(hardening, "Recovery and Bounded Execution", "Application/Adapters", "M1.1 durable recovery implemented; M1.5 quality-tool boundaries remain future.", $tags="PARTIAL")
   Component(memory, "Memory Engine", "Domain/Application", "M2 target typed knowledge, retrieval, promotion, invalidation.", $tags="TARGET")
-  Component(audit, "Audit Ledger Service", "Domain/Application", "Current append events; durable reconstruction is M1.1.", $tags="PARTIAL")
+  Component(audit, "Audit Ledger Service", "Domain/Application", "Durable per-Project append authority; later audit maturity remains future.", $tags="PARTIAL")
   Component(approval, "Approval Gate", "Application", "Current local disposition; mature authority is M1.4.", $tags="PARTIAL")
   Component(integration, "Canonical Integration Gate", "Application", "M0.8 exact working-tree apply/reject closure.", $tags="AS-IS")
   Component(registry, "Project Registry", "Application", "Current source association; memory association is M2.0.", $tags="PARTIAL")

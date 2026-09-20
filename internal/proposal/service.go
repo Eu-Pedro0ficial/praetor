@@ -44,6 +44,12 @@ type WorkspacePort interface {
 	Remove(ProposalWorkspace) error
 }
 
+// WorkspaceReattacher is the optional restart capability implemented by a
+// workspace adapter that can safely reclaim its own durable local workspace.
+type WorkspaceReattacher interface {
+	Reattach(ProposalWorkspace) error
+}
+
 // PatchPort extracts a Git-native patch and machine-safe changed path set.
 type PatchPort interface {
 	Extract(ProposalWorkspace) (ExtractedPatch, error)
@@ -130,6 +136,19 @@ type Service struct {
 	inspector  RepositoryInspector
 	recorder   LifecycleRecorder
 	clock      Clock
+}
+
+// Reattach re-establishes adapter ownership for a durable workspace after a
+// process restart. It never creates, repairs, or relocates the workspace.
+func (service *Service) Reattach(current Proposal) error {
+	if service == nil || service.workspaces == nil {
+		return fmt.Errorf("proposal workspace service is required")
+	}
+	reattacher, ok := service.workspaces.(WorkspaceReattacher)
+	if !ok {
+		return fmt.Errorf("proposal workspace adapter does not support durable reattachment")
+	}
+	return reattacher.Reattach(current.Workspace())
 }
 
 // New constructs the M0.4 application service.

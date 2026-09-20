@@ -113,7 +113,7 @@ func newRegistry(definitions []Definition, end Definition) (Registry, error) {
 	return registry, nil
 }
 
-// DefaultRegistry constructs the current M0.1-M1.0 hierarchical shell
+// DefaultRegistry constructs the current M0.1-M1.1 hierarchical shell
 // command surface.
 func DefaultRegistry() (Registry, error) {
 	var registry Registry
@@ -142,9 +142,17 @@ func DefaultRegistry() (Registry, error) {
 		{
 			Name:        "change",
 			Description: "Enter software Change governance mode",
-			Usage:       "change [new|isolate|implement|patch|verify|approve|reject|apply|close|discard ...]",
+			Usage:       "change [new|list|show|select|artifacts|history|diagnose|recover|content|isolate|implement|patch|verify|approve|reject|apply|close|discard ...]",
 			Mode:        ModeChange,
 			Children: []Definition{
+				{Name: "list", Description: "List durable Changes for the active Project", Usage: "list", Handler: handleChangeList},
+				{Name: "show", Description: "Inspect durable Change and workflow authority", Usage: "show [<change-id>]", Handler: handleChangeShow},
+				{Name: "select", Description: "Select a durable Change for this session", Usage: "select <change-id>", Handler: handleChangeSelect},
+				{Name: "artifacts", Description: "List durable artifact metadata and current bindings", Usage: "artifacts [<change-id>]", Handler: handleChangeArtifacts},
+				{Name: "history", Description: "Show durable append-oriented Change audit history", Usage: "history [<change-id>]", Handler: handleChangeHistory},
+				{Name: "diagnose", Description: "Diagnose Change recovery blockers without mutation", Usage: "diagnose [<change-id>]", Handler: handleChangeDiagnose},
+				{Name: "recover", Description: "Explicitly classify and finalize a supported canonical operation", Usage: "recover <operation-id>", Handler: handleChangeRecover},
+				{Name: "content", Description: "Inspect explicitly requested bounded artifact content", Usage: "content <artifact-id> [<change-id>]", Handler: handleChangeContent},
 				{
 					Name:        "new",
 					Description: "Create a Change and optionally apply lifecycle transitions",

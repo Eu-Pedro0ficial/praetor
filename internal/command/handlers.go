@@ -7,11 +7,15 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
+	"github.com/Eu-Pedro0ficial/praetor/internal/artifact"
+	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
@@ -45,6 +49,7 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 	} else {
 		fmt.Fprintln(output, "Last human decision: none")
 	}
+	fmt.Fprintf(output, "Recovery: %s\n", snapshot.Recovery)
 	return Result{}, nil
 }
 
@@ -249,6 +254,216 @@ func handleChangeNew(session *Session, invocation Invocation, output io.Writer) 
 	return Result{}, nil
 }
 
+func requireDurableInspection(session *Session) error {
+	if session == nil || session.durableInspection == nil {
+		return fmt.Errorf("durable Change inspection is not configured")
+	}
+	return nil
+}
+
+func inspectionChangeId(session *Session, arguments []string) (change.ChangeId, error) {
+	if len(arguments) > 1 {
+		return "", errInvalidArguments
+	}
+	if len(arguments) == 1 {
+		return change.NewChangeId(arguments[0])
+	}
+	current, ok := session.CurrentChange()
+	if !ok {
+		return "", fmt.Errorf("select or name a durable Change")
+	}
+	return current.ChangeId(), nil
+}
+
+func handleChangeList(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	if err := requireDurableInspection(session); err != nil {
+		return Result{}, err
+	}
+	changes, err := session.durableInspection.ListChanges()
+	if err != nil {
+		return Result{}, err
+	}
+	if len(changes) == 0 {
+		fmt.Fprintln(output, "No durable Changes.")
+		return Result{}, nil
+	}
+	for _, current := range changes {
+		fmt.Fprintf(output, "%s state=%s revision=%d updated=%s\n", current.ChangeId(), current.State(), current.Revision(), current.UpdatedAt().Format(time.RFC3339Nano))
+	}
+	return Result{}, nil
+}
+
+func handleChangeShow(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if err := requireDurableInspection(session); err != nil {
+		return Result{}, err
+	}
+	id, err := inspectionChangeId(session, invocation.Arguments)
+	if err != nil {
+		return Result{}, err
+	}
+	detail, err := session.durableInspection.InspectChange(id)
+	if err != nil {
+		return Result{}, err
+	}
+	current := detail.Change
+	fmt.Fprintf(output, "Change ID: %s\nProject ID: %s\nIntent: %s\nState: %s\nRevision: %d\nCreated: %s\nUpdated: %s\nWorkflow: %s@%s schema=%d digest=%s\nArtifacts: %d\nAudit events: %d\n", current.ChangeId(), current.ProjectId(), boundedSingleLine(string(current.Intent()), 4096), current.State(), current.Revision(), current.CreatedAt().Format(time.RFC3339Nano), current.UpdatedAt().Format(time.RFC3339Nano), detail.Workflow.WorkflowId(), detail.Workflow.WorkflowVersion(), detail.Workflow.SchemaVersion(), detail.Workflow.Digest(), len(detail.Artifacts), len(detail.Audit))
+	return Result{}, nil
+}
+
+func handleChangeSelect(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 1 {
+		return Result{}, errInvalidArguments
+	}
+	if err := requireDurableInspection(session); err != nil {
+		return Result{}, err
+	}
+	id, err := change.NewChangeId(invocation.Arguments[0])
+	if err != nil {
+		return Result{}, err
+	}
+	detail, err := session.durableInspection.InspectChange(id)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := session.hydrateDurableChange(detail); err != nil {
+		return Result{}, err
+	}
+	fmt.Fprintf(output, "Selected Change %s state=%s revision=%d\n", id, detail.Change.State(), detail.Change.Revision())
+	return Result{}, nil
+}
+
+func handleChangeArtifacts(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if err := requireDurableInspection(session); err != nil {
+		return Result{}, err
+	}
+	id, err := inspectionChangeId(session, invocation.Arguments)
+	if err != nil {
+		return Result{}, err
+	}
+	detail, err := session.durableInspection.InspectChange(id)
+	if err != nil {
+		return Result{}, err
+	}
+	for _, item := range detail.Artifacts {
+		fmt.Fprintf(output, "%s kind=%s bytes=%d media=%s content=%s record=%s created=%s\n", item.Id, item.Kind, item.ByteLength, item.MediaType, item.ContentDigest, item.RecordDigest, item.CreatedAt.Format(time.RFC3339Nano))
+	}
+	for _, binding := range detail.Bindings {
+		fmt.Fprintf(output, "binding role=%s artifact=%s revision=%d\n", binding.Role, binding.ArtifactId, binding.Revision)
+	}
+	for _, relationship := range detail.Relationships {
+		fmt.Fprintf(output, "relationship %s -%s-> %s\n", relationship.From, relationship.Kind, relationship.To)
+	}
+	for _, operation := range detail.Operations {
+		fmt.Fprintf(output, "operation %s kind=%s state=%s expected-revision=%d request=%s\n", operation.Id, boundedSingleLine(operation.Kind, 128), operation.State, operation.ExpectedRevision, operation.RequestDigest)
+	}
+	if len(detail.Artifacts) == 0 {
+		fmt.Fprintln(output, "No durable artifacts.")
+	}
+	return Result{}, nil
+}
+
+func handleChangeHistory(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if err := requireDurableInspection(session); err != nil {
+		return Result{}, err
+	}
+	id, err := inspectionChangeId(session, invocation.Arguments)
+	if err != nil {
+		return Result{}, err
+	}
+	detail, err := session.durableInspection.InspectChange(id)
+	if err != nil {
+		return Result{}, err
+	}
+	for _, event := range detail.Audit {
+		fmt.Fprintf(output, "%s %s %s\n", event.Timestamp.Format(time.RFC3339Nano), boundedSingleLine(event.EventType, 128), boundedSingleLine(event.EventID, 128))
+	}
+	return Result{}, nil
+}
+
+func handleChangeDiagnose(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if err := requireDurableInspection(session); err != nil {
+		return Result{}, err
+	}
+	if len(invocation.Arguments) == 0 {
+		if _, selected := session.CurrentChange(); !selected {
+			fmt.Fprintln(output, "No Change selected; specify a ChangeId to diagnose durable recovery authority.")
+			return Result{}, nil
+		}
+	}
+	id, err := inspectionChangeId(session, invocation.Arguments)
+	if err != nil {
+		return Result{}, err
+	}
+	diagnoses, err := session.durableInspection.Diagnose(id)
+	if err != nil {
+		return Result{}, err
+	}
+	for _, diagnosis := range diagnoses {
+		fmt.Fprintf(output, "%s: %s", diagnosis.Condition, boundedSingleLine(diagnosis.Detail, 1024))
+		if diagnosis.Operation != nil {
+			fmt.Fprintf(output, " operation=%s kind=%s", diagnosis.Operation.Id, boundedSingleLine(diagnosis.Operation.Kind, 128))
+		}
+		fmt.Fprintln(output)
+	}
+	return Result{}, nil
+}
+
+func handleChangeRecover(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 1 {
+		return Result{}, errInvalidArguments
+	}
+	if session == nil || session.canonicalRecovery == nil {
+		return Result{}, fmt.Errorf("canonical recovery is not configured")
+	}
+	condition, proof, err := session.canonicalRecovery.RecoverPersisted(authority.OperationId(invocation.Arguments[0]), func(operation authority.Operation, proof integration.CanonicalProof) error {
+		_, finalizeError := session.finalizeRecoveredCanonical(operation, proof)
+		return finalizeError
+	})
+	if err != nil {
+		return Result{}, err
+	}
+	fmt.Fprintf(output, "Recovery condition: %s\n", condition)
+	if condition == integration.ConditionPRE {
+		fmt.Fprintln(output, "Operation remains incomplete and was not replayed.")
+	} else if condition == integration.ConditionPOST {
+		operation, operationError := session.durableAuthority.GetOperation(authority.OperationId(invocation.Arguments[0]))
+		if operationError != nil {
+			return Result{}, operationError
+		}
+		terminal, _, loadError := session.durableAuthority.GetChange(operation.ChangeId)
+		if loadError != nil {
+			return Result{}, loadError
+		}
+		session.setCurrentChange(terminal)
+		fmt.Fprintf(output, "Operation finalized from exact POST without reapplication; patch=%s head=%s\n", proof.PatchDigest(), proof.HeadRevision())
+		fmt.Fprintf(output, "Change state: %s revision=%d\n", terminal.State(), terminal.Revision())
+	}
+	return Result{}, nil
+}
+
+func handleChangeContent(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) < 1 || len(invocation.Arguments) > 2 {
+		return Result{}, errInvalidArguments
+	}
+	if err := requireDurableInspection(session); err != nil {
+		return Result{}, err
+	}
+	changeArgs := invocation.Arguments[1:]
+	id, err := inspectionChangeId(session, changeArgs)
+	if err != nil {
+		return Result{}, err
+	}
+	payload, err := session.durableInspection.Content(id, artifact.ArtifactId(invocation.Arguments[0]))
+	if err != nil {
+		return Result{}, err
+	}
+	fmt.Fprintf(output, "Artifact %s content (%d bytes): %q\n", invocation.Arguments[0], len(payload), string(payload))
+	return Result{}, nil
+}
+
 func handleAnalysisImpact(session *Session, invocation Invocation, output io.Writer) (Result, error) {
 	if err := requireNoCurrentProposal(session); err != nil {
 		return Result{}, err
@@ -362,11 +577,16 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 			session.rejectCurrentChange("proposal workspace creation failed"),
 		)
 	}
-	currentChange, transitionError := session.changeWorkflow.Transition(
-		changeId,
-		change.StateIsolated,
-		invocation.CommandPath+" proposal workspace created",
-	)
+	foundation, artifactError := proposalFoundationSpecs(currentProposal)
+	if artifactError != nil {
+		return Result{}, artifactError
+	}
+	var transitionError error
+	if session.durableAuthority != nil {
+		currentChange, transitionError = session.commitTransitionWithArtifacts(currentChange, change.StateIsolated, invocation.CommandPath+" proposal workspace created", foundation)
+	} else {
+		currentChange, transitionError = session.changeWorkflow.Transition(changeId, change.StateIsolated, invocation.CommandPath+" proposal workspace created")
+	}
 	if transitionError != nil {
 		cleanedProposal, cleanupError := session.proposalLifecycle.Discard(
 			currentProposal,
@@ -383,6 +603,11 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 	}
 	session.setCurrentChange(currentChange)
 	session.setCurrentProposal(currentProposal)
+	if session.durableAuthority == nil {
+		if err := session.persistGovernedArtifacts(currentChange, foundation...); err != nil {
+			return Result{}, err
+		}
+	}
 
 	workspace := currentProposal.Workspace()
 	fmt.Fprintf(output, "Change ID: %s\n", workspace.ChangeId())
@@ -414,6 +639,14 @@ func handleChangePatch(session *Session, invocation Invocation, output io.Writer
 	}
 	writePatchReport(output, classifiedProposal, validation)
 	if extractionError == nil {
+		currentChange, _ := session.CurrentChange()
+		spec, artifactError := patchSpec(classifiedProposal)
+		if artifactError != nil {
+			return Result{}, artifactError
+		}
+		if err := session.persistGovernedArtifacts(currentChange, spec); err != nil {
+			return Result{}, err
+		}
 		return Result{}, nil
 	}
 
@@ -466,6 +699,13 @@ func handleChangeImplement(session *Session, invocation Invocation, output io.Wr
 		fmt.Fprintf(output, "External execution ID: %s\n", response.ExternalExecutionId())
 	}
 	writePatchReport(output, executionResult.Proposal(), executionResult.Validation())
+	spec, artifactError := patchSpec(executionResult.Proposal())
+	if artifactError != nil {
+		return Result{}, artifactError
+	}
+	if err := session.persistGovernedArtifacts(currentChange, spec); err != nil {
+		return Result{}, err
+	}
 	return Result{}, nil
 }
 
@@ -505,21 +745,42 @@ func handleChangeVerify(session *Session, invocation Invocation, output io.Write
 	if verificationError != nil {
 		return Result{}, verificationError
 	}
-	validatedChange, err := session.changeWorkflow.Transition(
-		currentChange.ChangeId(),
-		change.StateValidated,
-		invocation.CommandPath+" deterministic verification passed",
-	)
+	var policyDecision policy.BundleDecision
+	var err error
+	if session.durableAuthority != nil {
+		policyDecision, err = session.policy.EvaluateCandidate(session.registration.RepositoryRoot, currentChange.ProjectId(), currentChange.ChangeId(), verificationResult.EvidenceSet())
+	} else {
+		policyDecision, err = session.policy.Evaluate(session.registration.RepositoryRoot, currentChange.ProjectId(), currentChange.ChangeId(), verificationResult.EvidenceSet())
+	}
+	if err != nil {
+		return Result{}, fmt.Errorf("evaluate Project Policy: %w", err)
+	}
+	specs, artifactError := verificationSpecs(verificationResult, policyDecision)
+	if artifactError != nil {
+		return Result{}, artifactError
+	}
+	var validatedChange change.Change
+	if session.durableAuthority != nil {
+		policyEvent, eventError := session.policyDecisionAuditEvent(policyDecision)
+		if eventError != nil {
+			return Result{}, eventError
+		}
+		validatedChange, err = session.commitTransitionWithArtifacts(currentChange, change.StateValidated, invocation.CommandPath+" deterministic verification passed", specs, policyEvent)
+	} else {
+		validatedChange, err = session.changeWorkflow.Transition(currentChange.ChangeId(), change.StateValidated, invocation.CommandPath+" deterministic verification passed")
+		if err == nil {
+			err = session.persistGovernedArtifacts(validatedChange, specs...)
+		}
+	}
 	if err != nil {
 		return Result{}, err
 	}
 	session.setCurrentChange(validatedChange)
-	fmt.Fprintf(output, "Change state: %s\n", validatedChange.State())
-	policyDecision, err := session.policy.Evaluate(session.registration.RepositoryRoot, validatedChange.ProjectId(), validatedChange.ChangeId(), verificationResult.EvidenceSet())
-	if err != nil {
-		return Result{}, fmt.Errorf("evaluate Project Policy: %w", err)
-	}
 	session.setLastPolicyDecision(policyDecision)
+	if session.durableAuthority != nil {
+		session.policy.RetainDecision(policyDecision)
+	}
+	fmt.Fprintf(output, "Change state: %s\n", validatedChange.State())
 	writePolicyDecision(output, policyDecision)
 	return Result{}, nil
 }
@@ -609,6 +870,15 @@ func handleChangeApply(session *Session, invocation Invocation, output io.Writer
 		return Result{}, err
 	}
 	session.setCurrentChange(terminal)
+	if session.durableAuthority == nil {
+		resultArtifact, artifactError := applicationResultSpec(applicationResult)
+		if artifactError != nil {
+			return Result{}, artifactError
+		}
+		if err := session.persistGovernedArtifacts(terminal, resultArtifact); err != nil {
+			return Result{}, err
+		}
+	}
 	fmt.Fprintln(output, "Canonical application: completed and deterministically proven")
 	fmt.Fprintf(output, "Canonical result digest: %s\n", applicationResult.ResultDigest())
 	fmt.Fprintf(output, "Canonical HEAD: %s (unchanged)\n", applicationResult.CanonicalHead())
@@ -682,15 +952,25 @@ func handleHumanDecision(
 		rationale = invocation.Arguments[0]
 	}
 	writeHumanDecisionSummary(output, currentChange, currentProposal, verificationResult)
-	decision, transitioned, err := session.approval.Decide(
-		invocation.Context,
-		currentChange,
-		currentProposal,
-		verificationResult,
-		policyDecision,
-		kind,
-		rationale,
-	)
+	var decision approval.HumanDecision
+	var transitioned change.Change
+	var err error
+	if session.durableAuthority != nil {
+		decision, err = session.approval.PrepareDecision(invocation.Context, currentChange, currentProposal, verificationResult, policyDecision, kind, rationale)
+		if err == nil {
+			decisionArtifact, artifactError := humanDecisionSpec(decision)
+			if artifactError != nil {
+				return Result{}, artifactError
+			}
+			decisionEvent, eventError := session.humanDecisionAuditEvent(decision)
+			if eventError != nil {
+				return Result{}, eventError
+			}
+			transitioned, err = session.commitTransitionWithArtifacts(currentChange, decision.RequestedState(), transitionContextForDecision(decision), []durableArtifactSpec{decisionArtifact}, decisionEvent)
+		}
+	} else {
+		decision, transitioned, err = session.approval.Decide(invocation.Context, currentChange, currentProposal, verificationResult, policyDecision, kind, rationale)
+	}
 	if err != nil {
 		if decision.Kind() == "" {
 			fmt.Fprintln(output, "Human decision: NOT RECORDED")
@@ -710,6 +990,13 @@ func handleHumanDecision(
 	fmt.Fprintf(output, "Change state: %s\n", transitioned.State())
 	fmt.Fprintln(output, "Canonical source: unchanged; decision authorizes or rejects later application")
 	return Result{}, nil
+}
+
+func transitionContextForDecision(decision approval.HumanDecision) string {
+	if decision.Kind() == approval.DecisionApprove {
+		return "explicit local human approval recorded"
+	}
+	return "explicit local human rejection recorded"
 }
 
 func handlePolicyShow(session *Session, invocation Invocation, output io.Writer) (Result, error) {

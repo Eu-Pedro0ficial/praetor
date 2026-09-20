@@ -100,6 +100,24 @@ func EstablishApprovedScope(analysis ImpactAnalysis) (ApprovedScope, error) {
 	}, nil
 }
 
+// RehydrateApprovedScope reconstructs the exact durable M0.3 boundary.
+func RehydrateApprovedScope(changeId change.ChangeId, projectId project.ProjectId, sourceStateDigest SourceStateDigest, request ScopeRequest) (ApprovedScope, error) {
+	if _, err := change.NewChangeId(string(changeId)); err != nil {
+		return ApprovedScope{}, err
+	}
+	if !projectId.IsValid() {
+		return ApprovedScope{}, fmt.Errorf("valid ProjectId is required")
+	}
+	if err := validateSourceStateDigest(sourceStateDigest); err != nil {
+		return ApprovedScope{}, err
+	}
+	surface, err := NewChangeSurface(request)
+	if err != nil {
+		return ApprovedScope{}, err
+	}
+	return ApprovedScope{changeId: changeId, projectId: projectId, sourceStateDigest: sourceStateDigest, surface: surface}, nil
+}
+
 // ChangeId returns the Change governed by this scope.
 func (scope ApprovedScope) ChangeId() change.ChangeId {
 	return scope.changeId

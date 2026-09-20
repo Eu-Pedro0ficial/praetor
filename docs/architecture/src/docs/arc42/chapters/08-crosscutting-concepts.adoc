@@ -43,8 +43,9 @@ Logical ChangeStore, ArtifactStore, and AuditLedger responsibilities share one
 per-Project SQLite transaction boundary under XDG DATA. ExpectedRevision and a
 scoped OperationId/RequestDigest prevent stale or changed retries. External
 effects remain sagas outside database transactions; canonical Git mutation adds
-a short XDG STATE OS lock and exact PRE/POST proof. Recovery is explicit,
-audited, and orthogonal to ChangeState.
+a short XDG STATE OS lock and exact PRE/POST proof. The exclusion interval
+covers POST proof and its short terminal authority commit. Recovery is
+explicit, audited, and orthogonal to ChangeState.
 
 === Architecture Decision Closure
 

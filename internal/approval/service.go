@@ -17,6 +17,15 @@ const EventHumanDecisionRecorded = "HUMAN_DECISION_RECORDED"
 // Port is the narrow application-owned inbound boundary used by the local
 // interactive command adapter. It contains no terminal-library concepts.
 type Port interface {
+	PrepareDecision(
+		context.Context,
+		change.Change,
+		proposal.Proposal,
+		verification.Result,
+		policy.BundleDecision,
+		DecisionKind,
+		string,
+	) (HumanDecision, error)
 	Decide(
 		context.Context,
 		change.Change,
@@ -84,7 +93,7 @@ func New(
 
 // Decide records exactly one explicit APPROVE or REJECT choice. Decision
 // audit is written before the existing audited state transition so any audit
-// failure leaves the process-local Change in VALIDATED.
+// failure leaves Change authority in VALIDATED.
 func (service *Service) Decide(
 	ctx context.Context,
 	currentChange change.Change,
@@ -94,36 +103,70 @@ func (service *Service) Decide(
 	kind DecisionKind,
 	rationaleValue string,
 ) (HumanDecision, change.Change, error) {
+	decision, err := service.PrepareDecision(ctx, currentChange, currentProposal, verificationResult, policyDecision, kind, rationaleValue)
+	if err != nil {
+		return HumanDecision{}, currentChange, err
+	}
+	if err := service.recorder(LifecycleEvent{
+		EventType:  EventHumanDecisionRecorded,
+		Decision:   decision,
+		OccurredAt: decision.OccurredAt(),
+	}); err != nil {
+		return HumanDecision{}, currentChange, fmt.Errorf("record human decision: %w", err)
+	}
+	transitioned, err := service.workflow.Transition(
+		currentChange.ChangeId(),
+		decision.RequestedState(),
+		transitionContext(decision),
+	)
+	if err != nil {
+		return decision, currentChange, err
+	}
+	return decision, transitioned, nil
+}
+
+// PrepareDecision validates and constructs a decision without publishing
+// audit or Change authority. Durable callers commit all required records
+// atomically after this method succeeds.
+func (service *Service) PrepareDecision(
+	ctx context.Context,
+	currentChange change.Change,
+	currentProposal proposal.Proposal,
+	verificationResult verification.Result,
+	policyDecision policy.BundleDecision,
+	kind DecisionKind,
+	rationaleValue string,
+) (HumanDecision, error) {
 	if service == nil {
-		return HumanDecision{}, currentChange, fmt.Errorf("approval service is required")
+		return HumanDecision{}, fmt.Errorf("approval service is required")
 	}
 	if ctx == nil {
-		return HumanDecision{}, currentChange, fmt.Errorf("human decision context is required")
+		return HumanDecision{}, fmt.Errorf("human decision context is required")
 	}
 	if err := ctx.Err(); err != nil {
-		return HumanDecision{}, currentChange, fmt.Errorf("human decision cancelled before authorization: %w", err)
+		return HumanDecision{}, fmt.Errorf("human decision cancelled before authorization: %w", err)
 	}
 	if currentChange.State() != change.StateValidated {
-		return HumanDecision{}, currentChange, fmt.Errorf(
+		return HumanDecision{}, fmt.Errorf(
 			"Change %q must be validated before a human decision",
 			currentChange.ChangeId(),
 		)
 	}
 	if _, err := resultingState(kind); err != nil {
-		return HumanDecision{}, currentChange, err
+		return HumanDecision{}, err
 	}
 	rationale, err := NewRationale(rationaleValue)
 	if err != nil {
-		return HumanDecision{}, currentChange, err
+		return HumanDecision{}, err
 	}
 	if err := verification.ValidateResultForDecision(currentChange, currentProposal, verificationResult); err != nil {
-		return HumanDecision{}, currentChange, err
+		return HumanDecision{}, err
 	}
 	if err := service.integrity(currentProposal); err != nil {
-		return HumanDecision{}, currentChange, fmt.Errorf("pre-decision proposal integrity failed: %w", err)
+		return HumanDecision{}, fmt.Errorf("pre-decision proposal integrity failed: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
-		return HumanDecision{}, currentChange, fmt.Errorf("human decision cancelled before authorization: %w", err)
+		return HumanDecision{}, fmt.Errorf("human decision cancelled before authorization: %w", err)
 	}
 	decision, err := newHumanDecision(
 		currentChange,
@@ -135,30 +178,15 @@ func (service *Service) Decide(
 		service.clock(),
 	)
 	if err != nil {
-		return HumanDecision{}, currentChange, err
-	}
-	if err := service.recorder(LifecycleEvent{
-		EventType:  EventHumanDecisionRecorded,
-		Decision:   decision,
-		OccurredAt: decision.OccurredAt(),
-	}); err != nil {
-		return HumanDecision{}, currentChange, fmt.Errorf("record human decision: %w", err)
+		return HumanDecision{}, err
 	}
 	if err := service.integrity(currentProposal); err != nil {
-		return decision, currentChange, fmt.Errorf("post-decision proposal integrity failed before state transition: %w", err)
+		return HumanDecision{}, fmt.Errorf("post-decision proposal integrity failed before authority commit: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
-		return decision, currentChange, fmt.Errorf("human decision cancelled before state transition: %w", err)
+		return HumanDecision{}, fmt.Errorf("human decision cancelled before authority commit: %w", err)
 	}
-	transitioned, err := service.workflow.Transition(
-		currentChange.ChangeId(),
-		decision.RequestedState(),
-		transitionContext(decision),
-	)
-	if err != nil {
-		return decision, currentChange, err
-	}
-	return decision, transitioned, nil
+	return decision, nil
 }
 
 func transitionContext(decision HumanDecision) string {

@@ -10,12 +10,14 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
-Current implementation status: M0.0 through M1.0 are complete. M0.8 preserves
+Current implementation status: M0.0 through M1.0 are complete; M1.1 is
+implemented and awaiting independent closure re-audit. M0.8 preserves
 M0.7's authorization-only decision step, then requires separate explicit
 canonical application or rejection closure before the applicable disposition
 can reach `audit-locked`. The Core V0 release gate has passed. M0.9 adds
 presentation-only post-V0 console polish. M1.0 adds the local evidence-linked
-Policy Engine and Project Policy Manifest; M1.1 has not begun.
+Policy Engine and Project Policy Manifest. M1.1 adds the implemented durable
+Change, artifact, workflow, audit, inspection, and recovery foundation.
 
 ## Mandatory architecture decision closure rule
 
@@ -139,12 +141,13 @@ candidate-only exceptions, immutable evidence/policy linkage, audit, and
 approval/application enforcement are implemented. This historical scope is
 unchanged.
 
-#### M1.1 — Durable Change + Artifact Foundation
+#### M1.1 — Durable Change + Artifact Foundation — PENDING INDEPENDENT CLOSURE RE-AUDIT
 
 - Objective: persist and recover Change state, generated artifacts, evidence,
   decisions, and exact workflow authority without conversation state.
-- Internal slices: A artifact/change model and store; B workflow
-  snapshot/recovery/migration; C inspection CLI and crash/restart E2E.
+- Internal implementation order (not independent milestones): artifact/change
+  model and store; workflow snapshot/recovery/migration; inspection CLI and
+  crash/restart E2E.
 - Dependencies: M1.0 and Core V0.
 - Decision gates: closed by human approval and ADR-033 through ADR-038 after
   the M1.1 evidence spike; exact implementation mechanics remain constrained
@@ -153,7 +156,9 @@ unchanged.
   no distributed database.
 - Acceptance: a Change can be restarted, inspected, and resumed without
   manufacturing a state or reconstructing provider conversation; source-linked
-  inspection remains subordinate to authoritative artifacts.
+  inspection remains subordinate to authoritative artifacts. Representative
+  commit-failure and real process-restart tests cover verification, human
+  decision, canonical completion, exact POST recovery, and drift blocking.
 - Downstream: all later Roadmap V2 milestones.
 
 #### M1.2 — Repository Intelligence + Impact + Risk
@@ -500,7 +505,8 @@ M0.0 -> M0.1 -> M0.2 -> M0.3 -> M0.4 -> M0.5 -> M0.6 -> M0.7 -> M0.8
 
 Every gate is maintained in `OPEN_DECISIONS.md`. The M1.1 architecture gate is
 closed by ADR-033 through ADR-038 and human approval after the required spike.
-This decision closure does not itself implement M1.1.
+The decision closure preceded and constrained the implemented M1.1 runtime,
+which awaits independent closure re-audit.
 
 Later mandatory gates include the Project Memory serialization benchmark,
 semantic conflict evidence before semantic authority, quality assurance/tool
@@ -510,9 +516,8 @@ audit claims.
 
 ## Implementation sequence status
 
-M0.0 through M1.0 are implemented. M1.1 runtime implementation has not begun.
-Its architecture authority is decided; its components remain `TARGET` or
-`PARTIAL` until implementation and validation evidence exist.
+M0.0 through M1.1 are implemented; M1.1 awaits independent closure re-audit.
+M1.2 remains future and subject to its documented authority gates.
 
 ## Key decisions preserved
 
