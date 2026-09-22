@@ -1,0 +1,26 @@
+@startuml
+!include <C4/C4_Component>
+AddElementTag("AS-IS", $bgColor="#2E7D32", $fontColor="#FFFFFF", $legendText="AS-IS")
+AddElementTag("PARTIAL", $bgColor="#B26A00", $fontColor="#FFFFFF", $legendText="PARTIAL")
+AddElementTag("TARGET", $bgColor="#2457A7", $fontColor="#FFFFFF", $legendText="TARGET")
+LAYOUT_WITH_LEGEND()
+title Repository Intelligence, Impact, and Cache [M1.2 APPROVED TARGET]
+Container_Boundary(runtime, "Praetor Runtime") {
+  Component(source, "Source Inspection", "Application/Repository Port", "M0.3 HEAD, status, tracked inventory, and source digest.", $tags="AS-IS")
+  Component(repo, "Repository Intelligence", "Application", "Builds immutable evidence-bearing RepositoryModel snapshots.", $tags="PARTIAL")
+  Component(analyzers, "Repository Analyzers", "In-process adapters", "Read-only bounded graph facts and explicit gaps.", $tags="TARGET")
+  Component(impact, "Impact Engine", "Application", "Bounded relation-specific impact and advisory risk.", $tags="PARTIAL")
+  Component(artifact, "Artifact Authority", "Application port", "Persists immutable Change-owned ImpactReport.", $tags="AS-IS")
+}
+System_Ext(repository, "Governed Repository", "Untrusted source, Git metadata, manifests, and bounded history", $tags="AS-IS")
+ContainerDb(cache, "RepositoryModel Cache", "Per-Project SQLite under XDG CACHE; derived and rebuildable", $tags="TARGET")
+ContainerDb(changeStore, "Change Authority", "Per-Project SQLite under XDG DATA", $tags="AS-IS")
+Rel(source, repository, "reads without mutation")
+Rel(repo, source, "captures exact source condition")
+Rel(repo, analyzers, "requests bounded facts")
+Rel(analyzers, repository, "reads; never executes code")
+Rel(repo, cache, "reuses/rebuilds derived model")
+Rel(repo, impact, "provides exact model identity")
+Rel(impact, artifact, "creates ImpactReport")
+Rel(artifact, changeStore, "commits immutable artifact/binding")
+@enduml

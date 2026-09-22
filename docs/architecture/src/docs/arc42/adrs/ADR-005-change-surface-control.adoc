@@ -4,6 +4,6 @@
 
 *Context:* AI can modify unrelated files while solving a local task.
 
-*Decision:* Impact analysis defines expected/possible/protected surfaces; sandbox/policy compare and constrain actual writes.
+*Decision:* Impact analysis defines expected/possible/protected surfaces; sandbox/policy compare and constrain actual writes. ADR-040 adds explainable inferred and uncertain impact while preserving `ApprovedScope` as separate write authority. Impact or RiskProfile output never expands that authority.
 
 *Consequences:* Reduces unrelated regression risk. Incorrect impact analysis can over/under constrain and needs an explicit expansion workflow.

@@ -1,6 +1,6 @@
 # Documentation Manifest
 
-Generated: 2026-09-10
+Generated: 2026-09-21
 
 ## Files
 - `./README.md`
@@ -44,6 +44,8 @@ Generated: 2026-09-10
 - `./src/docs/arc42/adrs/ADR-036-local-concurrency-idempotency-and-recovery.adoc`
 - `./src/docs/arc42/adrs/ADR-037-external-effect-saga-and-canonical-mutation-coordination.adoc`
 - `./src/docs/arc42/adrs/ADR-038-legacy-audit-migration.adoc`
+- `./src/docs/arc42/adrs/ADR-039-repository-model-source-fingerprint-provenance-analyzers-cache.adoc`
+- `./src/docs/arc42/adrs/ADR-040-explainable-impact-report-risk-change-surface.adoc`
 - `./src/docs/arc42/appendices/change-state-machine.adoc`
 - `./src/docs/arc42/appendices/competitive-landscape.adoc`
 - `./src/docs/arc42/appendices/configuration-model.adoc`
@@ -76,7 +78,9 @@ Generated: 2026-09-10
 - `./src/docs/arc42/diagrams/c4-core-components.puml`
 - `./src/docs/arc42/diagrams/c4-deployment-local.puml`
 - `./src/docs/arc42/diagrams/c4-memory-components.puml`
+- `./src/docs/arc42/diagrams/c4-repository-intelligence-components.puml`
 - `./src/docs/arc42/diagrams/dynamic-change-execution.puml`
+- `./src/docs/arc42/diagrams/dynamic-impact-analysis.puml`
 - `./src/docs/arc42/diagrams/dynamic-memory-promotion.puml`
 - `./src/docs/arc42/diagrams/dynamic-project-attach.puml`
 

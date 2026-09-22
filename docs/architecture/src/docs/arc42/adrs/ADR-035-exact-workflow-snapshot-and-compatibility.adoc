@@ -77,8 +77,8 @@ sqlite/store_test.go`; `internal/command/m11_test.go`).
 
 This ADR does not choose an authoring UI, project path, override precedence,
 future schema migration algorithm, or Go/YAML adapter structure. The embedded
-Core V0 snapshot and compatibility boundary are implemented in M1.1; milestone
-closure remains subject to independent re-audit.
+Core V0 snapshot and compatibility boundary are implemented in the completed,
+independently closure-audited M1.1 milestone.
 
 === Reopen / Review Triggers
 

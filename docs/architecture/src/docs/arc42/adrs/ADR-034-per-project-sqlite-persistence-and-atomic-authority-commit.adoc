@@ -131,7 +131,7 @@ artifact limit.
 
 This ADR authorized and constrains the M1.1 SQLite adapter dependency now used
 by the runtime. It does not prescribe exact SQL, a quota default, or future
-storage evolution; milestone closure remains subject to independent re-audit.
+storage evolution. M1.1 passed independent closure audit and is published.
 
 === Reopen / Review Triggers
 

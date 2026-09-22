@@ -39,6 +39,8 @@ include::../adrs/ADR-035-exact-workflow-snapshot-and-compatibility.adoc[]
 include::../adrs/ADR-036-local-concurrency-idempotency-and-recovery.adoc[]
 include::../adrs/ADR-037-external-effect-saga-and-canonical-mutation-coordination.adoc[]
 include::../adrs/ADR-038-legacy-audit-migration.adoc[]
+include::../adrs/ADR-039-repository-model-source-fingerprint-provenance-analyzers-cache.adoc[]
+include::../adrs/ADR-040-explainable-impact-report-risk-change-surface.adoc[]
 
 ADR-024 is intentionally unallocated. The former registry-only entry duplicated
 ADR-008's benchmark gate and had no ADR file.

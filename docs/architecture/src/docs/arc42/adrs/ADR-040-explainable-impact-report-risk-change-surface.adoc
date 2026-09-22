@@ -1,0 +1,128 @@
+== ADR-040: Explainable Impact, Durable ImpactReport, RiskProfile, and ChangeSurface Separation
+
+*Status:* DECIDED
+
+=== Context
+
+M0.3 accepts explicit paths and enforces a developer-approved source surface.
+M1.2 must infer likely blast radius from RepositoryModel evidence without
+allowing inference, confidence, or risk to grant write authority. The result
+must remain inspectable after its derived model cache is rebuilt or removed.
+
+=== Decision
+
+The Impact Engine consumes an exact ChangeIntent, RepositoryModel identity and
+build key, requested starting scope, analysis configuration, and existing
+protected constraints. It performs bounded, relation-specific graph traversal
+with a visited set, depth/cardinality limits, and evidence paths. A truncation,
+unsupported relation, ambiguous reference, or missing input creates a
+KnowledgeGap rather than an assumed relationship.
+
+Impact is classified as `EXPECTED`, `POSSIBLE`, `PROTECTED`, or `UNCERTAIN`.
+Each item identifies the affected repository element, classification,
+explanation path, assertion basis, evidence, and any inference confidence or
+gap. These classes describe analysis results. `ApprovedScope` and the actual
+`ChangeSurface` enforcement defined by ADR-005 are a separate authority axis.
+Inferred impact never adds a writable path, expands ApprovedScope, grants an
+exception, or weakens a protected constraint. A human-governed scope revision
+must pass through the existing policy and workflow authority.
+
+`ImpactReport` is an immutable, schema-versioned, Change-owned M1.1 Artifact.
+It records exact Project/Change identity, intent and source/model inputs,
+analysis configuration, bounded results and explanation graph, KnowledgeGaps,
+limits/truncation, embedded `RiskProfile`, timestamps, and content digest. The
+report records what analysis concluded; it is not repository truth, policy,
+approval, or write authority. A new analysis appends a new report and advances
+an explicit versioned Change binding. Consumers select an exact ArtifactId;
+they do not infer authority from the latest timestamp.
+
+Historical reports remain inspectable without the RepositoryModel cache.
+Using a report for current planning or execution requires proof that its model
+build key is `CURRENT`; `STALE` or `UNKNOWN` input fails closed or requires an
+explicit rebuild and new report according to the consuming workflow.
+
+`RiskProfile` is advisory and records evidence for these dimensions:
+
+* breadth;
+* protected exposure;
+* dependency reach;
+* verification relation;
+* API exposure;
+* ownership ambiguity;
+* bounded history concentration; and
+* uncertainty.
+
+History concentration is only an evidence-backed repository-context signal
+from the bounded history permitted by ADR-039. It is not regression analysis,
+DiffRisk, prediction from historical Change outcomes, statistical failure
+prediction, or historical policy authority; those remain M4.2.
+
+Named, schema-versioned deterministic rules derive an overall result of
+`LOW`, `MODERATE`, `HIGH`, or `INDETERMINATE`. The ordered categories satisfy
+`LOW < MODERATE < HIGH`. `INDETERMINATE` is outside that severity ordering: it
+means the available evidence is insufficient to derive a trustworthy ordered
+category. It is neither above HIGH nor below LOW and does not imply automatic
+approval, rejection, or policy failure. Knowledge gaps can produce
+`INDETERMINATE` or prevent a lower ordered result; they can never lower risk.
+M1.2 RiskProfile is advisory and cannot by itself block, approve, reject, or
+authorize a Change.
+
+=== Authority Boundaries and Invariants
+
+* Impact explains likely consequence; ApprovedScope authorizes writes.
+* Protected and unexpected actual writes remain governed by ADR-005 even when
+  impact evidence is incomplete or favorable.
+* Every inferred impact is traceable to bounded evidence and a path, or is
+  represented as uncertain/gapped.
+* A report is immutable, belongs to one Project and Change, and names exact
+  source/model inputs.
+* A report cannot be used as current unless freshness is proved at use time.
+* Risk remains advisory and uncertainty cannot improve an ordered result.
+
+=== Alternatives Considered
+
+Rejected alternatives were impact-driven automatic scope expansion, one
+unexplained blast-radius score, treating protected impact as approval denial by
+itself, using cache rows as durable reports, mutable reports, selecting reports
+by timestamp, assuming missing edges mean no impact, ranking INDETERMINATE
+above or below ordered risk, and implementing M4.2 regression prediction in
+M1.2.
+
+=== Consequences
+
+Planning, test selection, policy, and human review can inspect why an element
+was included and what remains unknown. Conservative gaps may produce broader
+or indeterminate advice and require explicit human attention. Durable reports
+consume Change artifact storage but remain bounded by the existing M1.1
+artifact limits and authority commit.
+
+=== Security Implications
+
+Traversal and explanation output must be bounded to prevent graph/resource
+exhaustion and accidental source disclosure. Reports store normalized
+identifiers, digests, relations, and bounded evidence rather than unbounded
+source bodies, secrets, credentials, raw analyzer output, or repository
+history. Protected paths remain visible only as needed for governance and
+never become writable through analysis.
+
+=== Migration and Compatibility
+
+Unsupported historical ImpactReport schemas remain available for bounded
+metadata/content inspection under ADR-033 but cannot drive current workflow
+execution. A new analysis creates a new immutable report; it never rewrites or
+silently upgrades a prior report.
+
+=== Implementation Boundary
+
+This ADR decides impact, report, risk, and authority semantics. Exact traversal
+budgets, risk-rule thresholds, Go types, SQL representation, CLI spelling, and
+policy use remain implementation choices within these bounds. Production M1.2
+implementation and validation are still required.
+
+=== Reopen / Review Triggers
+
+Reopen for impact that directly changes ApprovedScope, a policy-authoritative
+RiskProfile, numeric/probabilistic risk aggregation, a new impact class,
+cross-Change report ownership, mutable reports, unbounded graph traversal,
+historical regression or DiffRisk behavior, or report storage outside the
+M1.1 artifact authority.

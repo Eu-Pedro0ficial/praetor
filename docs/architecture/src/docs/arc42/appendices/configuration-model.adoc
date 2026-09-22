@@ -62,3 +62,19 @@ policy, audit data, or provider configuration.
 ==== Configuration Drift
 
 The runtime should be able to show the effective configuration for a Change, including source of each rule. This is analogous to a compiler explaining effective flags and is important when organization/project policies overlap.
+
+==== M1.2 Analysis Configuration and Storage Separation
+
+Analysis configuration that can change a RepositoryModel result participates
+in the exact analysis-configuration digest and therefore in the model build
+key. Analyzer identity/version/capability participates in the analyzer-set
+digest. A configuration change cannot reuse a model produced under a different
+key or reinterpret an existing immutable ImpactReport.
+
+M1.2 uses a per-Project SQLite performance cache beneath the platform cache
+directory (`$XDG_CACHE_HOME/praetor/projects/<validated ProjectId>/` on Linux,
+with the platform fallback when unset). It is distinct from CONFIG, the M1.1
+authoritative SQLite database under XDG DATA, short locks under XDG STATE, and
+governed source. Cache path configuration cannot redirect runtime metadata into
+the governed repository. Missing, corrupt, incompatible, or deleted cache data
+is rebuilt and never treated as authoritative loss.

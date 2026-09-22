@@ -2,9 +2,10 @@
 
 ## Authority and lifecycle
 
-Roadmap V2 replaces only the future delivery plan. M0.0 through M1.0 remain
-completed historical facts; M1.1 is implemented but awaits independent closure
-re-audit. Their scope is not renumbered or expanded retroactively.
+Roadmap V2 replaces only the future delivery plan. M0.0 through M1.1 remain
+completed historical facts; M1.1 passed independent closure audit and is
+published at `630f919cd9731113658fb6abc78a6843b210b6a8`. Their scope is not
+renumbered or expanded retroactively.
 Their complete accepted contracts are preserved in
 `archive/MILESTONES_V1.md`; the former future entries in that file are
 `SUPERSEDED` planning history.
@@ -46,7 +47,7 @@ linkage are implemented. Roadmap V2 does not change this accepted scope.
 **Requirements:** Primary FR-015 and FR-016. Supports FR-022, FR-045, NFR-008,
 QS-008, and QS-012.
 
-### M1.1 — Durable Change + Artifact Foundation — PENDING INDEPENDENT CLOSURE RE-AUDIT
+### M1.1 — Durable Change + Artifact Foundation — COMPLETE
 
 **Objective:** Make Change state, generated artifacts, evidence, policy and
 human decisions, and workflow authority durable, inspectable, and recoverable
@@ -122,7 +123,8 @@ RiskProfile, KnowledgeGap, and provenance-bearing relationships.
 
 **Boundaries and non-goals:** Deterministic facts and heuristic inference remain
 distinct. No embeddings-first discovery, universal compiler front-end,
-perfect impact claim, or automatic scope expansion.
+perfect impact claim, automatic scope expansion, historical regression
+analysis, DiffRisk, learned outcome prediction, or historical policy authority.
 
 **Acceptance criteria:** Symbol, dependency, test, ownership, history, API, and
 architecture signals are used when available; missing knowledge is explicit;
@@ -133,9 +135,12 @@ cannot be used silently.
 versioned model and explainable expected, possible, protected, and uncertain
 impact. A trivial change proposing a broad refactor is flagged with evidence.
 
-**Decision and spike gates:** Repository-model boundary/version and cache
-semantics; confidence/gap representation; RiskProfile taxonomy and authority;
-representative polyglot corpus and incremental-rebuild performance.
+**Decision and spike gates:** Closed by human approval after the representative
+heterogeneous repository and incremental rebuild spike. ADR-039 governs the
+model, composite fingerprint, provenance/gaps, analyzers, and XDG CACHE
+projection. ADR-040 governs explainable impact, durable ImpactReport, advisory
+RiskProfile, and separation from ApprovedScope. Production implementation and
+validation remain required.
 
 **Downstream capabilities:** M1.3, M4.1, and M4.2.
 

@@ -122,21 +122,57 @@ policy-defined commands.
 
 ==== Repository Intelligence
 
-Builds and incrementally updates the repository model. It is responsible for discovery, symbol/dependency relationships, test topology, history-derived context, impact evidence and knowledge-gap detection.
+Builds immutable Project-scoped RepositoryModel snapshots. ADR-039 binds every
+model to the exact source fingerprint, model schema, analyzer set, and analysis
+configuration. Assertions distinguish observed, derived, and inferred facts;
+only inference has confidence, and missing or excluded knowledge becomes a
+structured KnowledgeGap.
+
+The approved M1.2 graph is bounded to repository/module/file/symbol/test/API,
+external-dependency, owner, architecture-element, and unresolved-reference
+nodes with explicit relationship types. Initial analyzers are in-process,
+read-only, compile-time registered adapters. Bounded history may supply
+ownership/co-change repository context but never M4.2 regression prediction or
+DiffRisk.
 
 The executable M0.3 subset is intentionally smaller: the local Git adapter
 captures repository root, `HEAD`, clean/dirty status, tracked path inventory
 and a source-state integrity digest. It does not persist an index or implement
-symbol, dependency, semantic, or history-mining intelligence.
+symbol, dependency, semantic, or history intelligence. M1.2 production
+implementation has not started.
 
 ==== Impact Engine
 
-Computes the likely blast radius of a requested change and produces an expected/possible/protected surface. It provides evidence to Policy Engine and Sandbox Runtime.
+Computes a bounded, explainable blast radius from an exact RepositoryModel and
+classifies elements as expected, possible, protected, or uncertain. Traversal
+is relation-specific, cycle-safe, evidence-bearing, and produces gaps when a
+limit or unavailable relationship prevents a conclusion. ADR-040 keeps these
+results separate from ApprovedScope: analysis never grants write authority.
+
+The durable result is an immutable Change-owned ImpactReport in the M1.1
+Artifact authority. It embeds an advisory RiskProfile and exact freshness
+inputs so it remains inspectable when the derived model cache is absent. A
+current workflow may use it only after proving those inputs remain current.
+`LOW < MODERATE < HIGH`; `INDETERMINATE` is an unordered statement of
+insufficient evidence and has no automatic governance consequence.
 
 In M0.3, candidate selection is deterministic and explicit: developer-supplied
 file paths are normalized and verified against the SourceSnapshot tracked
 inventory. Exact file-level actual paths can then be accepted or rejected
-against the ApprovedScope. Richer inference remains future capability.
+against the ApprovedScope. Richer inference remains approved target capability
+under ADR-039 and ADR-040.
+
+==== M1.2 Repository Intelligence Component View
+
+[plantuml, "{plantUMLDir}c4-repository-intelligence-components", png]
+----
+include::../diagrams/c4-repository-intelligence-components.puml[]
+----
+
+The per-Project RepositoryModel SQLite cache is a replaceable performance
+projection under XDG CACHE. It is not the per-Project M1.1 Change authority
+under XDG DATA. Missing, corrupt, stale, or incompatible cache data causes a
+rebuild and cannot remove or manufacture durable authority.
 
 ==== Agent Router
 

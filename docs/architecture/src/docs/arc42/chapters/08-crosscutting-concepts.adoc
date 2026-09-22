@@ -61,6 +61,29 @@ When a milestone reaches the trigger for such a decision:
 
 An implementation convenience is NOT an architecture decision.
 
+=== M1.2 Repository Knowledge, Freshness, and Advisory Risk
+
+ADR-039 separates source evidence, immutable RepositoryModel snapshots, and a
+rebuildable per-Project XDG CACHE projection. A composite build key covers the
+source fingerprint, model schema, analyzer set, and analysis configuration.
+Freshness is `CURRENT`, `STALE`, or `UNKNOWN`; missing or corrupt evidence is
+never current. Untracked entry presence/path identity participates through
+sorted status-name evidence, while excluded untracked bytes do not. Exclusion
+always creates a KnowledgeGap.
+
+Assertions are observed, derived, or inferred. Confidence belongs only to
+inference; provenance and gaps remain first-class. Bounded historical facts may
+support ownership, co-change context, and history concentration, but M1.2 does
+not perform regression analysis, DiffRisk, outcome learning, or failure
+prediction.
+
+ADR-040 makes ImpactReport an immutable Change-owned artifact while the model
+cache remains disposable. Expected, possible, protected, and uncertain impact
+is evidence for planning; ApprovedScope remains the independent write
+authority. Risk is advisory. `LOW < MODERATE < HIGH`, while `INDETERMINATE` is
+an unordered epistemic result with no automatic approval, rejection, or policy
+effect.
+
 === Memory Architecture
 
 ==== Scopes

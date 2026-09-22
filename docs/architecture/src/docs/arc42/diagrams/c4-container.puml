@@ -11,6 +11,7 @@ System_Boundary(system, "Governed AI Software Engineering Runtime") {
   Container(cli, "CLI", "Go", "Primary local interface; inbound adapter.", $tags="AS-IS")
   Container(core, "Governance Core", "Go", "Implemented governance kernel plus target specification, review, knowledge, routing, memory, and quality responsibilities.", $tags="PARTIAL")
   ContainerDb(changeStore, "Per-Project Change Authority", "SQLite via modernc", "M1.1 Change/artifact/audit authority under XDG DATA.", $tags="AS-IS")
+  ContainerDb(repositoryCache, "RepositoryModel Cache", "SQLite via modernc", "M1.2 target derived per-Project projection under XDG CACHE; never authority.", $tags="TARGET")
   ContainerDb(index, "Local Memory Index", "Technology undecided", "Target derived query projection; never canonical memory.", $tags="TARGET")
   Container(sandbox, "Isolated Proposal Worktree", "Git worktree", "Current source/workspace isolation; stronger containment requires the owning capability gate.", $tags="AS-IS")
 }
@@ -22,6 +23,7 @@ System_Ext(idp, "Identity / Approval Sources", "Local provenance exists; authent
 Rel(engineer, cli, "Runs commands / approves")
 Rel(cli, core, "Invokes use cases")
 Rel(core, changeStore, "atomic authority commit / bounded inspection")
+Rel(core, repositoryCache, "reuses/rebuilds exact model")
 Rel(core, index, "Builds/queries")
 Rel(core, sandbox, "Creates constrained execution")
 Rel(core, ai, "Routes role requests")

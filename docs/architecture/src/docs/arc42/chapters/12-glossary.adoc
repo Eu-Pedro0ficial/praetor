@@ -8,18 +8,20 @@
 |Agent |Role-scoped AI executor. An agent is not an authority and is not synonymous with a provider.
 |Agent Router |Component that maps role requirements and governance constraints to a compatible provider/model adapter.
 |Approval |Explicit authorization from an actor with the required authority for a state transition or exception.
+|ApprovedScope |Separately governed authority identifying where a proposal may write; RepositoryModel, impact, and risk cannot expand it.
 |Artifact |Immutable versioned record and payload belonging to one Project and Change; its opaque ArtifactId is distinct from its content digest.
 |Audit Ledger |Append-oriented event history describing commands, runs, artifacts, decisions, actors and hashes.
 |Canonical Memory |Durable accepted memory records representing project/organization engineering knowledge.
 |Change |Primary auditable work aggregate representing one requested software evolution/fix.
 |ChangeId |Opaque project-scoped identifier; `(ProjectId, ChangeId)` is durable Change identity and neither value is derived from source paths or Git state.
-|Change Surface |Expected, possible, protected and actual files/symbols/modules affected by a Change.
+|Change Surface |Expected, possible, protected, uncertain, and actual repository elements associated with a Change; classification is distinct from write authority.
 |Context Pack |Task-scoped projection of repository/memory/policy knowledge assembled for one AI role invocation.
 |Developer Sovereignty |Principle that the engineering process and authorized humans retain final authority over consequential actions.
 |Evidence |Structured result supporting a claim or state transition: tests, scans, diffs, analysis, approvals, etc.
 |Engineering Knowledge Surface |Cross-cutting source-linked read model under an owning artifact/specification/memory milestone; never a parallel source of truth or an independent milestone.
 |Institutional Engineering Memory |Durable project/organization knowledge independent from an individual developer or AI provider.
-|Knowledge Gap |Explicitly represented unknown or insufficiently supported area of project understanding.
+|ImpactReport |Immutable Change-owned artifact recording exact model inputs, explainable impact, gaps, limits, and advisory RiskProfile.
+|Knowledge Gap |Structured category, scope, reason, evidence, consequence, and resolution for unknown, excluded, unsupported, or insufficiently supported repository knowledge.
 |Memory Candidate |Proposed knowledge record that has not yet become canonical memory.
 |Memory Invalidation |Process of identifying previously valid memory whose supporting source/evidence changed.
 |Memory Snapshot |Reference/fingerprint identifying the memory state used for an execution.
@@ -34,12 +36,14 @@
 |Provider Trust Level |Governance classification restricting which data can be sent to a provider.
 |Provenance |Evidence of origin: actor, command, source commit, memory snapshot, model, input/output and hashes.
 |Repository Archaeology |Initial/incremental discovery process that reconstructs structure, dependencies, testing, integrations and legacy constraints.
-|Repository Model |Structured representation of a source repository used for impact, retrieval and validation.
+|Repository Model |Immutable Project-scoped, schema/build-key-bound repository graph with evidence, provenance, gaps, limits, and digest.
 |Recovery Condition |Orthogonal operational diagnosis such as incomplete effect, divergence, corruption, or incompatibility; never a ChangeState.
 |Role |Logical agent responsibility such as Planner, Implementer or Security Reviewer.
+|RiskProfile |Advisory impact evidence with ordered LOW/MODERATE/HIGH or unordered epistemic INDETERMINATE; it is not approval, rejection, policy, or write authority.
 |Run |One execution attempt of a workflow step/tool/agent.
 |Sandbox |Architectural isolation boundary for proposed changes. The current implementation is Git worktree source/workspace isolation; stronger containment requires the gate of the approved capability that needs it.
 |Software Change Provenance |Ability to reconstruct why/how/by-whom/with-what-context a code change was produced and accepted.
+|SourceFingerprint |Composite comparable source condition covering exact tracked content/metadata and untracked status-name evidence under ADR-039.
 |Specification Pack |M1.3 target versioned bundle of requirements, constraints, acceptance criteria, provenance, and lifecycle linked to an exact Change authority chain.
 |State Machine |Explicit allowed progression of a Change rather than agent-controlled free-form progression.
 |Workflow |Versioned engineering process defining stages, contracts, gates and allowed transitions.

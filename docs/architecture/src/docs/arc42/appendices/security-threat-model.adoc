@@ -60,6 +60,10 @@ Primary assets include:
 |Cross-Project durable-state confusion |Unvalidated identifiers select another Project's store or filesystem object |One validated ProjectId directory under XDG DATA/STATE; ChangeId and ArtifactId never become paths; exact Project/Change ownership checks
 |Local store corruption or partial authority |Crash, bad relation, digest mismatch, or incompatible schema appears valid |Atomic authority commit, integrity/application checks, fail closed, diagnose, preserve evidence, and restore only from verified backup or explicit human action
 |Unknown external effect replay |A crash hides whether Git/provider/tool execution completed |Durable reservation and request digest, exact adapter-specific PRE/POST/AMBIG evidence, no automatic replay of uncertain effects
+|Repository analyzer input attack |Paths, symlinks, manifests, history, or syntax cause traversal, disclosure, panic, or resource exhaustion |Treat all repository input as untrusted; normalize paths, do not follow symlinks, bound files/history/graph/time/memory, isolate analyzer failure, and record gaps
+|Repository analyzer executes project code |A model builder runs a build script or compiler plugin with developer credentials |Initial M1.2 analyzers are in-process read-only parsers with no repository-code execution, network, credentials, or subprocess authority
+|Model cache confusion |Stale, corrupt, or cross-Project cache data is presented as current evidence |Project-scoped exact build keys, integrity checks, pre/post source inspection, discard/rebuild behavior, and no cache authority
+|Impact inference grants writes |A heuristic relationship silently expands allowed source scope |Impact and RiskProfile are advisory; only separately governed ApprovedScope authorizes writes
 |===
 
 ==== Prompt Injection Posture
@@ -217,6 +221,26 @@ source bodies. These controls protect against path misuse, accidental
 cross-project confusion, and cooperating Praetor-process races; they do not
 claim resistance to root, a compromised developer account, or an arbitrary
 hostile same-user process.
+
+==== M1.2 Repository Analysis and Cache Boundary
+
+M1.2 reads repository content, Git metadata, manifests, ownership declarations,
+and bounded history as untrusted data. Initial analyzers operate in-process,
+read-only, and without repository-code execution, repository scripts,
+subprocesses, network, credentials, or symlink traversal. Implementations bound
+path length, file size/count, history depth, graph cardinality, traversal,
+time, memory, and output; normalize repository-relative paths; isolate adapter
+failure/panic; and emit KnowledgeGaps for excluded, unsupported, unresolved, or
+truncated input.
+
+The per-Project XDG CACHE database uses restrictive local permissions,
+validated ProjectId path construction, exact build keys, and integrity checks.
+It is disposable and cannot supply authority when missing, corrupt, stale, or
+incompatible. Pre/post source inspection prevents publishing a mixed-source
+model. Durable ImpactReports retain bounded identifiers, digests, relations,
+and explanations rather than raw source bodies, credentials, secrets, complete
+history, or analyzer output. Impact and risk cannot change ApprovedScope or
+create policy, approval, or rejection authority.
 
 ==== M1.5 External Quality/Security Tool Boundary
 

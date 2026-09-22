@@ -3,9 +3,10 @@
 This directory contains Praetor's approved Roadmap V2, milestone contracts,
 dependency graph, delivery and validation strategies, research backlog, and
 explicitly open and historically closed architecture gates. Phase 0 is
-complete; Phase 1 begins with the completed M1.0 Policy Engine. M1.1
-architecture is decided and its runtime is implemented, pending independent
-closure re-audit. M1.2 through M1.5 remain future delivery. Superseded
+complete; Phase 1 begins with the completed M1.0 Policy Engine. M1.1 is
+implemented, independently closure-audited, committed, and published. M1.2
+architecture is human approved under ADR-039 and ADR-040, while M1.2 through
+M1.5 remain future production delivery. Superseded
 planning is retained under `archive/` and is not current authority.
 
 The canonical inverse ownership and lifecycle record is

@@ -74,9 +74,9 @@ after cutover it cannot append to the retired JSONL source
 === Implementation Boundary
 
 This ADR does not prescribe the physical migration-manifest schema or authorize
-deleting `audit.log`. M1.1 implements explicit locked migration and retires the
-legacy writer only after successful import; milestone closure remains subject
-to independent re-audit.
+deleting `audit.log`. The completed, independently closure-audited M1.1
+implementation performs explicit locked migration and retires the legacy writer
+only after successful import.
 
 === Reopen / Review Triggers
 

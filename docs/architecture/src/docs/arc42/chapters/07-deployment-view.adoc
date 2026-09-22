@@ -15,14 +15,22 @@ The deployment model is local-first. Current elements are:
 * the `codex-cli` provider adapter;
 * local deterministic tools invoked as subprocesses/adapters.
 
-Target elements include a benchmark-selected rebuildable memory projection,
+Target elements include the M1.2 per-Project rebuildable RepositoryModel
+SQLite cache under XDG CACHE, a benchmark-selected rebuildable memory projection,
 separate canonical Project Memory repository, remote SCM/evidence adapters,
 and additional external or local AI providers behind the existing port. M1.1
-also targets one `change-store.sqlite3` per validated ProjectId under XDG DATA,
+uses one `change-store.sqlite3` per validated ProjectId under XDG DATA,
 plus short Project-scoped mutation locks under XDG STATE. SQLite is local
 Change/artifact/audit authority, not the separately benchmark-gated Project
 Memory representation. No remote/shared Change store, memory serialization,
 remote topology, or second provider is selected by this view.
+
+The M1.2 cache is separate from Change authority and governed source. It is
+safe to discard and rebuild; cache absence, corruption, or schema incompatibility
+is an availability/performance condition and never grants freshness or removes
+durable ImpactReports. Initial repository analyzers run in-process and read
+bounded local inputs without network, credentials, repository scripts, or
+repository-code execution.
 
 Git worktree provides source/workspace isolation; it is not itself a security
 sandbox. Recovery/local concurrency follow ADR-034 through ADR-037, while the

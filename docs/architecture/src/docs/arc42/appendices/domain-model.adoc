@@ -245,6 +245,39 @@ without altering ChangeState. The one per-Project SQLite adapter supplies
 logical ChangeStore, ArtifactStore, and AuditLedger responsibilities plus a
 typed all-or-none authority commit.
 
+===== M1.2 Approved Repository Intelligence Model
+
+ADR-039 defines `RepositoryModel` as an immutable Project-scoped description
+of one exact source/build condition. It belongs to the Project rather than one
+Change and is identified by a schema plus a build key over SourceFingerprint,
+analyzer set, and analysis configuration. Its bounded graph contains
+Repository, Module, File, Symbol, Test, API, ExternalDependency, Owner,
+ArchitectureElement, and UnresolvedReference nodes with explicit containment,
+declaration, dependency, reference, test, exposure, ownership, architecture,
+and inferred co-change relationships.
+
+Each repository assertion is OBSERVED, DERIVED, or INFERRED with bounded
+evidence provenance. Confidence HIGH/MEDIUM/LOW exists only for INFERRED
+assertions. `KnowledgeGap` identifies the affected scope, reason, evidence,
+consequence, and possible resolution; missing or excluded knowledge is never
+converted into a negative fact.
+
+`SourceFingerprint` composes M0.3 source state, exact HEAD/working condition,
+tracked path/mode/content, symlink link text, Gitlinks, and sorted untracked
+status-name evidence. Untracked bytes are excluded from analysis. Untracked
+create/delete/rename changes the comparable fingerprint; byte-only edits to an
+already-known excluded untracked file do not. Exclusion always produces a gap.
+Freshness is CURRENT, STALE, or UNKNOWN and is checked again at use time.
+
+ADR-040 defines `ImpactReport` as an immutable Change-owned Artifact over an
+exact intent and RepositoryModel. It contains expected, possible, protected,
+and uncertain impact with explanation paths, gaps, limits, and an advisory
+RiskProfile. The ordered risk categories are LOW < MODERATE < HIGH;
+INDETERMINATE is outside the ordering and means evidence is insufficient.
+Impact and risk cannot expand `ApprovedScope`, authorize a write, or establish
+policy/approval authority. Historical reports remain inspectable, while
+current use requires current model inputs.
+
 Potential value objects/entities:
 
 [cols="1,3",options="header"]
@@ -254,14 +287,20 @@ Potential value objects/entities:
 |ProjectId |Stable project identity resolved through Project Registry
 |ChangeIntent |Normalized human/issue intent and acceptance objective
 |SourceSnapshot |Project association + repository root and deterministic source-state reference used as input
+|SourceFingerprint |Comparable source/build condition including tracked content and untracked status-name evidence under ADR-039
+|RepositoryModel |Immutable Project-scoped schema/build-key graph snapshot with evidence, gaps, limits, and model digest
+|RepositoryAssertion |Observed, derived, or inferred graph claim with bounded provenance and inference-only confidence
+|KnowledgeGap |Explicit category/scope/reason/evidence/consequence/resolution for unavailable or excluded knowledge
 |MemorySnapshot |Stable reference/fingerprint of relevant canonical memory state
 |WorkflowSnapshot |Exact workflow identity/version/schema version/YAML bytes and SHA-256 digest
 |Artifact |Immutable versioned Project/Change-scoped payload envelope with opaque identity and content digest
 |ArtifactBinding |Versioned Change-revision binding from an artifact role to an exact artifact revision
 |Operation |Scoped consequential-operation reservation, request digest, bounded outcome and recovery linkage
 |PolicySnapshot |Applicable policy set identity/version/hash
-|RiskProfile |Data/operational/architecture/security risk classification
-|ChangeSurface |Expected/possible/protected/actual source scope
+|ImpactReport |Immutable Change-owned artifact with exact model inputs, explainable impact, gaps, and embedded advisory risk
+|RiskProfile |Advisory evidence dimensions with LOW/MODERATE/HIGH ordering or unordered INDETERMINATE
+|ChangeSurface |Observed expected/possible/protected/uncertain/actual source classification; does not grant write authority
+|ApprovedScope |Separately governed source-write authority that impact inference cannot expand
 |Specification |Explicit requirements/invariants for the change
 |SpecificationPack |M1.3 target bundle linking requirements, constraints, acceptance criteria, provenance, lifecycle, and exact governing digest
 |ChangePlan |Ordered implementation plan and expected modifications

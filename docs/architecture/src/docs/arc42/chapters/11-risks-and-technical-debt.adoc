@@ -37,13 +37,17 @@
 |R-032 |Unknown external completion is replayed automatically |Duplicate or unsafe canonical/provider/tool effect |Durable operation reservation, immutable request digest, exact postcondition classification and human handling for ambiguity
 |R-033 |SQLite artifact payloads amplify memory or exhaust local storage |Runtime failure or unusable backup/migration |1/10/50 MiB artifact policy, 100 MiB Change bound, configurable free-space-aware project quota and hybrid-storage reopen trigger
 |R-034 |Corruption or migration silently rewrites authority |Loss of provenance or false successful state |Fail closed, preserve evidence, verified backup, application invariants and idempotent rollback-safe legacy audit migration
+|R-035 |RepositoryModel cache is mistaken for authority or current evidence |Stale analysis or loss of durable state after cache failure |Exact composite build key, pre/post source inspection, separate XDG CACHE storage, integrity checks, and discard/rebuild recovery
+|R-036 |Excluded untracked input is interpreted as no impact |Incomplete blast radius and false confidence |Include sorted untracked status-name evidence in the comparable fingerprint and emit explicit KnowledgeGaps for excluded content
+|R-037 |Advisory impact or risk silently expands source authority |Unauthorized writes or governance bypass |Keep ApprovedScope separate under ADR-005/ADR-040 and test that analysis cannot grant write authority
+|R-038 |M1.2 history context becomes premature regression prediction |Opaque or misleading DiffRisk authority |Bound history to provenance/ownership/co-change context; retain regression prediction and learned outcomes in M4.2
 |===
 
 === Known Architectural Debt at Baseline
 
-With implementation complete through M1.0, the principal remaining debt is
-**future-gate and implementation debt**, not an unimplemented V0 loop. M1.1
-durability decisions are closed, but their runtime is not implemented.
+With implementation complete through M1.1, the principal remaining debt is
+**future-gate and implementation debt**, not an unimplemented V0 loop. M1.2
+repository/impact architecture is approved, but its runtime is not implemented.
 Canonical application
 is deliberately local and working-tree-only. Its adapter lock coordinates one
 process; concurrent external Git writers are detected by repeated preflight or

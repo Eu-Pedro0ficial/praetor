@@ -8,6 +8,7 @@ title C4 Deployment — Local Developer Workstation [CURRENT + TARGET]
 Deployment_Node(dev, "Developer Workstation", "Linux/macOS/Windows") {
   Container(cli, "Runtime CLI", "Go binary", $tags="AS-IS")
   ContainerDb(changeStore, "Per-Project Change Authority", "SQLite change-store.sqlite3 under XDG DATA", $tags="AS-IS")
+  ContainerDb(repositoryCache, "RepositoryModel Cache", "Per-Project SQLite under XDG CACHE; rebuildable", $tags="TARGET")
   ContainerDb(index, "Memory Query Projection", "Technology undecided", $tags="TARGET")
   Deployment_Node(workspace, "Workspace") {
     Container(srcLocal, "Source clone", "Git working copy", $tags="AS-IS")
@@ -25,6 +26,7 @@ Deployment_Node(remote, "Remote / Enterprise Services") {
 }
 Rel(cli, index, "queries")
 Rel(cli, changeStore, "persists/inspects M1.1 authority")
+Rel(cli, repositoryCache, "reuses/rebuilds M1.2 derived model")
 Rel(cli, srcLocal, "reads/applies accepted changes")
 Rel(cli, memLocal, "reads/writes governed memory")
 Rel(cli, sandbox, "runs proposed implementation")

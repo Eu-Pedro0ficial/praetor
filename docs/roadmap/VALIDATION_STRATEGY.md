@@ -201,6 +201,48 @@ also checks that a valid unsupported historical WorkflowSnapshot remains
 inspectable while explicit POST recovery cannot advance its Change. Validation
 also proves no runtime metadata enters governed repositories.
 
+## M1.2 repository intelligence, impact, and risk validation
+
+The approved ADR-039/ADR-040 architecture requires a heterogeneous fixture
+suite spanning Go, JVM, TypeScript, polyglot, unsupported, cyclic, generated,
+symlink, Gitlink, tracked-dirty, and untracked cases. Model contract tests must
+prove deterministic schema/digest output; observed/derived/inferred provenance;
+inference-only confidence; structured gaps; bounded graph vocabulary; and
+pre/post inspection that refuses to publish a mixed-source model.
+
+Fingerprint tests distinguish tracked path/mode/content, symlink link text,
+Gitlink identity, and sorted untracked status-name evidence. Untracked
+create/delete/rename must change the comparable fingerprint. Byte-only edits to
+an already-known excluded untracked file must not change analyzed-content
+identity, must remain excluded from analysis, and must retain a KnowledgeGap so
+no consumer concludes that it has no impact.
+
+Analyzer contract and adversarial tests prove read-only bounded operation,
+path normalization, no symlink following, no repository-code/script execution,
+no network or credential use, resource limits, deterministic failure/gap
+normalization, and Project isolation. Cache tests cover missing, corrupt,
+incompatible, stale, and cross-Project entries; exact file-local reuse;
+full-rebuild fallback; global relationship/gap recomputation; and incremental
+versus full post-change model-digest equivalence.
+
+Impact tests cover isolated leaves, broad proposals, dependency hubs, related
+tests, unresolved references, unsupported input, cycles, protected elements,
+and traversal limits. Every result must retain an explanation path or gap.
+Artifact tests prove immutable Project/Change ownership, exact input/build-key
+linkage, append-only replacement/current binding, historical inspection without
+cache, and rejection of stale or unknown reports for current use.
+
+Risk fixtures cover each dimension and the deterministic versioned rules.
+They prove `LOW < MODERATE < HIGH`, that `INDETERMINATE` is unordered and has
+no automatic governance effect, and that a KnowledgeGap never lowers risk.
+Authority tests prove impact and RiskProfile cannot expand ApprovedScope,
+authorize writes, or bypass protected-path enforcement. Governed repositories
+must remain free of cache or runtime metadata.
+
+The approved disposable spike supplies architecture-decision evidence, including
+full/incremental digest equivalence and the measured 534-file corpus. It does
+not satisfy production implementation or milestone closure evidence.
+
 ## M1.5 quality/security verification foundation
 
 M1.5 extends the same evidence authority across replaceable quality/security

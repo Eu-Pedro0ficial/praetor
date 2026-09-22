@@ -303,6 +303,36 @@ Policy evaluation performs no Change transition and no source mutation.
 These semantics are implemented under ADR-033 through ADR-038. Later workflow,
 review, repository-intelligence, and memory capabilities remain outside M1.1.
 
+==== M1.2 Approved Target Repository and Impact Analysis
+
+[plantuml, "{plantUMLDir}dynamic-impact-analysis", png]
+----
+include::../diagrams/dynamic-impact-analysis.puml[]
+----
+
+. Inspect the repository before analysis and derive the exact composite source
+  fingerprint, including sorted untracked status-name evidence but excluding
+  untracked bytes from analysis.
+. Reuse file-local cached results only when content, analyzer, schema, and
+  configuration keys match; otherwise rebuild them. Recompute global graph
+  relationships and KnowledgeGaps.
+. Inspect source again. Discard the candidate when the comparable fingerprint
+  changed during analysis; publish only a coherent immutable model.
+. Traverse only approved relation types from the Change intent/start scope with
+  visited-set and depth/cardinality limits. Record explanation paths and gaps.
+. Derive expected, possible, protected, and uncertain impact plus the advisory
+  RiskProfile. `INDETERMINATE` records insufficient evidence outside the
+  ordered low/moderate/high severity scale.
+. Atomically append an immutable Change-owned ImpactReport through the existing
+  artifact authority and bind its exact ArtifactId. Do not expand ApprovedScope.
+. For current use, prove that the report's model build key is still current;
+  stale or unknown inputs require rebuild/new analysis rather than silent use.
+
+This sequence is approved architecture under ADR-039 and ADR-040. It is not
+implemented runtime behavior yet. Analyzer failure, unsupported syntax,
+excluded untracked content, traversal truncation, and cache loss remain
+explicit rather than being converted to absence of impact.
+
 ==== M1.3 Target Specification Pack Authority
 
 . Normalize a requirement into a candidate Specification Pack.

@@ -10,8 +10,9 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
-Current implementation status: M0.0 through M1.0 are complete; M1.1 is
-implemented and awaiting independent closure re-audit. M0.8 preserves
+Current implementation status: M0.0 through M1.1 are complete. M1.1 passed
+independent closure audit and is published at
+`630f919cd9731113658fb6abc78a6843b210b6a8`. M0.8 preserves
 M0.7's authorization-only decision step, then requires separate explicit
 canonical application or rejection closure before the applicable disposition
 can reach `audit-locked`. The Core V0 release gate has passed. M0.9 adds
@@ -141,7 +142,7 @@ candidate-only exceptions, immutable evidence/policy linkage, audit, and
 approval/application enforcement are implemented. This historical scope is
 unchanged.
 
-#### M1.1 — Durable Change + Artifact Foundation — PENDING INDEPENDENT CLOSURE RE-AUDIT
+#### M1.1 — Durable Change + Artifact Foundation — COMPLETE
 
 - Objective: persist and recover Change state, generated artifacts, evidence,
   decisions, and exact workflow authority without conversation state.
@@ -169,10 +170,12 @@ unchanged.
 - Internal slices: A repository graph/model; B impact/blast radius; C risk,
   confidence, gaps, and staleness.
 - Dependencies: M1.1.
-- Decision gates: repository-model boundary/version, confidence/gap model, and
-  RiskProfile taxonomy.
+- Decision gates: closed by human approval and ADR-039/ADR-040 after the
+  heterogeneous model/impact/freshness/cache spike. Runtime evidence is still
+  required before M1.2 can complete.
 - Boundary: deterministic and heuristic knowledge remain distinct; semantic
-  embeddings are not required.
+  embeddings are not required; bounded history supplies repository context
+  only and does not implement M4.2 regression analysis or DiffRisk.
 - Acceptance: every inferred relationship and risk is explainable, source
   linked, freshness-aware, and unable to silently expand approved scope.
 - Downstream: M1.3, M4.1, and M4.2.
@@ -506,7 +509,9 @@ M0.0 -> M0.1 -> M0.2 -> M0.3 -> M0.4 -> M0.5 -> M0.6 -> M0.7 -> M0.8
 Every gate is maintained in `OPEN_DECISIONS.md`. The M1.1 architecture gate is
 closed by ADR-033 through ADR-038 and human approval after the required spike.
 The decision closure preceded and constrained the implemented M1.1 runtime,
-which awaits independent closure re-audit.
+which passed independent closure audit and is published. The M1.2 architecture
+gate is closed by ADR-039 and ADR-040; production implementation remains
+future.
 
 Later mandatory gates include the Project Memory serialization benchmark,
 semantic conflict evidence before semantic authority, quality assurance/tool
@@ -516,8 +521,8 @@ audit claims.
 
 ## Implementation sequence status
 
-M0.0 through M1.1 are implemented; M1.1 awaits independent closure re-audit.
-M1.2 remains future and subject to its documented authority gates.
+M0.0 through M1.1 are implemented and complete. M1.2 architecture is approved
+and its production implementation has not started.
 
 ## Key decisions preserved
 

@@ -88,8 +88,8 @@ which only a complete committed authority transition was visible.
 
 This ADR decides domain and application persistence semantics, not Go types,
 SQL table layout, migration integers, private helpers, or final CLI command
-spelling. M1.1 runtime capability is implemented and awaits independent
-closure re-audit; this ADR does not itself establish milestone completion.
+spelling. M1.1 runtime capability passed independent closure audit and is
+published at `630f919cd9731113658fb6abc78a6843b210b6a8`.
 
 === Reopen / Review Triggers
 

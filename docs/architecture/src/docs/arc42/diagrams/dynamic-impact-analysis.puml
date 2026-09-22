@@ -1,0 +1,31 @@
+@startuml
+title M1.2 Approved Target — Repository Model and Explainable Impact
+actor Engineer
+participant "Repository Intelligence" as RI
+participant "Read-only Analyzers" as Analyzer
+database "XDG CACHE\nRepositoryModel" as Cache
+participant "Impact Engine" as Impact
+database "XDG DATA\nChange Artifact Authority" as Authority
+
+Engineer -> RI: request model for Project
+RI -> RI: inspect source fingerprint before build
+RI -> Cache: load exact build key if present
+alt reusable complete entry
+  Cache --> RI: file-local analyzer results
+else missing, corrupt, stale, or incompatible
+  RI -> Analyzer: read bounded repository inputs
+  Analyzer --> RI: observed/derived/inferred assertions + gaps
+end
+RI -> RI: recompute global graph and gaps
+RI -> RI: inspect source fingerprint after build
+RI -> Cache: replace derived cache only after exact proof
+Engineer -> Impact: analyze ChangeIntent + exact RepositoryModel
+Impact -> Impact: bounded relation-specific traversal
+Impact -> Impact: classify impact and advisory RiskProfile
+Impact -> Authority: append immutable Change-owned ImpactReport
+Authority --> Engineer: exact ArtifactId and freshness inputs
+note over Impact,Authority
+Impact never expands ApprovedScope.
+STALE or UNKNOWN input cannot drive current use.
+end note
+@enduml

@@ -96,7 +96,8 @@ SPECIFICATION_CREATED
 
 === Change Surface Control
 
-Before implementation, repository intelligence and impact analysis derive an expected modification surface:
+Before implementation, repository intelligence and impact analysis derive
+evidence-bearing expected, possible, protected, and uncertain candidates:
 
 [source,yaml]
 ----
@@ -110,7 +111,9 @@ protected_files:
   - internal/auth/**
 ----
 
-The implementation runtime can enforce this as a capability boundary. A write outside the allowed surface is a policy event, not merely a prompt suggestion.
+The developer-governed `ApprovedScope` is the separate capability boundary.
+Impact output and advisory risk cannot expand it. A write outside the allowed
+surface is a policy event, not merely a prompt suggestion.
 
 === Deterministic Verification First
 
@@ -170,6 +173,13 @@ Before the system can safely modify a previously unknown project, it should cons
 * knowledge gaps that cannot be safely inferred.
 
 Derived artifacts may include `repository-model`, system context, architecture map, domain map, dependency map, testing strategy, known risks, and legacy constraints.
+
+ADR-039 makes RepositoryModel an immutable Project-scoped snapshot keyed by
+exact source, schema, analyzer, and configuration inputs, with a disposable
+per-Project XDG CACHE projection. ADR-040 makes explainable impact and advisory
+risk a durable Change-owned ImpactReport. Bounded history may inform ownership,
+co-change context, and history concentration only; regression analysis,
+DiffRisk, learned Change outcomes, and prediction remain M4.2.
 
 === Human Review Strategy
 

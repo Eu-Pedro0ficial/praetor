@@ -262,6 +262,46 @@ repositories remain free of runtime metadata. Executable evidence is
 concentrated in the SQLite store, integration coordinator, Git adapter, and
 M1.1 command suites.
 
+==== M1.2 Repository Intelligence, Impact, and Risk Validation
+
+ADR-039/ADR-040 require heterogeneous Go, JVM, TypeScript, polyglot,
+unsupported, cyclic, symlink, Gitlink, dirty, and untracked fixtures. Contract
+tests prove deterministic model schemas/digests; bounded node/edge vocabulary;
+observed, derived, and inferred provenance; inference-only confidence;
+KnowledgeGap structure; Project isolation; and pre/post source inspection that
+rejects mixed-source publication.
+
+Fingerprint fixtures separately exercise tracked path/mode/content, symlink
+link text, Gitlink identity, and sorted untracked status-name evidence.
+Untracked create/delete/rename changes the comparable fingerprint. A byte-only
+edit to an already-known excluded untracked file does not change analyzed
+content, remains excluded, and retains an explicit gap.
+
+Analyzer/security suites prove path normalization, no symlink following,
+read-only bounded input, failure/panic isolation, no repository execution or
+scripts, no subprocess/network/credentials, and file/history/graph/time/memory
+limits. Cache suites cover missing, corrupt, incompatible, stale, and
+cross-Project data; exact file-local reuse; full fallback; global relationship
+and gap recomputation; and equality between incremental and full post-change
+model digests.
+
+Impact fixtures include isolated leaves, broad proposals, dependency hubs,
+test relationships, unresolved references, unsupported language, cycles,
+protected elements, and traversal truncation. Results require an explanation
+path or gap. Durable artifact tests prove immutable Project/Change ownership,
+exact input linkage, append-only replacement/binding, historical inspection
+without cache, and refusal to use stale or unknown inputs as current.
+
+Risk fixtures prove every named dimension and versioned rule,
+`LOW < MODERATE < HIGH`, unordered epistemic `INDETERMINATE`, no automatic
+governance effect, and no risk reduction from gaps. Authority tests prove
+impact/risk never expands ApprovedScope or bypasses existing surface
+enforcement. No cache or analyzer metadata may enter governed source.
+
+The approved disposable 534-file heterogeneous spike and full/incremental
+digest equivalence are decision evidence only. Production tests, implementation
+references, and lifecycle promotion remain required for milestone closure.
+
 ==== M1.5 Quality and Security Verification Foundation
 
 M1.5 broadens replaceable evidence adapters for applicable SAST, SCA, secret,

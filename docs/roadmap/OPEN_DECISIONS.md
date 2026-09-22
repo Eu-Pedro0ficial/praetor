@@ -148,16 +148,35 @@ platform performance tuning are implementation details rather than blockers.
 
 ### OPEN-M1.2-REPOSITORY-MODEL — Repository intelligence and risk model
 
-Status: `OPEN — DECISION REQUIRED BEFORE AFFECTED M1.2 SLICES`
+Status: `CLOSED — HUMAN APPROVED`
 
-Decide the RepositoryModel boundary/version, source-fingerprint and staleness
-semantics, deterministic versus heuristic fact representation, confidence and
-KnowledgeGap model, RiskProfile taxonomy/aggregation, and derived cache versus
-durable ImpactReport boundary.
+The gate is retained as decision history. ADR-039 and ADR-040 decide immutable
+Project-scoped RepositoryModel snapshots; composite source/build-key freshness;
+evidence-bearing observed, derived, and inferred assertions; inference-only
+confidence; structured KnowledgeGap; bounded graph and impact traversal;
+strict separation of impact from ApprovedScope authority; a rebuildable
+per-Project SQLite cache under XDG CACHE; durable Change-owned ImpactReport;
+advisory ordered/indeterminate RiskProfile semantics; correctness-first
+incremental rebuild; and initial in-process read-only analyzers that never
+execute repository code.
 
-Required evidence: representative heterogeneous repository corpus, analyzer
-coverage, stale-model behavior, incremental rebuild measurements, ADR where
-the canonical contract or authority is material, and human approval.
+Human approval followed a disposable heterogeneous Go/JVM/TypeScript/polyglot
+spike covering analyzer gaps, cycles, protected and broad impact, stale source,
+untracked exclusions, unsupported language input, schema/cache recovery, and
+full versus incremental digest equivalence. On a 534-file fixture, fifteen
+runs measured median full/incremental builds of 183.274/137.108 ms while
+reusing 533 file-local results after one change.
+
+Untracked path presence participates in the comparable fingerprint while
+excluded untracked bytes do not; exclusion is always a KnowledgeGap. Bounded
+history is repository context only and does not implement M4.2 regression or
+DiffRisk. `INDETERMINATE` is epistemic and outside `LOW < MODERATE < HIGH`.
+
+Reopen only under ADR-039/040 triggers such as canonical/shared model storage,
+executable or network analyzers, untracked-content analysis, impact-driven
+scope authority, policy-authoritative/probabilistic risk, mutable reports, or
+M4.2 behavior. Production implementation and validation remain outstanding;
+closing this architecture gate does not promote M1.2 lifecycle rows.
 
 ### OPEN-M1.3-SPEC-PLAN — Specification and ChangePlan governance
 

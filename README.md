@@ -45,8 +45,9 @@ See:
 
 Core V0 complete.
 
-M0.0 through M1.0 are complete. M1.1 is implemented and awaiting independent
-closure re-audit. The local governed-change loop now connects
+M0.0 through M1.1 are complete. M1.1 passed independent closure audit and its
+implementation is published at commit `630f919cd9731113658fb6abc78a6843b210b6a8`.
+The local governed-change loop now connects
 Project identity, bounded source scope, isolated proposal production,
 deterministic verification, explicit local-human disposition, canonical
 application or rejection closure, and append-oriented audit history.
@@ -176,9 +177,10 @@ history`, `change diagnose`, `change content`, and explicit `change recover` to
 inspect or recover supported durable authority. Recovery never silently repeats
 an uncertain external effect.
 
-Approved Phase 1 includes the completed M1.0 Policy Engine and the implemented
-M1.1 durable Change/artifact foundation, pending independent closure re-audit.
-Its future sequence begins with M1.2 repository
+Approved Phase 1 includes the completed M1.0 Policy Engine and completed,
+independently audited, published M1.1 durable Change/artifact foundation.
+ADR-039 and ADR-040 approve M1.2 architecture; its production implementation
+has not started. The delivery sequence continues with M1.2 repository
 intelligence, M1.3 Specification and ChangePlan governance, M1.4 independent
 review, and M1.5 quality and security verification foundation. M1.3 plans
 future Specification Packs and the candidate `engineering/specs/` location;

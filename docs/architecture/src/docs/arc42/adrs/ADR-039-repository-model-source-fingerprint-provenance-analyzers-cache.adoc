@@ -1,0 +1,153 @@
+== ADR-039: RepositoryModel, Source Fingerprint, Provenance, Analyzers, and Rebuildable Cache
+
+*Status:* DECIDED
+
+=== Context
+
+M0.3 records Git state and a tracked-path inventory, but M1.2 needs a reusable,
+explainable model of repository structure. That model must remain tied to the
+exact source and analysis contract that produced it, distinguish evidence from
+inference, expose missing knowledge, and avoid turning a performance cache into
+repository or Change authority.
+
+=== Decision
+
+`RepositoryModel` is an immutable, schema-versioned, Project-scoped snapshot of
+one exact source/build condition. It is reusable across Changes and is not
+Change-owned. It records `ProjectId`, repository association, source
+fingerprint, model schema, analyzer-set digest, analysis-configuration digest,
+model digest, graph, assertions, evidence, KnowledgeGaps, limits, and observed
+clean/dirty state. RepositoryRoot remains association metadata and never
+becomes Project identity.
+
+The V1 source fingerprint extends the M0.3 SourceStateDigest with:
+
+* exact `HEAD` and working-tree state;
+* a deterministically sorted manifest of tracked path, Git mode, and content
+  digest;
+* symlink link text without following the link and Gitlink identity;
+* deterministic, sorted status-name evidence for untracked entries.
+
+Untracked file content is excluded from RepositoryModel analysis. Creating,
+deleting, or renaming an untracked entry changes its status-name evidence and
+therefore the comparable source fingerprint. Changing only the bytes of an
+already-known excluded untracked file does not change the analyzed-content
+fingerprint. Every such exclusion creates bounded evidence and a
+`KnowledgeGap`; no consumer may interpret exclusion as proof of no impact.
+
+The model build key is the source fingerprint plus model schema,
+analyzer-set digest, and analysis-configuration digest. Freshness is exactly
+`CURRENT`, `STALE`, or `UNKNOWN`. Equality with a freshly inspected complete
+build key establishes `CURRENT`; a comparable mismatch establishes `STALE`;
+missing, corrupt, incomplete, or non-comparable evidence is `UNKNOWN`.
+Absence or corruption can never be interpreted as current. Source is inspected
+before and after a build so a concurrent change cannot publish a current model
+for mixed inputs.
+
+The bounded V1 graph vocabulary is:
+
+* nodes: Repository, Module, File, Symbol, Test, API, ExternalDependency,
+  Owner, ArchitectureElement, and UnresolvedReference;
+* edges: CONTAINS, DECLARES, DEPENDS_ON, REFERENCES, TESTS, EXPOSES, OWNED_BY,
+  ASSOCIATED_WITH_ARCHITECTURE, and inferred CO_CHANGES_WITH.
+
+Every assertion is `OBSERVED`, `DERIVED`, or `INFERRED` and carries bounded
+provenance that identifies its analyzer, version, inputs, and evidence.
+Confidence `HIGH`, `MEDIUM`, or `LOW` applies only to `INFERRED` assertions;
+Praetor does not assign confidence to observed facts or combine confidence as
+a numeric probability. A `KnowledgeGap` records category, affected scope,
+reason, supporting evidence, consequence, and an available resolution path.
+
+Repository analysis is behind an application-owned port. Initial adapters are
+compile-time registered, in-process, read-only, bounded, and receive only the
+repository inputs they need. The initial coverage may be richer for Go and
+partial for JVM and TypeScript repositories, but unsupported or unresolved
+language constructs become KnowledgeGaps rather than guessed facts. Analyzers
+do not execute repository code, invoke repository scripts, use credentials, or
+access the network.
+
+M1.2 may observe bounded Git history for provenance, ownership, co-change
+context, and an explainable repository-context risk signal. It does not perform
+historical regression analysis, create DiffRisk, learn from historical Change
+outcomes, predict failure statistically, or establish historical policy
+authority; those responsibilities remain M4.2.
+
+The RepositoryModel cache is a derived, replaceable per-Project SQLite store
+under XDG CACHE, using the already approved `modernc.org/sqlite` driver behind
+a separate cache adapter. It is physically and semantically separate from the
+M1.1 XDG DATA authority database and never lives in governed source. Missing,
+incompatible, or corrupt cache data is discarded and rebuilt without loss of
+authority. Incremental rebuild may reuse file-local results only under exact
+content/analyzer keys; it recomputes global relationships and gaps, uses the
+same canonical digest construction as a full rebuild, and falls back to a full
+rebuild whenever reuse cannot be proven safe.
+
+An unsupported historical model schema remains inspectable as bounded metadata
+but cannot be used for current analysis. Praetor rebuilds from current source
+instead of migrating derived graph authority.
+
+=== Authority Boundaries and Invariants
+
+* Source and declared build configuration are evidence; RepositoryModel is a
+  derived description and never source authority.
+* The cache affects performance only. Its absence or corruption cannot remove
+  durable Change authority or authorize a workflow transition.
+* Inference remains distinguishable from observation and derivation.
+* Missing analyzer coverage and excluded input remain explicit gaps.
+* Model reuse requires exact build-key equality and post-build source proof.
+* Project-scoped cache keys prevent cross-Project model reuse.
+
+=== Alternatives Considered
+
+Rejected alternatives were a mutable project-wide graph, a Change-owned model,
+HEAD-only freshness, hashing excluded untracked bytes, ignoring untracked
+presence, treating unsupported syntax as absence, confidence on deterministic
+facts, an embeddings-first graph, repository-local cache, storing the graph in
+the authoritative Change database, automatic derived-schema migration, and
+subprocess or network analyzers in the initial boundary.
+
+=== Consequences
+
+Consumers can compare and explain models deterministically while incomplete
+language coverage remains truthful. Exact tracked-content hashing and global
+relationship recomputation cost time, but incremental reuse can reduce that
+cost without changing results. A cache rebuild is normal recovery rather than
+an authority migration.
+
+=== Security Implications
+
+Repository content, paths, manifests, ownership files, and history are
+untrusted input. Implementations must normalize and bound paths and graph
+cardinality, reject traversal and unsafe file types, avoid following symlinks,
+bound file size, history depth, time, memory, output, and traversal, isolate
+analyzer failures, and avoid network, credentials, repository execution, and
+cross-Project cache keys. Cache records require integrity/build-key checks and
+restrictive user-local permissions.
+
+=== Validation Evidence
+
+The approved disposable spike used Go, JVM, TypeScript, and polyglot fixtures,
+including a 534-file corpus. It exercised isolated and broad changes,
+dependency and test relations, unresolved imports, stale fingerprints,
+untracked exclusions, unsupported language input, cycles, protected paths,
+schema incompatibility, and missing/corrupt cache behavior. Fifteen measured
+runs produced a 183.274 ms median full build and 137.108 ms median incremental
+build with 533 of 534 file-local results reused; the incremental and full
+post-change model digests matched.
+
+=== Implementation Boundary
+
+This ADR decides the M1.2 contracts and authority boundaries. It does not
+select Go package layout, SQL tables, analyzer parser libraries, CLI spelling,
+numeric resource defaults, or a future subprocess protocol. Production M1.2
+implementation and its validation evidence remain required before traceability
+rows can become `AS-IS`.
+
+=== Reopen / Review Triggers
+
+Reopen for canonical or shared model storage, remote cache, cross-Project
+reuse, a graph vocabulary change that affects consumers, executable or network
+analyzers, credentials, a new external parser dependency, probabilistic
+confidence aggregation, untracked-content analysis, derived-schema migration,
+or evidence that exact correctness-first rebuilding cannot meet an approved
+workload.
