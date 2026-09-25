@@ -15,6 +15,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/artifact"
 	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
+	"github.com/Eu-Pedro0ficial/praetor/internal/impact"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
@@ -514,6 +515,111 @@ func handleAnalysisImpact(session *Session, invocation Invocation, output io.Wri
 
 	writeSurfaceReport(output, currentChange, preparedSurface.Snapshot(), preparedSurface.ApprovedScope(), validation)
 	return Result{}, validationError
+}
+
+func handleAnalysisModel(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	if session == nil || session.repositoryModeling == nil {
+		return Result{}, fmt.Errorf("repository modeling is not configured")
+	}
+	built, err := session.repositoryModeling.Build()
+	if err != nil {
+		return Result{}, err
+	}
+	freshness, err := session.repositoryModeling.Freshness(built.Model)
+	if err != nil {
+		return Result{}, err
+	}
+	fingerprint := built.Model.Fingerprint()
+	fmt.Fprintf(output, "RepositoryModel ID: %s\n", built.Model.ModelId())
+	fmt.Fprintf(output, "Model digest: %s\n", built.Model.ModelDigest())
+	fmt.Fprintf(output, "Build key: %s\n", built.Model.BuildKey().Digest)
+	fmt.Fprintf(output, "Source fingerprint: %s\n", fingerprint.Digest)
+	fmt.Fprintf(output, "Source condition: %s freshness=%s\n", fingerprint.WorkingTreeState, freshness)
+	fmt.Fprintf(output, "Graph: nodes=%d edges=%d gaps=%d truncated=%t\n", len(built.Model.Nodes()), len(built.Model.Edges()), len(built.Model.Gaps()), built.Model.Truncated())
+	fmt.Fprintf(output, "Build: cache_hit=%t reused_files=%d analyzed_files=%d duration=%s\n", built.Statistics.CacheHit, built.Statistics.ReusedFiles, built.Statistics.AnalyzedFiles, built.Statistics.Duration)
+	return Result{}, nil
+}
+
+func handleAnalysisReport(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if session == nil || session.impactAnalysis == nil {
+		return Result{}, fmt.Errorf("durable M1.2 impact analysis is not configured")
+	}
+	if len(invocation.Arguments) < 3 {
+		return Result{}, errInvalidArguments
+	}
+	changeId, err := change.NewChangeId(invocation.Arguments[0])
+	if err != nil {
+		return Result{}, err
+	}
+	request, _, err := parseCategorizedSurfaceArguments(invocation.Arguments[1:], false)
+	if err != nil {
+		return Result{}, err
+	}
+	result, err := session.impactAnalysis.AnalyzeAndPersist(changeId, impact.Request{Expected: request.Expected, Possible: request.Possible, Protected: request.Protected})
+	if err != nil {
+		return Result{}, err
+	}
+	writeImpactReport(output, result.Report, result.Artifact.Id(), "CURRENT")
+	fmt.Fprintf(output, "Model build: cache_hit=%t reused_files=%d analyzed_files=%d\n", result.BuildStats.CacheHit, result.BuildStats.ReusedFiles, result.BuildStats.AnalyzedFiles)
+	return Result{}, nil
+}
+
+func handleAnalysisInspect(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if session == nil || session.impactAnalysis == nil {
+		return Result{}, fmt.Errorf("durable M1.2 impact analysis is not configured")
+	}
+	if len(invocation.Arguments) < 1 || len(invocation.Arguments) > 2 {
+		return Result{}, errInvalidArguments
+	}
+	changeId, err := change.NewChangeId(invocation.Arguments[0])
+	if err != nil {
+		return Result{}, err
+	}
+	var artifactId artifact.ArtifactId
+	if len(invocation.Arguments) == 2 {
+		artifactId = artifact.ArtifactId(invocation.Arguments[1])
+	}
+	report, resolvedArtifactId, freshness, err := session.impactAnalysis.Inspect(changeId, artifactId)
+	if err != nil {
+		return Result{}, err
+	}
+	writeImpactReport(output, report, resolvedArtifactId, string(freshness))
+	return Result{}, nil
+}
+
+func writeImpactReport(output io.Writer, report impact.Report, artifactId artifact.ArtifactId, freshness string) {
+	if artifactId != "" {
+		fmt.Fprintf(output, "ImpactReport artifact: %s\n", artifactId)
+	}
+	fmt.Fprintf(output, "Change ID: %s\n", report.ChangeId)
+	fmt.Fprintf(output, "RepositoryModel: %s digest=%s\n", report.RepositoryModelId, report.RepositoryModelDigest)
+	fmt.Fprintf(output, "Build key: %s freshness=%s\n", report.BuildKey.Digest, freshness)
+	fmt.Fprintf(output, "Report digest: %s\n", report.ReportDigest)
+	fmt.Fprintf(output, "Risk: %s advisory=%t\n", report.Risk.Overall, report.Risk.Advisory)
+	for _, dimension := range report.Risk.Dimensions {
+		fmt.Fprintf(output, "- risk %s disposition=%s evidence=%s\n", dimension.Name, dimension.Disposition, dimension.Explanation)
+	}
+	fmt.Fprintf(output, "Impact: items=%d gaps=%d truncated=%t\n", len(report.Items), len(report.KnowledgeGaps), report.Truncated)
+	for _, item := range report.Items {
+		fmt.Fprintf(output, "- %s %s kind=%s path=%s basis=%s", item.Classification, item.Element.Name, item.Element.Kind, item.Element.Path, item.Basis)
+		if item.Confidence != "" {
+			fmt.Fprintf(output, " confidence=%s", item.Confidence)
+		}
+		fmt.Fprintf(output, " explanation_steps=%d gaps=%s\n", len(item.Explanation), strings.Join(item.GapIds, ","))
+		for _, step := range item.Explanation {
+			fmt.Fprintf(output, "  why %s -> %s relation=%s assertion=%s->%s basis=%s", step.From, step.To, step.Relation, step.AssertionFrom, step.AssertionTo, step.Basis)
+			if step.Confidence != "" {
+				fmt.Fprintf(output, " confidence=%s", step.Confidence)
+			}
+			fmt.Fprintf(output, " analyzer=%s@%s\n", step.Provenance.AnalyzerId, step.Provenance.AnalyzerVersion)
+		}
+	}
+	for _, gap := range report.KnowledgeGaps {
+		fmt.Fprintf(output, "- gap %s scope=%s reason=%s\n", gap.Category, gap.Scope, gap.Reason)
+	}
 }
 
 func handleChangeIsolate(session *Session, invocation Invocation, output io.Writer) (Result, error) {

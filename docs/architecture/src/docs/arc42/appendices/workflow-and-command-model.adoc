@@ -291,21 +291,21 @@ malformed or contradictory Result blocks terminal authority. Without a selected
 Change, `change diagnose` requests an explicit ChangeId rather than claiming
 Project-wide recovery is clean.
 
-==== M1.2 Approved Repository Intelligence Workflow
+==== M1.2 Implemented Repository Intelligence Workflow
 
-M1.2 will extend the existing analysis responsibility only after production
-implementation review. It builds or reuses an exact current RepositoryModel,
+M1.2 extends the existing analysis responsibility. It builds or reuses an
+exact current RepositoryModel,
 derives bounded explainable impact and advisory risk, and appends an immutable
 Change-owned ImpactReport through the existing artifact authority. A stale or
 unknown model/report cannot silently drive current planning, and inferred
 impact cannot expand ApprovedScope.
 
-The architecture does not reserve final CLI command spelling. Any future
-command must use ADR-029's existing command tree, expose exact source/model and
-ArtifactId provenance plus gaps, keep historical reports inspectable, and make
-cache rebuild distinct from durable artifact mutation. Help, completion,
-inspection, cache loss, and analyzer failure cannot authorize source writes or
-workflow transitions.
+The existing ADR-029 command tree provides `analysis model`, `analysis report`,
+and `analysis inspect`. They expose exact source/model and ArtifactId
+provenance, explanation steps, advisory risk dimensions, and gaps; historical
+reports remain inspectable; and cache rebuild stays distinct from durable
+artifact mutation. Help, completion, inspection, cache loss, and analyzer
+failure cannot authorize source writes or workflow transitions.
 
 ==== M1.3 Target Specification and ChangePlan Workflow
 

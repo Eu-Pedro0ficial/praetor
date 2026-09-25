@@ -391,6 +391,7 @@ func prepareProviderCommandTestWithContainer(
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(t.TempDir(), "cache"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "state"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	container := composition.New()

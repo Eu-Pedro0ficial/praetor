@@ -303,7 +303,7 @@ Policy evaluation performs no Change transition and no source mutation.
 These semantics are implemented under ADR-033 through ADR-038. Later workflow,
 review, repository-intelligence, and memory capabilities remain outside M1.1.
 
-==== M1.2 Approved Target Repository and Impact Analysis
+==== M1.2 Implemented Repository and Impact Analysis
 
 [plantuml, "{plantUMLDir}dynamic-impact-analysis", png]
 ----
@@ -328,8 +328,8 @@ include::../diagrams/dynamic-impact-analysis.puml[]
 . For current use, prove that the report's model build key is still current;
   stale or unknown inputs require rebuild/new analysis rather than silent use.
 
-This sequence is approved architecture under ADR-039 and ADR-040. It is not
-implemented runtime behavior yet. Analyzer failure, unsupported syntax,
+This sequence is implemented under ADR-039 and ADR-040. Analyzer failure,
+panic, unsafe path input, unsupported syntax,
 excluded untracked content, traversal truncation, and cache loss remain
 explicit rather than being converted to absence of impact.
 

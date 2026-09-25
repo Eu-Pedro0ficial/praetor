@@ -45,9 +45,9 @@
 
 === Known Architectural Debt at Baseline
 
-With implementation complete through M1.1, the principal remaining debt is
-**future-gate and implementation debt**, not an unimplemented V0 loop. M1.2
-repository/impact architecture is approved, but its runtime is not implemented.
+With production implementation complete through M1.2, the principal remaining
+debt is **future-gate and implementation debt**, not an unimplemented V0 loop.
+M1.2 awaits independent closure audit.
 Canonical application
 is deliberately local and working-tree-only. Its adapter lock coordinates one
 process; concurrent external Git writers are detected by repeated preflight or

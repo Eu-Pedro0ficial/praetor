@@ -13,6 +13,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
+	"github.com/Eu-Pedro0ficial/praetor/internal/impact"
 	"github.com/Eu-Pedro0ficial/praetor/internal/inspection"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
@@ -20,6 +21,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/repositorymodel"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
 )
@@ -30,6 +32,8 @@ type Session struct {
 	registration              project.Registration
 	changeWorkflow            *workflow.Service
 	repositoryIntelligence    *intelligence.Service
+	repositoryModeling        *repositorymodel.Service
+	impactAnalysis            *impact.Service
 	proposalLifecycle         *proposal.Service
 	providerExecution         *execution.Service
 	verification              *verification.Service
@@ -62,6 +66,8 @@ func NewSession(
 	registration project.Registration,
 	changeWorkflow *workflow.Service,
 	repositoryIntelligence *intelligence.Service,
+	repositoryModeling *repositorymodel.Service,
+	impactAnalysis *impact.Service,
 	proposalLifecycle *proposal.Service,
 	providerExecution *execution.Service,
 	verificationService *verification.Service,
@@ -86,6 +92,9 @@ func NewSession(
 	}
 	if repositoryIntelligence == nil {
 		return nil, fmt.Errorf("repository intelligence capability is not configured")
+	}
+	if repositoryModeling == nil {
+		return nil, fmt.Errorf("M1.2 repository modeling capability is not configured")
 	}
 	if proposalLifecycle == nil {
 		return nil, fmt.Errorf("proposal lifecycle capability is not configured")
@@ -118,6 +127,8 @@ func NewSession(
 		registration:            registration,
 		changeWorkflow:          changeWorkflow,
 		repositoryIntelligence:  repositoryIntelligence,
+		repositoryModeling:      repositoryModeling,
+		impactAnalysis:          impactAnalysis,
 		proposalLifecycle:       proposalLifecycle,
 		providerExecution:       providerExecution,
 		verification:            verificationService,
@@ -351,11 +362,16 @@ func (session *Session) Close() error {
 		proposalError = errors.Join(transitionError, discardError)
 	}
 	var authorityError error
+	var modelError error
+	if session.repositoryModeling != nil {
+		modelError = session.repositoryModeling.Close()
+		session.repositoryModeling = nil
+	}
 	if session.durableAuthority != nil {
 		authorityError = session.durableAuthority.Close()
 		session.durableAuthority = nil
 	}
-	return errors.Join(proposalError, authorityError)
+	return errors.Join(proposalError, modelError, authorityError)
 }
 
 func (session *Session) cleanupTerminalProposal(reason string) error {

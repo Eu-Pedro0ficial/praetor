@@ -128,18 +128,18 @@ configuration. Assertions distinguish observed, derived, and inferred facts;
 only inference has confidence, and missing or excluded knowledge becomes a
 structured KnowledgeGap.
 
-The approved M1.2 graph is bounded to repository/module/file/symbol/test/API,
+The implemented M1.2 graph is bounded to repository/module/file/symbol/test/API,
 external-dependency, owner, architecture-element, and unresolved-reference
 nodes with explicit relationship types. Initial analyzers are in-process,
 read-only, compile-time registered adapters. Bounded history may supply
 ownership/co-change repository context but never M4.2 regression prediction or
 DiffRisk.
 
-The executable M0.3 subset is intentionally smaller: the local Git adapter
-captures repository root, `HEAD`, clean/dirty status, tracked path inventory
-and a source-state integrity digest. It does not persist an index or implement
-symbol, dependency, semantic, or history intelligence. M1.2 production
-implementation has not started.
+The earlier M0.3 subset remains the source snapshot and ApprovedScope
+foundation. M1.2 evolves the same repository boundary with composite tracked
+content and untracked status-name fingerprinting, bounded history, language
+signals, exact build keys, and a disposable cache; it does not introduce a
+competing source authority.
 
 ==== Impact Engine
 
@@ -156,11 +156,11 @@ current workflow may use it only after proving those inputs remain current.
 `LOW < MODERATE < HIGH`; `INDETERMINATE` is an unordered statement of
 insufficient evidence and has no automatic governance consequence.
 
-In M0.3, candidate selection is deterministic and explicit: developer-supplied
+M0.3 candidate selection remains deterministic and explicit: developer-supplied
 file paths are normalized and verified against the SourceSnapshot tracked
-inventory. Exact file-level actual paths can then be accepted or rejected
-against the ApprovedScope. Richer inference remains approved target capability
-under ADR-039 and ADR-040.
+inventory, and exact actual paths remain governed by ApprovedScope. M1.2's
+richer inference is implemented as evidence only and does not change that
+authority.
 
 ==== M1.2 Repository Intelligence Component View
 

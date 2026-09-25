@@ -140,7 +140,7 @@ func TestReadlineEditorEnablesLiveRegistryCompletion(t *testing.T) {
 	}{
 		{input: "", wantValues: []string{"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit"}},
 		{input: "ana", wantValues: []string{"analysis"}},
-		{input: "analysis ", wantValues: []string{"impact"}},
+		{input: "analysis ", wantValues: []string{"model", "impact", "report", "inspect"}},
 		{input: "change ", wantValues: []string{"list", "show", "select", "artifacts", "history", "diagnose", "recover", "content", "new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard"}},
 		{input: "policy ", wantValues: []string{"show", "list", "evaluate", "exception"}},
 		{input: "provider ", wantValues: []string{"list", "show", "select", "model"}},
@@ -281,6 +281,7 @@ func prepareShellTest(t *testing.T) (string, string, *command.Session, command.R
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(t.TempDir(), "cache"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	container := composition.New()
 	session, err := container.NewInteractiveSession(".")

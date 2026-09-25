@@ -112,7 +112,7 @@ func TestRegistryHelpStatusAndActiveProjectContextReuse(t *testing.T) {
 	if _, err := registry.Dispatch(session, "help analysis", &output); err != nil {
 		t.Fatalf("help analysis error = %v", err)
 	}
-	if !strings.Contains(output.String(), "analysis [impact ...]") || !strings.Contains(output.String(), "impact") {
+	if !strings.Contains(output.String(), "analysis [model|impact|report|inspect ...]") || !strings.Contains(output.String(), "report") {
 		t.Fatalf("analysis help = %q", output.String())
 	}
 
@@ -594,7 +594,7 @@ func TestRegistryDispatchErrorsExitAndCompletion(t *testing.T) {
 
 	assertSuggestions(t, registry.Complete(session, ""), []string{"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit"})
 	assertSuggestions(t, registry.Complete(session, "ana"), []string{"analysis"})
-	assertSuggestions(t, registry.Complete(session, "analysis "), []string{"impact"})
+	assertSuggestions(t, registry.Complete(session, "analysis "), []string{"model", "impact", "report", "inspect"})
 	assertSuggestions(t, registry.Complete(session, "analysis im"), []string{"impact"})
 	assertSuggestions(t, registry.Complete(session, "change "), []string{"list", "show", "select", "artifacts", "history", "diagnose", "recover", "content", "new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard"})
 	assertSuggestions(t, registry.Complete(session, "change i"), []string{"isolate", "implement"})
@@ -623,7 +623,7 @@ func TestRegistryContextModesNavigateWithoutDomainMutation(t *testing.T) {
 	if session.CurrentMode().Identity != command.ModeAnalysis {
 		t.Fatalf("current mode = %#v", session.CurrentMode())
 	}
-	assertMetadataNames(t, registry.ContextCommands(session), []string{"impact", "help", "?", "end"})
+	assertMetadataNames(t, registry.ContextCommands(session), []string{"model", "impact", "report", "inspect", "help", "?", "end"})
 	if _, err := registry.Dispatch(session, "change", io.Discard); err == nil ||
 		!strings.Contains(err.Error(), "analysis mode") {
 		t.Fatalf("unavailable command error = %v", err)
@@ -725,8 +725,8 @@ func TestRegistryContextualHelpIsDeterministicAndNonMutating(t *testing.T) {
 	root := registry.ContextualHelp(session, "")
 	assertSuggestions(t, root, []string{"status", "analysis", "change", "policy", "provider", "configure", "help", "?", "exit"})
 	assertSuggestions(t, registry.ContextualHelp(session, "a"), []string{"analysis"})
-	assertSuggestions(t, registry.ContextualHelp(session, "analysis "), []string{"impact"})
-	assertSuggestions(t, registry.ContextualHelp(session, "analysis i"), []string{"impact"})
+	assertSuggestions(t, registry.ContextualHelp(session, "analysis "), []string{"model", "impact", "report", "inspect"})
+	assertSuggestions(t, registry.ContextualHelp(session, "analysis i"), []string{"impact", "inspect"})
 	assertSuggestions(t, registry.ContextualHelp(session, "analysis impact --"), []string{
 		"--expected", "--possible", "--protected", "--actual",
 	})
@@ -738,7 +738,7 @@ func TestRegistryContextualHelpIsDeterministicAndNonMutating(t *testing.T) {
 		t.Fatalf("enter analysis: %v", err)
 	}
 	beforeStack := session.ModeStack()
-	assertSuggestions(t, registry.ContextualHelp(session, ""), []string{"impact", "help", "?", "end"})
+	assertSuggestions(t, registry.ContextualHelp(session, ""), []string{"model", "impact", "report", "inspect", "help", "?", "end"})
 	var output bytes.Buffer
 	if _, err := registry.Dispatch(session, "i?", &output); err != nil {
 		t.Fatalf("contextual question mark: %v", err)
@@ -821,6 +821,7 @@ func prepareCommittedCommandTest(t *testing.T) (string, string, *command.Session
 	t.Chdir(repositoryRoot)
 	xdgDataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(t.TempDir(), "cache"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "state"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	container := composition.New()

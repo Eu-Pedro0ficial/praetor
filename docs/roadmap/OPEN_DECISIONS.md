@@ -175,8 +175,8 @@ DiffRisk. `INDETERMINATE` is epistemic and outside `LOW < MODERATE < HIGH`.
 Reopen only under ADR-039/040 triggers such as canonical/shared model storage,
 executable or network analyzers, untracked-content analysis, impact-driven
 scope authority, policy-authoritative/probabilistic risk, mutable reports, or
-M4.2 behavior. Production implementation and validation remain outstanding;
-closing this architecture gate does not promote M1.2 lifecycle rows.
+M4.2 behavior. Production implementation and validation now satisfy the
+approved gate; the milestone awaits independent closure audit.
 
 ### OPEN-M1.3-SPEC-PLAN — Specification and ChangePlan governance
 

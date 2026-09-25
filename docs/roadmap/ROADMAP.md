@@ -171,8 +171,9 @@ unchanged.
   confidence, gaps, and staleness.
 - Dependencies: M1.1.
 - Decision gates: closed by human approval and ADR-039/ADR-040 after the
-  heterogeneous model/impact/freshness/cache spike. Runtime evidence is still
-  required before M1.2 can complete.
+  heterogeneous model/impact/freshness/cache spike. Production runtime and
+  validation evidence now exist; independent closure audit remains required
+  before the milestone can be declared complete.
 - Boundary: deterministic and heuristic knowledge remain distinct; semantic
   embeddings are not required; bounded history supplies repository context
   only and does not implement M4.2 regression analysis or DiffRisk.
@@ -510,8 +511,8 @@ Every gate is maintained in `OPEN_DECISIONS.md`. The M1.1 architecture gate is
 closed by ADR-033 through ADR-038 and human approval after the required spike.
 The decision closure preceded and constrained the implemented M1.1 runtime,
 which passed independent closure audit and is published. The M1.2 architecture
-gate is closed by ADR-039 and ADR-040; production implementation remains
-future.
+gate is closed by ADR-039 and ADR-040; its production implementation and
+validation are complete and await independent closure audit.
 
 Later mandatory gates include the Project Memory serialization benchmark,
 semantic conflict evidence before semantic authority, quality assurance/tool
@@ -521,8 +522,8 @@ audit claims.
 
 ## Implementation sequence status
 
-M0.0 through M1.1 are implemented and complete. M1.2 architecture is approved
-and its production implementation has not started.
+M0.0 through M1.1 are implemented and complete. M1.2 is implemented and ready
+for independent closure audit. M1.3 has not started.
 
 ## Key decisions preserved
 

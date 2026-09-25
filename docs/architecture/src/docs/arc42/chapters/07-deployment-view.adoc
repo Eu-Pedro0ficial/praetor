@@ -15,8 +15,9 @@ The deployment model is local-first. Current elements are:
 * the `codex-cli` provider adapter;
 * local deterministic tools invoked as subprocesses/adapters.
 
-Target elements include the M1.2 per-Project rebuildable RepositoryModel
-SQLite cache under XDG CACHE, a benchmark-selected rebuildable memory projection,
+Implemented local elements include the M1.2 per-Project rebuildable
+RepositoryModel SQLite cache under XDG CACHE. Target elements include a
+benchmark-selected rebuildable memory projection,
 separate canonical Project Memory repository, remote SCM/evidence adapters,
 and additional external or local AI providers behind the existing port. M1.1
 uses one `change-store.sqlite3` per validated ProjectId under XDG DATA,

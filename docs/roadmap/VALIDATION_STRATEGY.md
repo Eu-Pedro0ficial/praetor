@@ -239,9 +239,17 @@ Authority tests prove impact and RiskProfile cannot expand ApprovedScope,
 authorize writes, or bypass protected-path enforcement. Governed repositories
 must remain free of cache or runtime metadata.
 
-The approved disposable spike supplies architecture-decision evidence, including
-full/incremental digest equivalence and the measured 534-file corpus. It does
-not satisfy production implementation or milestone closure evidence.
+The approved disposable spike supplied architecture-decision evidence. The
+production suites now live in `internal/repository`, `internal/repositorymodel`,
+`internal/adapters/repositoryanalysis`,
+`internal/adapters/persistence/modelcache`, `internal/impact`, and
+`internal/command`. In the 534-file production fixture measured on 2026-09-23,
+one run built the full 2,135-node/2,668-edge model in 1.197 s with about 86 MB
+of cumulative allocation and rebuilt it in 522 ms after one edit while reusing
+533 file-local results and reanalyzing one. A representative five-item impact
+traversal over seven nodes and six edges took 599 microseconds. These are
+observations rather than invented acceptance thresholds; independent closure
+audit remains required for milestone completion.
 
 ## M1.5 quality/security verification foundation
 

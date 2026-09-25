@@ -208,6 +208,7 @@ func TestM11FreshProcessHydratesGovernedAuthorityAndContinues(t *testing.T) {
 	}
 	repositoryRoot := prepareM11Repository(t)
 	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "xdg"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(t.TempDir(), "cache"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "state"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 	executable, err := os.Executable()
@@ -275,6 +276,7 @@ func TestM11CompletedOperationCrashRecoveryAcrossProcess(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			repositoryRoot := prepareM11Repository(t)
 			t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "xdg"))
+			t.Setenv("XDG_CACHE_HOME", filepath.Join(t.TempDir(), "cache"))
 			t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "state"))
 			t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
 			operationFile := filepath.Join(t.TempDir(), "operation-id")

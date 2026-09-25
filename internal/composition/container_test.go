@@ -96,6 +96,7 @@ func (store *attachmentValidationStore) ValidateAttachment() error {
 func TestProductionAttachValidatesAuthorityBeforeRuntimeStartup(t *testing.T) {
 	dataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", dataHome)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(t.TempDir(), "cache"))
 	registration := project.Registration{ProjectId: compositionProjectId, RepositoryRoot: t.TempDir(), SchemaVersion: 1, CreatedAt: time.Now().UTC()}
 	container := New()
 	container.RepositoryDiscovery = func(string) (repository.Context, error) {
@@ -130,6 +131,7 @@ func TestProductionAttachValidatesAuthorityBeforeRuntimeStartup(t *testing.T) {
 func TestOrdinaryAttachDoesNotImplicitlyMigrateLegacyAudit(t *testing.T) {
 	dataHome := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("XDG_DATA_HOME", dataHome)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(t.TempDir(), "cache"))
 	dataDirectory := filepath.Join(dataHome, "praetor")
 	if err := os.MkdirAll(dataDirectory, 0o700); err != nil {
 		t.Fatal(err)

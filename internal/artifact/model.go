@@ -35,6 +35,7 @@ const (
 	KindHumanDecision      Kind             = "human-decision"
 	KindApplicationResult  Kind             = "application-result"
 	KindOperationData      Kind             = "operation-data"
+	KindImpactReport       Kind             = "impact-report"
 	RelationshipParent     RelationshipKind = "parent"
 	RelationshipDependency RelationshipKind = "dependency"
 )
@@ -189,7 +190,7 @@ func validateId(id ArtifactId) error {
 
 func knownKind(kind Kind) bool {
 	switch kind {
-	case KindWorkflowSnapshot, KindSourceSnapshot, KindApprovedScope, KindPatch, KindVerificationPlan, KindEvidenceSet, KindPolicyDecision, KindHumanDecision, KindApplicationResult, KindOperationData:
+	case KindWorkflowSnapshot, KindSourceSnapshot, KindApprovedScope, KindPatch, KindVerificationPlan, KindEvidenceSet, KindPolicyDecision, KindHumanDecision, KindApplicationResult, KindOperationData, KindImpactReport:
 		return true
 	default:
 		return false

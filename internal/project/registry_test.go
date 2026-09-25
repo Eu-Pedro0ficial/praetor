@@ -186,6 +186,19 @@ func TestResolveDataDirUsesXDGOverride(t *testing.T) {
 	}
 }
 
+func TestResolveCacheDirUsesSeparateXDGOverride(t *testing.T) {
+	expected := filepath.Join(t.TempDir(), "custom-cache")
+	t.Setenv("XDG_CACHE_HOME", expected)
+	resolved, err := ResolveCacheDir()
+	if err != nil {
+		t.Fatalf("ResolveCacheDir() error = %v", err)
+	}
+	want := filepath.Join(expected, "praetor")
+	if resolved != want {
+		t.Fatalf("ResolveCacheDir() = %q, want %q", resolved, want)
+	}
+}
+
 func TestEnsureRegistrationRejectsSourceTreeMutation(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "xdg"))
 	repoDir := initGitRepo(t)

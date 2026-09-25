@@ -245,7 +245,7 @@ without altering ChangeState. The one per-Project SQLite adapter supplies
 logical ChangeStore, ArtifactStore, and AuditLedger responsibilities plus a
 typed all-or-none authority commit.
 
-===== M1.2 Approved Repository Intelligence Model
+===== M1.2 Implemented Repository Intelligence Model
 
 ADR-039 defines `RepositoryModel` as an immutable Project-scoped description
 of one exact source/build condition. It belongs to the Project rather than one
@@ -277,6 +277,12 @@ INDETERMINATE is outside the ordering and means evidence is insufficient.
 Impact and risk cannot expand `ApprovedScope`, authorize a write, or establish
 policy/approval authority. Historical reports remain inspectable, while
 current use requires current model inputs.
+
+The production implementation is in `internal/repositorymodel`,
+`internal/repository`, `internal/adapters/repositoryanalysis`,
+`internal/adapters/persistence/modelcache`, and `internal/impact`. It uses the
+existing M1.1 artifact authority for durable reports and is exposed through the
+existing hierarchical command registry. M1.2 awaits independent closure audit.
 
 Potential value objects/entities:
 

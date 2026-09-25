@@ -1,5 +1,5 @@
 @startuml
-title M1.2 Approved Target — Repository Model and Explainable Impact
+title M1.2 Implemented — Repository Model and Explainable Impact
 actor Engineer
 participant "Repository Intelligence" as RI
 participant "Read-only Analyzers" as Analyzer

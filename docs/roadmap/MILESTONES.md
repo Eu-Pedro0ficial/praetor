@@ -140,7 +140,8 @@ heterogeneous repository and incremental rebuild spike. ADR-039 governs the
 model, composite fingerprint, provenance/gaps, analyzers, and XDG CACHE
 projection. ADR-040 governs explainable impact, durable ImpactReport, advisory
 RiskProfile, and separation from ApprovedScope. Production implementation and
-validation remain required.
+validation are complete; independent closure audit remains required before
+marking M1.2 complete.
 
 **Downstream capabilities:** M1.3, M4.1, and M4.2.
 

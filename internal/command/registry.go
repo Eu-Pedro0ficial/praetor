@@ -113,7 +113,7 @@ func newRegistry(definitions []Definition, end Definition) (Registry, error) {
 	return registry, nil
 }
 
-// DefaultRegistry constructs the current M0.1-M1.1 hierarchical shell
+// DefaultRegistry constructs the current M0.1-M1.2 hierarchical shell
 // command surface.
 func DefaultRegistry() (Registry, error) {
 	var registry Registry
@@ -127,15 +127,34 @@ func DefaultRegistry() (Registry, error) {
 		{
 			Name:        "analysis",
 			Description: "Enter source and Change analysis mode",
-			Usage:       "analysis [impact ...]",
+			Usage:       "analysis [model|impact|report|inspect ...]",
 			Mode:        ModeAnalysis,
 			Children: []Definition{
+				{
+					Name:        "model",
+					Description: "Build or reuse the exact current RepositoryModel",
+					Usage:       "model",
+					Handler:     handleAnalysisModel,
+				},
 				{
 					Name:        "impact",
 					Description: "Analyze the bounded impact and Change Surface",
 					Usage:       "impact <change-id> <intent> --expected <path>... [--possible <path>...] [--protected <path>...] --actual <path>...",
 					Handler:     handleAnalysisImpact,
 					Options:     surfaceOptions(true),
+				},
+				{
+					Name:        "report",
+					Description: "Persist an explainable Change-owned ImpactReport",
+					Usage:       "report <change-id> --expected <path>... [--possible <path>...] [--protected <path>...]",
+					Handler:     handleAnalysisReport,
+					Options:     surfaceOptions(false),
+				},
+				{
+					Name:        "inspect",
+					Description: "Inspect a durable ImpactReport and its current freshness",
+					Usage:       "inspect <change-id> [<artifact-id>]",
+					Handler:     handleAnalysisInspect,
 				},
 			},
 		},

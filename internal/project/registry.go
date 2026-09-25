@@ -99,6 +99,19 @@ func ResolveStateDir() (string, error) {
 	return filepath.Join(homeDir, ".local", "state", "praetor"), nil
 }
 
+// ResolveCacheDir resolves replaceable user-local cache storage separately
+// from durable DATA and operational STATE.
+func ResolveCacheDir() (string, error) {
+	if envPath := strings.TrimSpace(os.Getenv("XDG_CACHE_HOME")); envPath != "" {
+		return filepath.Join(envPath, "praetor"), nil
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve user home dir: %w", err)
+	}
+	return filepath.Join(homeDir, ".cache", "praetor"), nil
+}
+
 // RegistryPath returns the JSON file path used for the local Project Registry V1.
 func RegistryPath() (string, error) {
 	dataDir, err := ResolveDataDir()

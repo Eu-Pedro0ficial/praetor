@@ -8,8 +8,10 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/aiprovider/codexcli"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
+	modelcache "github.com/Eu-Pedro0ficial/praetor/internal/adapters/persistence/modelcache"
 	sqliteadapter "github.com/Eu-Pedro0ficial/praetor/internal/adapters/persistence/sqlite"
 	projectpolicy "github.com/Eu-Pedro0ficial/praetor/internal/adapters/policy/project"
+	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/repositoryanalysis"
 	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/verification/localexec"
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
@@ -17,6 +19,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
+	"github.com/Eu-Pedro0ficial/praetor/internal/impact"
 	"github.com/Eu-Pedro0ficial/praetor/internal/inspection"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/intelligence"
@@ -25,6 +28,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
+	"github.com/Eu-Pedro0ficial/praetor/internal/repositorymodel"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
@@ -48,6 +52,9 @@ type PresentationPreferencesFunc func() (*preferences.Service, error)
 // DurableStoreFactoryFunc opens one per-Project M1.1 authority store.
 type DurableStoreFactoryFunc func(string, project.Registration) (authority.Store, error)
 
+// ModelCacheFactoryFunc opens one replaceable per-Project XDG CACHE store.
+type ModelCacheFactoryFunc func(string, project.Registration) (repositorymodel.Cache, error)
+
 func legacyAuditLogger(dataDirectory, eventType, projectID, repositoryRoot string, metadata map[string]any) (audit.Event, error) {
 	return audit.Append(dataDirectory, eventType, projectID, repositoryRoot, metadata)
 }
@@ -63,34 +70,39 @@ func sameFunction(left, right any) bool {
 	return reflect.ValueOf(left).Pointer() == reflect.ValueOf(right).Pointer()
 }
 
-// Container assembles only the dependencies required by the current M1.1 runtime scope.
+// Container assembles only the dependencies required by the current M1.2 runtime scope.
 type Container struct {
-	RepositoryDiscovery     RepositoryDiscoveryFunc
-	RepositoryInspection    intelligence.RepositoryInspector
-	ProjectRegistration     ProjectRegistrationFunc
-	AuditLogger             AuditLoggerFunc
-	ChangeAuditLogger       ChangeAuditLoggerFunc
-	ChangeStore             *workflow.MemoryStore
-	DurableStoreFactory     DurableStoreFactoryFunc
-	DurableAuthority        authority.Store
-	WorkflowClock           workflow.Clock
-	ProposalWorkspaces      proposal.WorkspacePort
-	PatchExtraction         proposal.PatchPort
-	ProposalClock           proposal.Clock
-	AIProviders             []aiprovider.Provider
-	ConfiguredProvider      string
-	ConfiguredModel         string
-	ExecutionAttemptIds     execution.AttemptIdGenerator
-	ExecutionClock          execution.Clock
-	VerificationRunner      verification.StepRunner
-	VerificationAttemptIds  verification.AttemptIdGenerator
-	VerificationClock       verification.Clock
-	PolicySource            policy.SourcePort
-	PolicyClock             policy.Clock
-	ApprovalClock           approval.Clock
-	CanonicalSource         integration.CanonicalSourcePort
-	IntegrationClock        integration.Clock
-	PresentationPreferences PresentationPreferencesFunc
+	RepositoryDiscovery          RepositoryDiscoveryFunc
+	RepositoryInspection         intelligence.RepositoryInspector
+	RepositoryModelInspection    repositorymodel.SourceInspector
+	RepositoryAnalyzers          []repositorymodel.Analyzer
+	ModelCacheFactory            ModelCacheFactoryFunc
+	RepositoryModelConfiguration repositorymodel.Configuration
+	ImpactConfiguration          impact.Configuration
+	ProjectRegistration          ProjectRegistrationFunc
+	AuditLogger                  AuditLoggerFunc
+	ChangeAuditLogger            ChangeAuditLoggerFunc
+	ChangeStore                  *workflow.MemoryStore
+	DurableStoreFactory          DurableStoreFactoryFunc
+	DurableAuthority             authority.Store
+	WorkflowClock                workflow.Clock
+	ProposalWorkspaces           proposal.WorkspacePort
+	PatchExtraction              proposal.PatchPort
+	ProposalClock                proposal.Clock
+	AIProviders                  []aiprovider.Provider
+	ConfiguredProvider           string
+	ConfiguredModel              string
+	ExecutionAttemptIds          execution.AttemptIdGenerator
+	ExecutionClock               execution.Clock
+	VerificationRunner           verification.StepRunner
+	VerificationAttemptIds       verification.AttemptIdGenerator
+	VerificationClock            verification.Clock
+	PolicySource                 policy.SourcePort
+	PolicyClock                  policy.Clock
+	ApprovalClock                approval.Clock
+	CanonicalSource              integration.CanonicalSourcePort
+	IntegrationClock             integration.Clock
+	PresentationPreferences      PresentationPreferencesFunc
 }
 
 // New creates the explicit composition root for the current runtime boundary.
@@ -101,12 +113,19 @@ func New() Container {
 		configuredProvider = codexcli.Identifier
 	}
 	return Container{
-		RepositoryDiscovery:  repository.Discover,
-		RepositoryInspection: repository.Inspect,
-		ProjectRegistration:  project.EnsureRegistration,
-		AuditLogger:          legacyAuditLogger,
-		ChangeAuditLogger:    legacyChangeAuditLogger,
-		ChangeStore:          workflow.NewMemoryStore(),
+		RepositoryDiscovery:       repository.Discover,
+		RepositoryInspection:      repository.Inspect,
+		RepositoryModelInspection: repository.InspectModelSource,
+		RepositoryAnalyzers:       []repositorymodel.Analyzer{repositoryanalysis.New()},
+		ModelCacheFactory: func(cacheDirectory string, registration project.Registration) (repositorymodel.Cache, error) {
+			return modelcache.Open(cacheDirectory, registration)
+		},
+		RepositoryModelConfiguration: repositorymodel.DefaultConfiguration(),
+		ImpactConfiguration:          impact.DefaultConfiguration(),
+		ProjectRegistration:          project.EnsureRegistration,
+		AuditLogger:                  legacyAuditLogger,
+		ChangeAuditLogger:            legacyChangeAuditLogger,
+		ChangeStore:                  workflow.NewMemoryStore(),
 		DurableStoreFactory: func(dataDirectory string, registration project.Registration) (authority.Store, error) {
 			return sqliteadapter.Open(dataDirectory, registration)
 		},
@@ -168,10 +187,14 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	}
 	runtime := container
 	var openedAuthority authority.Store
+	var openedModeling *repositorymodel.Service
 	authorityHandedOff := false
 	defer func() {
 		if !authorityHandedOff && openedAuthority != nil {
 			_ = openedAuthority.Close()
+		}
+		if !authorityHandedOff && openedModeling != nil {
+			_ = openedModeling.Close()
 		}
 	}()
 	var durableInspection *inspection.Service
@@ -250,6 +273,29 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
+	if runtime.RepositoryModelInspection == nil || runtime.ModelCacheFactory == nil || len(runtime.RepositoryAnalyzers) == 0 {
+		return nil, fmt.Errorf("M1.2 repository model dependencies are not configured")
+	}
+	cacheDirectory, err := project.ResolveCacheDir()
+	if err != nil {
+		return nil, err
+	}
+	modelCache, err := runtime.ModelCacheFactory(cacheDirectory, registration)
+	if err != nil {
+		return nil, err
+	}
+	openedModeling, err = repositorymodel.NewService(registration.ProjectId, registration.RepositoryRoot, runtime.RepositoryModelInspection, runtime.RepositoryAnalyzers, modelCache, runtime.RepositoryModelConfiguration, func() time.Time { return time.Now().UTC() })
+	if err != nil {
+		_ = modelCache.Close()
+		return nil, err
+	}
+	var impactService *impact.Service
+	if openedAuthority != nil {
+		impactService, err = impact.NewService(registration.ProjectId, registration.RepositoryRoot, openedModeling, openedAuthority, runtime.ImpactConfiguration, func() time.Time { return time.Now().UTC() })
+		if err != nil {
+			return nil, err
+		}
+	}
 	proposalLifecycle, err := runtime.NewProposalService(registration)
 	if err != nil {
 		return nil, err
@@ -300,6 +346,8 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		registration,
 		changeWorkflow,
 		repositoryIntelligence,
+		openedModeling,
+		impactService,
 		proposalLifecycle,
 		providerExecution,
 		verificationService,

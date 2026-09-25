@@ -179,10 +179,14 @@ an uncertain external effect.
 
 Approved Phase 1 includes the completed M1.0 Policy Engine and completed,
 independently audited, published M1.1 durable Change/artifact foundation.
-ADR-039 and ADR-040 approve M1.2 architecture; its production implementation
-has not started. The delivery sequence continues with M1.2 repository
-intelligence, M1.3 Specification and ChangePlan governance, M1.4 independent
-review, and M1.5 quality and security verification foundation. M1.3 plans
+M1.2 repository intelligence, impact, and advisory risk are implemented under
+ADR-039 and ADR-040 and await independent closure audit. `analysis model`
+builds or reuses the exact current Project-scoped model; `analysis report`
+persists a Change-owned ImpactReport; and `analysis inspect` reads durable
+historical evidence while reporting CURRENT, STALE, or UNKNOWN freshness.
+The delivery sequence continues with M1.3 Specification and ChangePlan
+governance, M1.4 independent review, and M1.5 quality and security verification
+foundation. M1.3 plans
 future Specification Packs and the candidate `engineering/specs/` location;
 neither is implemented or an approved canonical format yet. The canonical
 ownership and lifecycle record is the arc42 traceability ledger, with details
