@@ -22,6 +22,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
+	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
 )
 
 func handleStatus(session *Session, invocation Invocation, output io.Writer) (Result, error) {
@@ -646,10 +647,35 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 		return Result{}, err
 	}
 
-	currentChange, err := session.changeWorkflow.Create(changeId, intent, invocation.CommandPath)
-	if err != nil {
-		return Result{}, err
+	var currentChange change.Change
+	if session.durableAuthority != nil {
+		currentChange, _, err = session.changeWorkflow.GetDurable(changeId)
+		if err != nil {
+			if !errors.Is(err, workflow.ErrChangeNotFound) {
+				return Result{}, err
+			}
+			currentChange, err = session.changeWorkflow.Create(changeId, intent, invocation.CommandPath)
+			if err != nil {
+				return Result{}, err
+			}
+		} else {
+			if currentChange.ProjectId() != session.registration.ProjectId {
+				return Result{}, fmt.Errorf("existing Change %q belongs to another Project", changeId)
+			}
+			if currentChange.Intent() != intent {
+				return Result{}, fmt.Errorf("existing Change %q intent does not match isolate request", changeId)
+			}
+			if currentChange.State() != change.StateCreated {
+				return Result{}, fmt.Errorf("existing Change %q must be in CREATED state to isolate; current state is %s", changeId, currentChange.State())
+			}
+		}
+	} else {
+		currentChange, err = session.changeWorkflow.Create(changeId, intent, invocation.CommandPath)
+		if err != nil {
+			return Result{}, err
+		}
 	}
+
 	session.setCurrentChange(currentChange)
 	currentChange, err = session.changeWorkflow.Transition(
 		changeId,

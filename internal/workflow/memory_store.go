@@ -45,7 +45,7 @@ func (store *MemoryStore) update(
 
 	current, exists := store.changes[changeId]
 	if !exists {
-		return change.Change{}, fmt.Errorf("Change %q was not found", changeId)
+		return change.Change{}, fmt.Errorf("%w: %q", ErrChangeNotFound, changeId)
 	}
 	candidate := current
 	if err := update(&candidate); err != nil {
@@ -61,7 +61,7 @@ func (store *MemoryStore) get(changeId change.ChangeId) (change.Change, error) {
 
 	storedChange, exists := store.changes[changeId]
 	if !exists {
-		return change.Change{}, fmt.Errorf("Change %q was not found", changeId)
+		return change.Change{}, fmt.Errorf("%w: %q", ErrChangeNotFound, changeId)
 	}
 	return storedChange, nil
 }

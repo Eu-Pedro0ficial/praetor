@@ -331,7 +331,7 @@ func (s *Store) GetChange(id change.ChangeId) (change.Change, workflow.WorkflowS
 	var exact []byte
 	if err := row.Scan(&projectValue, &intent, &state, &created, &updated, &revision, &workflowId, &workflowVersion, &workflowSchema, &workflowDigest, &exact); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return change.Change{}, workflow.WorkflowSnapshot{}, fmt.Errorf("Change %q was not found", id)
+			return change.Change{}, workflow.WorkflowSnapshot{}, fmt.Errorf("%w: %q", workflow.ErrChangeNotFound, id)
 		}
 		return change.Change{}, workflow.WorkflowSnapshot{}, normalize(err)
 	}

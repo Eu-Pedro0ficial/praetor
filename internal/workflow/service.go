@@ -3,6 +3,7 @@
 package workflow
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,6 +16,8 @@ const (
 	EventChangeCreated    = "CHANGE_CREATED"
 	EventChangeTransition = "CHANGE_TRANSITION"
 )
+
+var ErrChangeNotFound = errors.New("Change was not found")
 
 // Clock supplies lifecycle timestamps to the workflow service.
 type Clock func() time.Time
