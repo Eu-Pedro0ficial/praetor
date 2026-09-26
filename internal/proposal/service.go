@@ -75,6 +75,8 @@ type LifecycleEvent struct {
 	Disposition        string
 	Reason             string
 	ExecutionAttemptId string
+	ApprovedScope      source.ApprovedScope
+	HasApprovedScope   bool
 }
 
 // WorkspaceMutation is the deliberately narrow, test-controlled M0.4 seam
@@ -427,6 +429,8 @@ func (service *Service) extractPatch(
 			Disposition:        string(WorkspaceRejected),
 			Reason:             emptyPatchError.Error(),
 			ExecutionAttemptId: executionAttemptId,
+			ApprovedScope:      currentProposal.approvedScope,
+			HasApprovedScope:   true,
 		}); recordError != nil {
 			return rejectedProposal, source.SurfaceValidationResult{}, fmt.Errorf("record empty patch rejection: %w", recordError)
 		}
@@ -444,6 +448,8 @@ func (service *Service) extractPatch(
 		HasArtifact:        true,
 		Disposition:        string(WorkspaceActive),
 		ExecutionAttemptId: executionAttemptId,
+		ApprovedScope:      currentProposal.approvedScope,
+		HasApprovedScope:   true,
 	}); err != nil {
 		return currentProposal, source.SurfaceValidationResult{}, fmt.Errorf("record patch extraction: %w", err)
 	}
@@ -468,6 +474,8 @@ func (service *Service) extractPatch(
 			Disposition:        string(WorkspaceRejected),
 			Reason:             surfaceError.Error(),
 			ExecutionAttemptId: executionAttemptId,
+			ApprovedScope:      currentProposal.approvedScope,
+			HasApprovedScope:   true,
 		}); err != nil {
 			return rejectedProposal, validation, fmt.Errorf("record patch rejection: %w", err)
 		}
@@ -490,6 +498,8 @@ func (service *Service) extractPatch(
 		Validation:         validation,
 		Disposition:        "surface-valid",
 		ExecutionAttemptId: executionAttemptId,
+		ApprovedScope:      currentProposal.approvedScope,
+		HasApprovedScope:   true,
 	}); err != nil {
 		return retainedProposal, validation, fmt.Errorf("record patch surface validation: %w", err)
 	}

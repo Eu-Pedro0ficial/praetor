@@ -880,9 +880,16 @@ func proposalLifecycleMetadata(event proposal.LifecycleEvent) (map[string]any, e
 		return metadata, nil
 	case proposal.EventPatchSurfaceValidated,
 		proposal.EventPatchRejected:
+		if !event.HasApprovedScope {
+			return nil, fmt.Errorf("patch classification event requires ApprovedScope")
+		}
+		surface := event.ApprovedScope.Surface()
 		metadata["allowed"] = event.Validation.Allowed()
-		metadata["expected_changes"] = repositoryPathStrings(event.Validation.ExpectedChanges())
-		metadata["possible_changes"] = repositoryPathStrings(event.Validation.PossibleChanges())
+		metadata["approved_expected_paths"] = repositoryPathStrings(surface.ExpectedPaths())
+		metadata["approved_possible_paths"] = repositoryPathStrings(surface.PossiblePaths())
+		metadata["approved_protected_paths"] = repositoryPathStrings(surface.ProtectedPaths())
+		metadata["actual_expected_changes"] = repositoryPathStrings(event.Validation.ExpectedChanges())
+		metadata["actual_possible_changes"] = repositoryPathStrings(event.Validation.PossibleChanges())
 		metadata["violations"] = violationMetadata(event.Validation.Violations())
 		return metadata, nil
 	default:
@@ -941,6 +948,9 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 		metadata["duration_milliseconds"] = response.CompletedAt().Sub(response.StartedAt()).Milliseconds()
 		metadata["summary_present"] = response.Summary() != ""
 		metadata["summary_truncated"] = response.SummaryTruncated()
+		if response.Summary() != "" {
+			metadata["provider_summary"] = response.Summary()
+		}
 		if response.Usage().Available() {
 			metadata["usage"] = map[string]int64{
 				"input_tokens":            response.Usage().InputTokens(),

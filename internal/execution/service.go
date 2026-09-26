@@ -112,6 +112,16 @@ func (service *Service) Implement(
 	currentProposal proposal.Proposal,
 	selection aiprovider.Selection,
 ) (Result, error) {
+	return service.ImplementWithContext(ctx, currentChange, currentProposal, selection, aiprovider.ImplementationContext{})
+}
+
+func (service *Service) ImplementWithContext(
+	ctx context.Context,
+	currentChange change.Change,
+	currentProposal proposal.Proposal,
+	selection aiprovider.Selection,
+	implementationContext aiprovider.ImplementationContext,
+) (Result, error) {
 	result := Result{proposal: currentProposal}
 	if ctx == nil {
 		return result, fmt.Errorf("provider execution context is required")
@@ -129,12 +139,13 @@ func (service *Service) Implement(
 	if err != nil {
 		return result, err
 	}
-	request, err := aiprovider.NewExecutionRequest(
+	request, err := aiprovider.NewExecutionRequestWithContext(
 		attemptId,
 		currentChange,
 		currentProposal,
 		roleContract,
 		selection,
+		implementationContext,
 	)
 	if err != nil {
 		return result, err

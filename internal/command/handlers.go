@@ -802,15 +802,22 @@ func handleChangeImplement(session *Session, invocation Invocation, output io.Wr
 		return Result{}, fmt.Errorf("current Change and proposal linkage is inconsistent")
 	}
 
-	executionResult, implementationError := session.providerExecution.Implement(
+	implementationContext := session.implementationContext(currentChange)
+	executionResult, implementationError := session.providerExecution.ImplementWithContext(
 		invocation.Context,
 		currentChange,
 		currentProposal,
 		session.ProviderSelection(),
+		implementationContext,
 	)
 	session.setCurrentProposal(executionResult.Proposal())
 	if implementationError != nil {
-		cleanupError := session.rejectAndDiscardProposal("provider implementation failed")
+		cleanupReason := implementationCleanupReason(implementationError)
+		var emptyPatch proposal.EmptyPatchError
+		if errors.As(implementationError, &emptyPatch) {
+			writeNoPatchDiagnostics(output, executionResult, cleanupReason)
+		}
+		cleanupError := session.rejectAndDiscardProposal(cleanupReason)
 		return Result{}, errors.Join(implementationError, cleanupError)
 	}
 

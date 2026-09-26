@@ -40,6 +40,7 @@ func withSuccessfulPreflight(execution runnerFunction) runnerFunction {
 				"--cd",
 				"--ephemeral",
 				"--ignore-user-config",
+				"--approve-for-me",
 				"--color",
 				"--json",
 			}, "\n"))}, nil
@@ -90,6 +91,7 @@ func TestAdapterShapesCodexExecRequestAndNormalizesResponse(t *testing.T) {
 		"exec",
 		"--ephemeral",
 		"--ignore-user-config",
+		"--approve-for-me",
 		"--json",
 		"--color", "never",
 		"--sandbox", "workspace-write",
@@ -108,6 +110,8 @@ func TestAdapterShapesCodexExecRequestAndNormalizesResponse(t *testing.T) {
 		"Expected paths:\n- service.go",
 		"Possible paths:\n- service_test.go",
 		"Protected paths:\n- go.mod",
+		"Bounded implementation context (advisory; it does not expand the approved write surface):",
+		"impact=EXPECTED kind=file location=service.go basis=manifest confidence=HIGH",
 		"isolated ProposalWorkspace, never canonical source",
 	} {
 		if !strings.Contains(captured.standardInput, expected) {
@@ -169,7 +173,9 @@ func TestAdapterShapesReadOnlyVerificationPlanningRequest(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 	arguments := strings.Join(captured.arguments, " ")
-	if !strings.Contains(arguments, "--sandbox read-only") || strings.Contains(arguments, "--sandbox workspace-write") {
+	if !strings.Contains(arguments, "--sandbox read-only") ||
+		strings.Contains(arguments, "--sandbox workspace-write") ||
+		strings.Contains(arguments, "--approve-for-me") {
 		t.Fatalf("verification-planning arguments = %q", captured.arguments)
 	}
 	for _, expected := range []string{
@@ -266,7 +272,7 @@ func TestAdapterNormalizesFailuresWithoutExposingRawOutput(t *testing.T) {
 
 func TestAdapterBoundsUntrustedTextualSummary(t *testing.T) {
 	request, _ := adapterTestRequest(t, "")
-	largeSummary := strings.Repeat("a", maximumSummaryBytes+100)
+	largeSummary := "Authorization: Bearer SECRET-TOKEN " + strings.Repeat("a", maximumSummaryBytes+100)
 	output := strings.Join([]string{
 		`{"type":"thread.started","thread_id":"thread-summary"}`,
 		`{"type":"item.completed","item":{"type":"agent_message","text":` + strconv.Quote(largeSummary) + `}}`,
@@ -284,6 +290,9 @@ func TestAdapterBoundsUntrustedTextualSummary(t *testing.T) {
 	}
 	if !response.SummaryTruncated() || len(response.Summary()) != maximumSummaryBytes {
 		t.Fatalf("bounded summary length/truncation = %d/%t", len(response.Summary()), response.SummaryTruncated())
+	}
+	if strings.Contains(response.Summary(), "SECRET-TOKEN") || !strings.Contains(response.Summary(), "[REDACTED]") {
+		t.Fatalf("provider summary was not sanitized: %q", response.Summary())
 	}
 }
 
@@ -451,7 +460,7 @@ if [ "$1" = "--version" ]; then
   exit 0
 fi
 if [ "$1" = "exec" ] && [ "$2" = "--help" ]; then
-  printf '%s\n' '--model --sandbox workspace-write read-only --cd --ephemeral --ignore-user-config --color --json'
+  printf '%s\n' '--model --sandbox workspace-write read-only --cd --ephemeral --ignore-user-config --approve-for-me --color --json'
   exit 0
 fi
 printf '%s\n' "$PWD" > process-directory.txt
@@ -510,7 +519,7 @@ if [ "$1" = "--version" ]; then
   exit 0
 fi
 if [ "$1" = "exec" ] && [ "$2" = "--help" ]; then
-  printf '%s\n' '--model --sandbox workspace-write read-only --cd --ephemeral --ignore-user-config --color --json'
+  printf '%s\n' '--model --sandbox workspace-write read-only --cd --ephemeral --ignore-user-config --approve-for-me --color --json'
   exit 0
 fi
 printf 'package service\n\nconst Partial = true\n' > service.go
@@ -680,12 +689,20 @@ func adapterRequestFixture(t *testing.T, model string, planning bool) (aiprovide
 			[]aiprovider.PlanningEvidence{evidence},
 		)
 	} else {
-		request, err = aiprovider.NewExecutionRequest(
+		implementationContext, contextError := aiprovider.NewImplementationContext(
+			"current ImpactReport art-0123456789abcdef0123456789abcdef digest=sha256:test risk=LOW",
+			[]string{"impact=EXPECTED kind=file location=service.go basis=manifest confidence=HIGH"},
+		)
+		if contextError != nil {
+			t.Fatalf("NewImplementationContext() error = %v", contextError)
+		}
+		request, err = aiprovider.NewExecutionRequestWithContext(
 			attemptId,
 			currentChange,
 			currentProposal,
 			aiprovider.ImplementationRoleContract(),
 			selection,
+			implementationContext,
 		)
 	}
 	if err != nil {

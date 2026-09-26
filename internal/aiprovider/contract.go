@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
@@ -247,18 +248,64 @@ func (selection Selection) ModelIdentifier() (ModelIdentifier, bool) {
 // ExecutionRequest contains normalized Praetor semantics for one isolated
 // implementation attempt. It contains no credentials or provider wire types.
 type ExecutionRequest struct {
-	attemptId     ExecutionAttemptId
-	projectId     project.ProjectId
-	changeId      change.ChangeId
-	intent        change.ChangeIntent
-	workspace     ExecutionWorkspace
-	approvedScope source.ApprovedScope
-	baseRevision  string
-	sourceDigest  source.SourceStateDigest
-	roleContract  ProviderRoleContract
-	selection     Selection
-	planningInput VerificationPlanningInput
-	hasPlanning   bool
+	attemptId             ExecutionAttemptId
+	projectId             project.ProjectId
+	changeId              change.ChangeId
+	intent                change.ChangeIntent
+	workspace             ExecutionWorkspace
+	approvedScope         source.ApprovedScope
+	baseRevision          string
+	sourceDigest          source.SourceStateDigest
+	roleContract          ProviderRoleContract
+	selection             Selection
+	planningInput         VerificationPlanningInput
+	hasPlanning           bool
+	implementationContext ImplementationContext
+}
+
+const (
+	MaximumImplementationContextEntries = 64
+	MaximumImplementationContextBytes   = 16 << 10
+)
+
+// ImplementationContext is bounded advisory repository evidence. It helps an
+// implementation provider navigate the isolated checkout and never expands
+// ApprovedScope or authorizes a write.
+type ImplementationContext struct {
+	source  string
+	entries []string
+}
+
+func NewImplementationContext(source string, entries []string) (ImplementationContext, error) {
+	source = strings.TrimSpace(source)
+	if len(source) > 512 || strings.ContainsAny(source, "\x00\r\n") {
+		return ImplementationContext{}, fmt.Errorf("implementation context source is invalid")
+	}
+	if len(entries) > MaximumImplementationContextEntries {
+		return ImplementationContext{}, fmt.Errorf("implementation context exceeds %d entries", MaximumImplementationContextEntries)
+	}
+	total := len(source)
+	copyEntries := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" || len(entry) > 1024 || strings.ContainsAny(entry, "\x00\r\n") {
+			return ImplementationContext{}, fmt.Errorf("implementation context entry is invalid")
+		}
+		total += len(entry)
+		if total > MaximumImplementationContextBytes {
+			return ImplementationContext{}, fmt.Errorf("implementation context exceeds %d bytes", MaximumImplementationContextBytes)
+		}
+		copyEntries = append(copyEntries, entry)
+	}
+	return ImplementationContext{source: source, entries: copyEntries}, nil
+}
+
+func (context ImplementationContext) Source() string { return context.source }
+func (context ImplementationContext) Entries() []string {
+	return append([]string(nil), context.entries...)
+}
+func (context ImplementationContext) Available() bool {
+	return context.source != "" || len(context.entries) > 0
 }
 
 // PlanningEvidence is bounded repository context supplied to the read-only
@@ -359,18 +406,21 @@ func NewExecutionRequest(
 	roleContract ProviderRoleContract,
 	selection Selection,
 ) (ExecutionRequest, error) {
+	return NewExecutionRequestWithContext(attemptId, currentChange, currentProposal, roleContract, selection, ImplementationContext{})
+}
+
+func NewExecutionRequestWithContext(
+	attemptId ExecutionAttemptId,
+	currentChange change.Change,
+	currentProposal proposal.Proposal,
+	roleContract ProviderRoleContract,
+	selection Selection,
+	implementationContext ImplementationContext,
+) (ExecutionRequest, error) {
 	if roleContract.Role() != RoleImplementation {
 		return ExecutionRequest{}, fmt.Errorf("implementation request requires the implementation provider role")
 	}
-	return newExecutionRequest(
-		attemptId,
-		currentChange,
-		currentProposal,
-		roleContract,
-		selection,
-		VerificationPlanningInput{},
-		false,
-	)
+	return newExecutionRequest(attemptId, currentChange, currentProposal, roleContract, selection, VerificationPlanningInput{}, false, implementationContext)
 }
 
 // NewVerificationPlanningRequest constructs one fresh, read-only provider
@@ -398,6 +448,7 @@ func NewVerificationPlanningRequest(
 		selection,
 		planningInput,
 		true,
+		ImplementationContext{},
 	)
 }
 
@@ -409,6 +460,7 @@ func newExecutionRequest(
 	selection Selection,
 	planningInput VerificationPlanningInput,
 	hasPlanning bool,
+	implementationContext ImplementationContext,
 ) (ExecutionRequest, error) {
 	if err := validateExecutionAttemptId(attemptId); err != nil {
 		return ExecutionRequest{}, err
@@ -476,13 +528,14 @@ func newExecutionRequest(
 			baseRevision: workspace.BaseRevision(),
 			sourceDigest: workspace.SourceStateDigest(),
 		},
-		approvedScope: approvedScope,
-		baseRevision:  workspace.BaseRevision(),
-		sourceDigest:  workspace.SourceStateDigest(),
-		roleContract:  roleContract,
-		selection:     selection,
-		planningInput: planningInput,
-		hasPlanning:   hasPlanning,
+		approvedScope:         approvedScope,
+		baseRevision:          workspace.BaseRevision(),
+		sourceDigest:          workspace.SourceStateDigest(),
+		roleContract:          roleContract,
+		selection:             selection,
+		planningInput:         planningInput,
+		hasPlanning:           hasPlanning,
+		implementationContext: implementationContext,
 	}, nil
 }
 
@@ -504,6 +557,9 @@ func (request ExecutionRequest) RoleContract() ProviderRoleContract {
 	return request.roleContract
 }
 func (request ExecutionRequest) Selection() Selection { return request.selection }
+func (request ExecutionRequest) ImplementationContext() ImplementationContext {
+	return request.implementationContext
+}
 func (request ExecutionRequest) VerificationPlanningInput() (VerificationPlanningInput, bool) {
 	return request.planningInput, request.hasPlanning
 }
@@ -552,6 +608,8 @@ const ProviderOutcomeCompleted ProviderOutcome = "completed"
 
 // ProviderResponse is untrusted provider evidence/provenance. The modified
 // ProposalWorkspace and Git-extracted PatchArtifact remain source authority.
+const MaximumProviderSummaryBytes = 4 << 10
+
 type ProviderResponse struct {
 	attemptId           ExecutionAttemptId
 	selection           Selection
@@ -589,6 +647,14 @@ func NewProviderResponse(
 	externalIdentifier, err := parseExternalExecutionIdentifier(externalExecutionId)
 	if err != nil {
 		return ProviderResponse{}, err
+	}
+	summary = strings.Join(strings.Fields(summary), " ")
+	if len(summary) > MaximumProviderSummaryBytes {
+		summary = summary[:MaximumProviderSummaryBytes]
+		for !utf8.ValidString(summary) {
+			summary = summary[:len(summary)-1]
+		}
+		summaryTruncated = true
 	}
 	if startedAt.IsZero() || completedAt.IsZero() || completedAt.Before(startedAt) {
 		return ProviderResponse{}, fmt.Errorf("provider response timestamps are invalid")

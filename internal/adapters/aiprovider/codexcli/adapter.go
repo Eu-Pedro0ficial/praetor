@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -25,7 +26,7 @@ const (
 	defaultBinary           = "codex"
 	defaultExecutionTimeout = 10 * time.Minute
 	maximumJSONLineBytes    = 1 << 20
-	maximumSummaryBytes     = 16 << 10
+	maximumSummaryBytes     = 4 << 10
 )
 
 // Clock supplies provider response timestamps.
@@ -336,6 +337,7 @@ func validateRequiredCapabilities(output []byte) error {
 		"--cd",
 		"--ephemeral",
 		"--ignore-user-config",
+		"--approve-for-me",
 		"--color",
 		"--json",
 	} {
@@ -355,11 +357,16 @@ func (adapter *Adapter) arguments(request aiprovider.ExecutionRequest) []string 
 		"exec",
 		"--ephemeral",
 		"--ignore-user-config",
+	}
+	if sandbox == "workspace-write" {
+		arguments = append(arguments, "--approve-for-me")
+	}
+	arguments = append(arguments,
 		"--json",
 		"--color", "never",
 		"--sandbox", sandbox,
 		"--cd", request.Workspace().Root(),
-	}
+	)
 	if modelIdentifier, selected := request.Selection().ModelIdentifier(); selected {
 		arguments = append(arguments, "--model", string(modelIdentifier))
 	}
@@ -390,6 +397,18 @@ func shapeImplementationRequest(request aiprovider.ExecutionRequest) string {
 	writePaths(&prompt, "Expected paths", surface.ExpectedPaths())
 	writePaths(&prompt, "Possible paths", surface.PossiblePaths())
 	writePaths(&prompt, "Protected paths", surface.ProtectedPaths())
+	implementationContext := request.ImplementationContext()
+	prompt.WriteString("\nBounded implementation context (advisory; it does not expand the approved write surface):\n")
+	if !implementationContext.Available() {
+		prompt.WriteString("- none\n")
+	} else {
+		if implementationContext.Source() != "" {
+			fmt.Fprintf(&prompt, "Source: %s\n", implementationContext.Source())
+		}
+		for _, entry := range implementationContext.Entries() {
+			fmt.Fprintf(&prompt, "- %s\n", entry)
+		}
+	}
 	prompt.WriteString("\nModify only expected or possible paths. Never modify protected paths.\n")
 	return prompt.String()
 }
@@ -504,7 +523,7 @@ func parseJSONLines(output []byte) (parsedOutput, error) {
 			parsed.externalExecutionId = strings.TrimSpace(event.ThreadID)
 		case "item.completed":
 			if event.Item.Type == "agent_message" {
-				parsed.summary, parsed.summaryTruncated = truncateUTF8(event.Item.Text, maximumSummaryBytes)
+				parsed.summary, parsed.summaryTruncated = truncateUTF8(sanitizeProviderSummary(event.Item.Text), maximumSummaryBytes)
 			}
 		case "turn.completed":
 			completedCount++
@@ -535,6 +554,24 @@ func parseJSONLines(output []byte) (parsedOutput, error) {
 		return parsed, fmt.Errorf("codex-cli JSONL contained multiple completed turns")
 	}
 	return parsed, nil
+}
+
+var providerSecretPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)(authorization\s*:\s*(?:bearer\s+)?)[^\s]+`),
+	regexp.MustCompile(`(?i)((?:api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*)[^\s,;]+`),
+	regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{8,}\b`),
+}
+
+func sanitizeProviderSummary(value string) string {
+	value = strings.Join(strings.Fields(value), " ")
+	for index, pattern := range providerSecretPatterns {
+		replacement := "[REDACTED]"
+		if index < 2 {
+			replacement = "${1}[REDACTED]"
+		}
+		value = pattern.ReplaceAllString(value, replacement)
+	}
+	return value
 }
 
 func truncateUTF8(value string, maximumBytes int) (string, bool) {

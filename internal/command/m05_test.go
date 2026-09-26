@@ -19,6 +19,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/composition"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 )
 
@@ -225,7 +226,7 @@ func TestChangeImplementDirectAndContextualUseProviderPipeline(t *testing.T) {
 				); err != nil {
 					return aiprovider.ProviderResponse{}, err
 				}
-				return newCommandProviderResponse(t, request, invocation.externalExecutionId, "summary-secret-source"), nil
+				return newCommandProviderResponse(t, request, invocation.externalExecutionId, "bounded-provider-summary"), nil
 			})
 			repositoryRoot, dataDirectory, session, registry := prepareM05CommandTest(t, provider)
 			if invocation.model != "" {
@@ -282,7 +283,7 @@ func TestChangeImplementDirectAndContextualUseProviderPipeline(t *testing.T) {
 			} else if !strings.Contains(output.String(), "External execution ID: "+invocation.externalExecutionId) {
 				t.Fatalf("implement output %q lacks external execution identity", output.String())
 			}
-			if strings.Contains(output.String(), "summary-secret-source") {
+			if strings.Contains(output.String(), "bounded-provider-summary") {
 				t.Fatalf("implement output leaked provider summary: %q", output.String())
 			}
 
@@ -342,6 +343,15 @@ func TestChangeImplementFailureRejectsAndCleansPartialWorkspace(t *testing.T) {
 	}
 	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
 	assertCommandProviderAudit(t, dataDirectory, false, true, "")
+	var discardReason string
+	for _, event := range readCommandAudit(t, dataDirectory) {
+		if event.EventType == audit.EventProposalWorkspaceDiscarded {
+			discardReason, _ = event.Metadata["reason"].(string)
+		}
+	}
+	if discardReason != "provider execution failed: kind=process-failure" {
+		t.Fatalf("provider failure discard reason = %q", discardReason)
+	}
 }
 
 func prepareM05CommandTest(
@@ -540,13 +550,14 @@ func assertCommandProviderAudit(
 		} else if event.Metadata["model"] != wantModel {
 			t.Fatalf("provider audit model = %#v, want %q", event.Metadata["model"], wantModel)
 		}
-		if event.EventType == audit.EventProviderExecutionCompleted &&
-			event.Metadata["provider_version"] != "codex-cli test-1.0" {
-			t.Fatalf("provider completion version metadata = %#v", event.Metadata)
+		if event.EventType == audit.EventProviderExecutionCompleted {
+			if event.Metadata["provider_version"] != "codex-cli test-1.0" ||
+				event.Metadata["provider_summary"] != "bounded-provider-summary" {
+				t.Fatalf("provider completion metadata = %#v", event.Metadata)
+			}
 		}
 		metadata := fmt.Sprintf("%v", event.Metadata)
-		if strings.Contains(metadata, "summary-secret-source") ||
-			strings.Contains(metadata, "secret-provider-stderr") ||
+		if strings.Contains(metadata, "secret-provider-stderr") ||
 			strings.Contains(metadata, "package service") {
 			t.Fatalf("provider audit leaked unbounded provider/source data: %#v", event.Metadata)
 		}
@@ -562,5 +573,185 @@ func assertCommandProviderAudit(
 		if !ok || len(paths) != 1 || paths[0] != "internal/service/service.go" {
 			t.Fatalf("provider failure changed paths = %#v", failure.Metadata["changed_paths"])
 		}
+	}
+}
+
+func TestChangeImplementCompletedProviderWithoutPatchRetainsDiagnosticsThenCleans(t *testing.T) {
+	providerExplanation := "I inspected the approved files but produced no source changes. " + strings.Repeat("detail ", 800)
+	retainedExplanation := providerExplanation[:aiprovider.MaximumProviderSummaryBytes]
+	var workspaceRoot string
+	provider := newCommandFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		workspaceRoot = request.Workspace().Root()
+		usage, err := aiprovider.NewProviderUsage(120, 20, 35, 8)
+		if err != nil {
+			return aiprovider.ProviderResponse{}, err
+		}
+		startedAt := time.Date(2026, time.September, 1, 15, 0, 2, 0, time.UTC)
+		return aiprovider.NewProviderResponse(
+			request.AttemptId(),
+			request.Selection(),
+			"codex-cli test-1.0",
+			"thread-no-patch",
+			providerExplanation,
+			false,
+			usage,
+			startedAt,
+			startedAt.Add(time.Second),
+		)
+	})
+	repositoryRoot, dataDirectory, session, registry := prepareM05CommandTest(t, provider)
+	if _, err := registry.Dispatch(
+		session,
+		`change isolate change-no-patch "Change Greeting without guessing." --expected internal/service/service.go --possible internal/service/service_test.go --protected go.mod`,
+		io.Discard,
+	); err != nil {
+		t.Fatalf("change isolate error = %v", err)
+	}
+
+	var output bytes.Buffer
+	_, implementationError := registry.Dispatch(session, "change implement", &output)
+	var emptyPatch proposal.EmptyPatchError
+	if !errors.As(implementationError, &emptyPatch) {
+		t.Fatalf("change implement error = %T %v, want EmptyPatchError", implementationError, implementationError)
+	}
+	for _, expected := range []string{
+		"Provider execution completed; implementation did not succeed.",
+		"Execution attempt: " + string(commandExecutionAttemptId),
+		"Provider: codex-cli",
+		"Model: provider default",
+		"Provider outcome: completed (protocol completion only)",
+		"Token usage: input=120 cached_input=20 output=35 reasoning_output=8",
+		"Provider summary (bounded, untrusted, truncated=true): " + retainedExplanation,
+		"Git-visible changes: 0",
+		"Implementation result: rejected; no patch was produced.",
+		"Rejection reason: " + emptyPatch.Error(),
+	} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("no-patch output %q lacks %q", output.String(), expected)
+		}
+	}
+	currentChange, hasChange := session.CurrentChange()
+	if !hasChange || currentChange.State() != change.StateRejected {
+		t.Fatalf("no-patch Change = %#v/%t", currentChange, hasChange)
+	}
+	if _, hasProposal := session.CurrentProposal(); hasProposal {
+		t.Fatal("no-patch implementation retained a process-owned proposal")
+	}
+	if workspaceRoot == "" {
+		t.Fatal("provider did not receive a workspace")
+	}
+	if _, err := os.Stat(workspaceRoot); !os.IsNotExist(err) {
+		t.Fatalf("discarded workspace still exists: %v", err)
+	}
+	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
+
+	events := readCommandAudit(t, dataDirectory)
+	completedIndex := eventIndex(events, audit.EventProviderExecutionCompleted)
+	rejectedIndex := eventIndex(events, audit.EventPatchRejected)
+	transitionIndex := -1
+	discardedIndex := -1
+	for index := rejectedIndex + 1; index < len(events); index++ {
+		if transitionIndex < 0 && events[index].EventType == audit.EventChangeTransition {
+			transitionIndex = index
+		}
+		if events[index].EventType == audit.EventProposalWorkspaceDiscarded {
+			discardedIndex = index
+			break
+		}
+	}
+	if !(completedIndex >= 0 && completedIndex < rejectedIndex && rejectedIndex < transitionIndex && transitionIndex < discardedIndex) {
+		t.Fatalf("no-patch audit ordering completed=%d rejected=%d transition=%d discarded=%d", completedIndex, rejectedIndex, transitionIndex, discardedIndex)
+	}
+	completed := events[completedIndex]
+	if completed.Metadata["provider_summary"] != retainedExplanation ||
+		completed.Metadata["summary_present"] != true ||
+		completed.Metadata["summary_truncated"] != true {
+		t.Fatalf("completed provider diagnostics = %#v", completed.Metadata)
+	}
+	rejected := events[rejectedIndex]
+	if rejected.Metadata["reason"] != emptyPatch.Error() ||
+		fmt.Sprint(rejected.Metadata["approved_expected_paths"]) == "[]" ||
+		fmt.Sprint(rejected.Metadata["approved_possible_paths"]) == "[]" ||
+		fmt.Sprint(rejected.Metadata["approved_protected_paths"]) == "[]" ||
+		fmt.Sprint(rejected.Metadata["actual_expected_changes"]) != "[]" ||
+		fmt.Sprint(rejected.Metadata["actual_possible_changes"]) != "[]" {
+		t.Fatalf("no-patch scope diagnostics = %#v", rejected.Metadata)
+	}
+	if events[transitionIndex].Metadata["context"] != emptyPatch.Error() ||
+		events[discardedIndex].Metadata["reason"] != emptyPatch.Error() {
+		t.Fatalf("precise cleanup reasons transition=%#v discard=%#v", events[transitionIndex].Metadata, events[discardedIndex].Metadata)
+	}
+}
+
+func TestChangeImplementScopeViolationIsDistinctFromNoPatch(t *testing.T) {
+	provider := newCommandFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		if err := os.WriteFile(filepath.Join(request.Workspace().Root(), "go.mod"), []byte("module forbidden.invalid/change\n"), 0o600); err != nil {
+			return aiprovider.ProviderResponse{}, err
+		}
+		return newCommandProviderResponse(t, request, "thread-scope", "I changed a protected file."), nil
+	})
+	repositoryRoot, dataDirectory, session, registry := prepareM05CommandTest(t, provider)
+	if _, err := registry.Dispatch(session, `change isolate change-scope-diagnostic "Exercise scope rejection." --expected internal/service/service.go --protected go.mod`, io.Discard); err != nil {
+		t.Fatalf("change isolate error = %v", err)
+	}
+	var output bytes.Buffer
+	_, implementationError := registry.Dispatch(session, "change implement", &output)
+	var surfaceError *source.SurfaceValidationError
+	if !errors.As(implementationError, &surfaceError) {
+		t.Fatalf("change implement error = %T %v, want SurfaceValidationError", implementationError, implementationError)
+	}
+	if strings.Contains(output.String(), "no patch") || strings.Contains(output.String(), "Git-visible changes: 0") {
+		t.Fatalf("scope violation was presented as no-patch: %q", output.String())
+	}
+	if current, ok := session.CurrentChange(); !ok || current.State() != change.StateRejected {
+		t.Fatalf("scope-violating Change = %#v/%t", current, ok)
+	}
+	if _, ok := session.CurrentProposal(); ok {
+		t.Fatal("scope-violating proposal was not discarded")
+	}
+	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
+	wantReason := "provider produced a patch outside ApprovedScope: " + surfaceError.Error()
+	var rejected, discarded audit.Event
+	for _, event := range readCommandAudit(t, dataDirectory) {
+		switch event.EventType {
+		case audit.EventPatchRejected:
+			rejected = event
+		case audit.EventProposalWorkspaceDiscarded:
+			discarded = event
+		}
+	}
+	if rejected.Metadata["reason"] != surfaceError.Error() || discarded.Metadata["reason"] != wantReason {
+		t.Fatalf("scope rejection reasons rejected=%#v discarded=%#v", rejected.Metadata, discarded.Metadata)
+	}
+}
+
+func TestChangeImplementUsesOnlyCurrentBoundedImpactReportContext(t *testing.T) {
+	var receivedContext aiprovider.ImplementationContext
+	provider := newCommandFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		receivedContext = request.ImplementationContext()
+		if err := os.WriteFile(filepath.Join(request.Workspace().Root(), "internal/service/service.go"), []byte("package service\n\nfunc Greeting() string { return \"hello-context\" }\n"), 0o600); err != nil {
+			return aiprovider.ProviderResponse{}, err
+		}
+		return newCommandProviderResponse(t, request, "thread-context", "Implemented using bounded impact evidence."), nil
+	})
+	_, _, session, registry := prepareM05CommandTest(t, provider)
+	const intent = "Change Greeting using repository impact evidence."
+	if _, err := registry.Dispatch(session, `change new change-context "`+intent+`"`, io.Discard); err != nil {
+		t.Fatalf("change new error = %v", err)
+	}
+	if _, err := registry.Dispatch(session, "analysis report change-context --expected internal/service/service.go --possible internal/service/service_test.go --protected go.mod", io.Discard); err != nil {
+		t.Fatalf("analysis report error = %v", err)
+	}
+	if _, err := registry.Dispatch(session, `change isolate change-context "`+intent+`" --expected internal/service/service.go --possible internal/service/service_test.go --protected go.mod`, io.Discard); err != nil {
+		t.Fatalf("change isolate error = %v", err)
+	}
+	if _, err := registry.Dispatch(session, "change implement", io.Discard); err != nil {
+		t.Fatalf("change implement error = %v", err)
+	}
+	if !receivedContext.Available() || !strings.Contains(receivedContext.Source(), "current ImpactReport") || len(receivedContext.Entries()) == 0 {
+		t.Fatalf("provider implementation context = source %q entries %#v", receivedContext.Source(), receivedContext.Entries())
+	}
+	if len(receivedContext.Entries()) > aiprovider.MaximumImplementationContextEntries {
+		t.Fatalf("provider implementation context entries = %d", len(receivedContext.Entries()))
 	}
 }

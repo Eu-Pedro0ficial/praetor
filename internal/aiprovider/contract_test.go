@@ -438,3 +438,38 @@ func TestRegistryUsesExactSelectionWithoutRoutingOrFallback(t *testing.T) {
 		t.Fatal("duplicate provider registration succeeded")
 	}
 }
+
+func TestImplementationContextAndProviderSummaryRemainBounded(t *testing.T) {
+	entries := make([]string, aiprovider.MaximumImplementationContextEntries)
+	for index := range entries {
+		entries[index] = "bounded repository evidence"
+	}
+	context, err := aiprovider.NewImplementationContext("current ImpactReport", entries)
+	if err != nil || !context.Available() || len(context.Entries()) != len(entries) {
+		t.Fatalf("NewImplementationContext() = %#v/%v", context, err)
+	}
+	if _, err := aiprovider.NewImplementationContext("current ImpactReport", append(entries, "overflow")); err == nil {
+		t.Fatal("implementation context accepted too many entries")
+	}
+
+	attemptId, _ := aiprovider.GenerateExecutionAttemptId()
+	selection, _ := aiprovider.NewSelection("codex-cli", "")
+	startedAt := time.Date(2026, time.September, 1, 12, 0, 0, 0, time.UTC)
+	response, err := aiprovider.NewProviderResponse(
+		attemptId,
+		selection,
+		"codex-cli test",
+		"thread-bounded",
+		strings.Repeat("é", aiprovider.MaximumProviderSummaryBytes),
+		false,
+		aiprovider.ProviderUsage{},
+		startedAt,
+		startedAt.Add(time.Second),
+	)
+	if err != nil {
+		t.Fatalf("NewProviderResponse() error = %v", err)
+	}
+	if !response.SummaryTruncated() || len(response.Summary()) > aiprovider.MaximumProviderSummaryBytes {
+		t.Fatalf("provider summary bound = %d/%t", len(response.Summary()), response.SummaryTruncated())
+	}
+}
