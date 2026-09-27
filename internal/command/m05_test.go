@@ -314,10 +314,11 @@ func TestChangeImplementFailureRejectsAndCleansPartialWorkspace(t *testing.T) {
 		); err != nil {
 			return aiprovider.ProviderResponse{}, err
 		}
-		return aiprovider.ProviderResponse{}, aiprovider.NewExecutionError(
+		return aiprovider.ProviderResponse{}, aiprovider.NewExecutionErrorWithDiagnostic(
 			aiprovider.FailureProcess,
 			"codex-cli",
 			"thread-partial",
+			"exit_code=7 stderr=safe-provider-diagnostic",
 			errors.New("secret-provider-stderr"),
 		)
 	})
@@ -566,6 +567,7 @@ func assertCommandProviderAudit(
 		failure := providerEvents[len(providerEvents)-1]
 		if failure.Metadata["failure_kind"] != string(aiprovider.FailureProcess) ||
 			failure.Metadata["external_execution_id"] != "thread-partial" ||
+			failure.Metadata["provider_diagnostic"] != "exit_code=7 stderr=safe-provider-diagnostic" ||
 			failure.Metadata["workspace_may_be_changed"] != true {
 			t.Fatalf("provider failure audit = %#v", failure.Metadata)
 		}

@@ -710,3 +710,56 @@ func adapterRequestFixture(t *testing.T, model string, planning bool) (aiprovide
 	}
 	return request, canonicalRoot
 }
+
+func TestAdapterRetainsBoundedSanitizedFailureDiagnostic(t *testing.T) {
+	request, _ := adapterTestRequest(t, "")
+	secret := "SUPER-SECRET-P6"
+
+	adapter, err := newWithRunner(
+		Config{},
+		withSuccessfulPreflight(runnerFunction(func(context.Context, processInvocation) (processResult, error) {
+			return processResult{
+				standardOutput: []byte(
+					`{"type":"thread.started","thread_id":"thread-diagnostic"}` + "\n" +
+						`{"type":"turn.failed","message":"provider failed password=` + secret + `"}` + "\n",
+				),
+				standardError: []byte(
+					"request failed Authorization: Bearer " + secret + " " +
+						strings.Repeat("detail ", 400),
+				),
+				exitCode: 7,
+			}, errors.New("exit status 7")
+		})),
+	)
+	if err != nil {
+		t.Fatalf("newWithRunner() error = %v", err)
+	}
+
+	_, executionError := adapter.Execute(context.Background(), request)
+
+	var normalized *aiprovider.ExecutionError
+	if !errors.As(executionError, &normalized) {
+		t.Fatalf("Execute() error = %T %v", executionError, executionError)
+	}
+
+	diagnostic := normalized.Diagnostic()
+	if diagnostic == "" {
+		t.Fatal("failure diagnostic is empty")
+	}
+	if len(diagnostic) > maximumFailureDiagnosticBytes {
+		t.Fatalf("failure diagnostic length = %d", len(diagnostic))
+	}
+	if strings.Contains(diagnostic, secret) {
+		t.Fatalf("failure diagnostic leaked secret: %q", diagnostic)
+	}
+	if !strings.Contains(diagnostic, "[REDACTED]") {
+		t.Fatalf("failure diagnostic did not redact secret: %q", diagnostic)
+	}
+	if !strings.Contains(diagnostic, "exit_code=7") {
+		t.Fatalf("failure diagnostic lacks exit code: %q", diagnostic)
+	}
+	if strings.Contains(executionError.Error(), diagnostic) ||
+		strings.Contains(executionError.Error(), secret) {
+		t.Fatalf("normalized public error leaked diagnostic: %q", executionError.Error())
+	}
+}

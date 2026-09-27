@@ -190,10 +190,11 @@ func TestProviderFailureAfterPartialMutationIsAuditedWithoutFalseSuccess(t *test
 		); err != nil {
 			return aiprovider.ProviderResponse{}, err
 		}
-		return aiprovider.ProviderResponse{}, aiprovider.NewExecutionError(
+		return aiprovider.ProviderResponse{}, aiprovider.NewExecutionErrorWithDiagnostic(
 			aiprovider.FailureProcess,
 			"test-provider",
 			"thread-partial",
+			"exit_code=7 stderr=safe-provider-diagnostic",
 			errors.New("provider process failed"),
 		)
 	})
@@ -213,6 +214,7 @@ func TestProviderFailureAfterPartialMutationIsAuditedWithoutFalseSuccess(t *test
 	failureEvent := (*lifecycleEvents)[1]
 	if failureEvent.FailureKind != aiprovider.FailureProcess ||
 		failureEvent.ExternalExecutionId != "thread-partial" ||
+		failureEvent.ProviderDiagnostic != "exit_code=7 stderr=safe-provider-diagnostic" ||
 		!failureEvent.WorkspaceMayBeChanged ||
 		!reflect.DeepEqual(failureEvent.ChangedPaths, []string{"service.go"}) {
 		t.Fatalf("failure provenance = %#v", failureEvent)

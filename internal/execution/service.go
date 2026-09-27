@@ -39,6 +39,7 @@ type LifecycleEvent struct {
 	HasResponse           bool
 	FailureKind           aiprovider.FailureKind
 	ExternalExecutionId   string
+	ProviderDiagnostic    string
 	ChangedPaths          []string
 	WorkspaceMayBeChanged bool
 	OccurredAt            time.Time
@@ -181,9 +182,11 @@ func (service *Service) ImplementWithContext(
 	if mutationError != nil {
 		changedPaths, inspectionError := service.inspectFailureChanges(currentProposal, providerInvoked)
 		externalExecutionId := ""
+		providerDiagnostic := ""
 		var providerError *aiprovider.ExecutionError
 		if errors.As(mutationError, &providerError) {
 			externalExecutionId = providerError.ExternalExecutionId()
+			providerDiagnostic = providerError.Diagnostic()
 		}
 		recordError := service.recorder(LifecycleEvent{
 			EventType:             EventProviderExecutionFailed,
@@ -191,6 +194,7 @@ func (service *Service) ImplementWithContext(
 			Descriptor:            descriptor,
 			FailureKind:           aiprovider.FailureKindOf(mutationError),
 			ExternalExecutionId:   externalExecutionId,
+			ProviderDiagnostic:    providerDiagnostic,
 			ChangedPaths:          changedPaths,
 			WorkspaceMayBeChanged: providerInvoked,
 			OccurredAt:            service.clock().UTC(),

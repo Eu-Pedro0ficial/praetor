@@ -971,6 +971,9 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 		if event.ExternalExecutionId != "" {
 			metadata["external_execution_id"] = event.ExternalExecutionId
 		}
+		if event.ProviderDiagnostic != "" {
+			metadata["provider_diagnostic"] = event.ProviderDiagnostic
+		}
 	default:
 		return nil, fmt.Errorf("unknown provider lifecycle event type %q", event.EventType)
 	}

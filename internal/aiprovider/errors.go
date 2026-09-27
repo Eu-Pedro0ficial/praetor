@@ -30,6 +30,7 @@ type ExecutionError struct {
 	kind                FailureKind
 	provider            ProviderIdentifier
 	externalExecutionId string
+	diagnostic          string
 	cause               error
 }
 
@@ -38,6 +39,22 @@ func NewExecutionError(
 	kind FailureKind,
 	provider ProviderIdentifier,
 	externalExecutionId string,
+	cause error,
+) error {
+	return NewExecutionErrorWithDiagnostic(
+		kind,
+		provider,
+		externalExecutionId,
+		"",
+		cause,
+	)
+}
+
+func NewExecutionErrorWithDiagnostic(
+	kind FailureKind,
+	provider ProviderIdentifier,
+	externalExecutionId string,
+	diagnostic string,
 	cause error,
 ) error {
 	if !isKnownFailureKind(kind) {
@@ -54,6 +71,7 @@ func NewExecutionError(
 		kind:                kind,
 		provider:            provider,
 		externalExecutionId: externalIdentifier,
+		diagnostic:          diagnostic,
 		cause:               cause,
 	}
 }
@@ -91,6 +109,13 @@ func (executionError *ExecutionError) ExternalExecutionId() string {
 		return ""
 	}
 	return executionError.externalExecutionId
+}
+
+func (executionError *ExecutionError) Diagnostic() string {
+	if executionError == nil {
+		return ""
+	}
+	return executionError.diagnostic
 }
 
 // FailureKindOf returns the normalized kind or execution-failure for an

@@ -193,10 +193,11 @@ func (adapter *Adapter) Execute(
 		)
 	}
 	if runError != nil || parsed.failureText != "" {
-		return aiprovider.ProviderResponse{}, aiprovider.NewExecutionError(
+		return aiprovider.ProviderResponse{}, aiprovider.NewExecutionErrorWithDiagnostic(
 			classifyFailure(runError, processOutput.standardError, parsed.failureText),
 			adapter.descriptor.Identifier(),
 			parsed.externalExecutionId,
+			safeFailureDiagnostic(processOutput.exitCode, processOutput.standardError, parsed.failureText),
 			runError,
 		)
 	}
@@ -583,6 +584,26 @@ func truncateUTF8(value string, maximumBytes int) (string, bool) {
 		truncated = truncated[:len(truncated)-1]
 	}
 	return truncated, true
+}
+
+const maximumFailureDiagnosticBytes = 1024
+
+func safeFailureDiagnostic(exitCode int, standardError []byte, eventFailure string) string {
+	parts := make([]string, 0, 3)
+	if exitCode != 0 {
+		parts = append(parts, fmt.Sprintf("exit_code=%d", exitCode))
+	}
+	if value := strings.TrimSpace(eventFailure); value != "" {
+		parts = append(parts, "provider_event="+value)
+	}
+	if value := strings.TrimSpace(string(standardError)); value != "" {
+		parts = append(parts, "stderr="+value)
+	}
+
+	value := strings.Join(strings.Fields(strings.Join(parts, " ")), " ")
+	value = sanitizeProviderSummary(value)
+	value, _ = truncateUTF8(value, maximumFailureDiagnosticBytes)
+	return value
 }
 
 func classifyFailure(runError error, standardError []byte, eventFailure string) aiprovider.FailureKind {
