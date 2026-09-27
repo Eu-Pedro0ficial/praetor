@@ -3,6 +3,7 @@ package command
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
@@ -48,7 +49,7 @@ func (session *Session) hydrateDurableChangeStaged(detail inspection.ChangeDetai
 	for _, binding := range detail.Bindings {
 		bindings[binding.Role] = binding
 	}
-	load := func(role string, kind artifact.Kind) (artifact.Artifact, error) {
+	loadWithSchemas := func(role string, kind artifact.Kind, supportedKindSchemas ...uint32) (artifact.Artifact, error) {
 		binding, ok := bindings[role]
 		if !ok {
 			return artifact.Artifact{}, fmt.Errorf("durable Change %q is missing required %s binding", current.ChangeId(), role)
@@ -57,10 +58,13 @@ func (session *Session) hydrateDurableChangeStaged(detail inspection.ChangeDetai
 		if err != nil {
 			return artifact.Artifact{}, fmt.Errorf("load durable %s authority: %w", role, err)
 		}
-		if item.Kind() != kind || item.ProjectId() != current.ProjectId() || item.ChangeId() != current.ChangeId() || item.EnvelopeSchemaVersion() != 1 || item.KindSchemaVersion() != 1 {
+		if item.Kind() != kind || item.ProjectId() != current.ProjectId() || item.ChangeId() != current.ChangeId() || item.EnvelopeSchemaVersion() != 1 || !slices.Contains(supportedKindSchemas, item.KindSchemaVersion()) {
 			return artifact.Artifact{}, fmt.Errorf("%w: durable %s artifact envelope is incompatible", authority.ErrCorrupt, role)
 		}
 		return item, nil
+	}
+	load := func(role string, kind artifact.Kind) (artifact.Artifact, error) {
+		return loadWithSchemas(role, kind, 1)
 	}
 	sourceItem, err := load("source-snapshot", artifact.KindSourceSnapshot)
 	if err != nil {
@@ -77,19 +81,15 @@ func (session *Session) hydrateDurableChangeStaged(detail inspection.ChangeDetai
 	if err != nil {
 		return fmt.Errorf("%w: %v", authority.ErrCorrupt, err)
 	}
-	scopeItem, err := load("approved-scope", artifact.KindApprovedScope)
+	scopeItem, err := loadWithSchemas("approved-scope", artifact.KindApprovedScope, 1, 2)
 	if err != nil {
 		return err
 	}
-	var scopePayload struct {
-		Expected  []string `json:"expected"`
-		Possible  []string `json:"possible"`
-		Protected []string `json:"protected"`
-	}
-	if err := json.Unmarshal(scopeItem.Payload(), &scopePayload); err != nil {
+	scopeRequest, err := decodeApprovedScopeRequest(scopeItem)
+	if err != nil {
 		return fmt.Errorf("%w: decode ApprovedScope: %v", authority.ErrCorrupt, err)
 	}
-	approvedScope, err := source.RehydrateApprovedScope(current.ChangeId(), current.ProjectId(), snapshot.SourceStateDigest(), source.ScopeRequest{Expected: scopePayload.Expected, Possible: scopePayload.Possible, Protected: scopePayload.Protected})
+	approvedScope, err := source.RehydrateApprovedScope(current.ChangeId(), current.ProjectId(), snapshot.SourceStateDigest(), scopeRequest)
 	if err != nil {
 		return fmt.Errorf("%w: %v", authority.ErrCorrupt, err)
 	}
@@ -151,6 +151,36 @@ func (session *Session) hydrateDurableChangeStaged(detail inspection.ChangeDetai
 		session.setLastDecision(humanDecision)
 	}
 	return nil
+}
+
+type approvedScopePayload struct {
+	AuthorizationMode source.AuthorizationMode `json:"authorization_mode"`
+	Expected          []string                 `json:"expected"`
+	Possible          []string                 `json:"possible"`
+	Protected         []string                 `json:"protected"`
+}
+
+func decodeApprovedScopeRequest(item artifact.Artifact) (source.ScopeRequest, error) {
+	var payload approvedScopePayload
+	if err := json.Unmarshal(item.Payload(), &payload); err != nil {
+		return source.ScopeRequest{}, err
+	}
+	switch item.KindSchemaVersion() {
+	case 1:
+		payload.AuthorizationMode = source.AuthorizationExplicitPaths
+	case 2:
+		if payload.AuthorizationMode == "" {
+			return source.ScopeRequest{}, fmt.Errorf("schema v2 requires authorization_mode")
+		}
+	default:
+		return source.ScopeRequest{}, fmt.Errorf("unsupported schema version %d", item.KindSchemaVersion())
+	}
+	return source.ScopeRequest{
+		AuthorizationMode: payload.AuthorizationMode,
+		Expected:          payload.Expected,
+		Possible:          payload.Possible,
+		Protected:         payload.Protected,
+	}, nil
 }
 
 type artifactLoader func(string, artifact.Kind) (artifact.Artifact, error)

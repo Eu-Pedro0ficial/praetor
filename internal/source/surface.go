@@ -9,23 +9,47 @@ import (
 // ScopeRequest is explicit developer input to deterministic M0.3 impact
 // analysis. It contains no inferred semantic repository knowledge.
 type ScopeRequest struct {
-	Expected  []string
-	Possible  []string
-	Protected []string
+	AuthorizationMode AuthorizationMode
+	Expected          []string
+	Possible          []string
+	Protected         []string
 }
 
-// ChangeSurface distinguishes the exact file paths expected, optionally
-// allowed, and protected for one Change.
+// AuthorizationMode distinguishes a strict path allowlist from authorization
+// over every repository-relative path. The zero value preserves the historical
+// explicit-path behavior for callers and durable artifacts that predate this
+// field.
+type AuthorizationMode string
+
+const (
+	AuthorizationExplicitPaths  AuthorizationMode = "explicit-paths"
+	AuthorizationRepositoryWide AuthorizationMode = "repository-wide"
+)
+
+// ChangeSurface distinguishes the authorization mode and the exact file paths
+// expected, optionally allowed, and protected for one Change.
 type ChangeSurface struct {
-	expected  []RepositoryPath
-	possible  []RepositoryPath
-	protected []RepositoryPath
+	authorizationMode AuthorizationMode
+	expected          []RepositoryPath
+	possible          []RepositoryPath
+	protected         []RepositoryPath
 }
 
-// NewChangeSurface normalizes and canonicalizes an explicit surface request.
+// NewChangeSurface normalizes and canonicalizes one authorization request.
 // Protected paths take precedence over expected paths, which take precedence
-// over possible paths.
+// over possible paths and repository-wide fallback authorization.
 func NewChangeSurface(request ScopeRequest) (ChangeSurface, error) {
+	authorizationMode := request.AuthorizationMode
+	if authorizationMode == "" {
+		authorizationMode = AuthorizationExplicitPaths
+	}
+	if authorizationMode != AuthorizationExplicitPaths && authorizationMode != AuthorizationRepositoryWide {
+		return ChangeSurface{}, fmt.Errorf("unsupported Change Surface authorization mode %q", authorizationMode)
+	}
+	if authorizationMode == AuthorizationRepositoryWide && (len(request.Expected) != 0 || len(request.Possible) != 0) {
+		return ChangeSurface{}, fmt.Errorf("repository-wide authorization cannot be combined with explicit expected or possible paths")
+	}
+
 	expected, err := normalizeRepositoryPaths(request.Expected)
 	if err != nil {
 		return ChangeSurface{}, fmt.Errorf("expected surface: %w", err)
@@ -39,26 +63,30 @@ func NewChangeSurface(request ScopeRequest) (ChangeSurface, error) {
 		return ChangeSurface{}, fmt.Errorf("protected surface: %w", err)
 	}
 
-	protectedSet := repositoryPathSet(protected)
 	expected = filterRepositoryPaths(expected, func(repositoryPath RepositoryPath) bool {
-		_, isProtected := protectedSet[repositoryPath]
-		return !isProtected
+		return !matchesProtectedPath(protected, repositoryPath)
 	})
 	expectedSet := repositoryPathSet(expected)
 	possible = filterRepositoryPaths(possible, func(repositoryPath RepositoryPath) bool {
-		_, isProtected := protectedSet[repositoryPath]
 		_, isExpected := expectedSet[repositoryPath]
-		return !isProtected && !isExpected
+		return !matchesProtectedPath(protected, repositoryPath) && !isExpected
 	})
-	if len(expected) == 0 && len(possible) == 0 {
+	if authorizationMode == AuthorizationExplicitPaths && len(expected) == 0 && len(possible) == 0 {
 		return ChangeSurface{}, fmt.Errorf("Change Surface must authorize at least one expected or possible path")
 	}
 
 	return ChangeSurface{
-		expected:  expected,
-		possible:  possible,
-		protected: protected,
+		authorizationMode: authorizationMode,
+		expected:          expected,
+		possible:          possible,
+		protected:         protected,
 	}, nil
+}
+
+// AuthorizationMode returns whether the surface is a strict path allowlist or
+// authorizes repository-wide discovery.
+func (surface ChangeSurface) AuthorizationMode() AuthorizationMode {
+	return surface.authorizationMode
 }
 
 // ExpectedPaths returns the paths strongly expected to change.
@@ -71,7 +99,7 @@ func (surface ChangeSurface) PossiblePaths() []RepositoryPath {
 	return copyRepositoryPaths(surface.possible)
 }
 
-// ProtectedPaths returns paths which always reject the actual surface.
+// ProtectedPaths returns paths and subtrees which always reject the actual surface.
 func (surface ChangeSurface) ProtectedPaths() []RepositoryPath {
 	return copyRepositoryPaths(surface.protected)
 }
@@ -92,6 +120,15 @@ func filterRepositoryPaths(paths []RepositoryPath, keep func(RepositoryPath) boo
 		}
 	}
 	return filtered
+}
+
+func matchesProtectedPath(protected []RepositoryPath, candidate RepositoryPath) bool {
+	for _, protectedPath := range protected {
+		if candidate == protectedPath || strings.HasPrefix(string(candidate), string(protectedPath)+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // ViolationKind distinguishes protected, unexpected, and malformed actual
@@ -219,7 +256,7 @@ func validateActualSurface(surface ChangeSurface, values []string) (SurfaceValid
 
 	for _, repositoryPath := range result.actualPaths {
 		switch {
-		case containsRepositoryPath(surface.protected, repositoryPath):
+		case matchesProtectedPath(surface.protected, repositoryPath):
 			result.violations = append(result.violations, SurfaceViolation{
 				kind:           ViolationProtected,
 				repositoryPath: repositoryPath,
@@ -228,6 +265,8 @@ func validateActualSurface(surface ChangeSurface, values []string) (SurfaceValid
 		case containsRepositoryPath(surface.expected, repositoryPath):
 			result.expectedChanges = append(result.expectedChanges, repositoryPath)
 		case containsRepositoryPath(surface.possible, repositoryPath):
+			result.possibleChanges = append(result.possibleChanges, repositoryPath)
+		case surface.authorizationMode == AuthorizationRepositoryWide:
 			result.possibleChanges = append(result.possibleChanges, repositoryPath)
 		default:
 			result.violations = append(result.violations, SurfaceViolation{

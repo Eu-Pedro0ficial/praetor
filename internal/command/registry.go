@@ -139,14 +139,14 @@ func DefaultRegistry() (Registry, error) {
 				{
 					Name:        "impact",
 					Description: "Analyze the bounded impact and Change Surface",
-					Usage:       "impact <change-id> <intent> --expected <path>... [--possible <path>...] [--protected <path>...] --actual <path>...",
+					Usage:       "impact <change-id> <intent> [--expected <path>...] [--possible <path>...] [--protected <path>...] --actual <path>... (expected or possible is required; . means repository-wide)",
 					Handler:     handleAnalysisImpact,
 					Options:     surfaceOptions(true),
 				},
 				{
 					Name:        "report",
 					Description: "Persist an explainable Change-owned ImpactReport",
-					Usage:       "report <change-id> --expected <path>... [--possible <path>...] [--protected <path>...]",
+					Usage:       "report <change-id> [--expected <path>...] [--possible <path>...] [--protected <path>...] (expected or possible is required; . means repository-wide)",
 					Handler:     handleAnalysisReport,
 					Options:     surfaceOptions(false),
 				},
@@ -180,8 +180,8 @@ func DefaultRegistry() (Registry, error) {
 				},
 				{
 					Name:        "isolate",
-					Description: "Create a Change proposal in an isolated Git worktree",
-					Usage:       "isolate <change-id> <intent> --expected <path>... [--possible <path>...] [--protected <path>...]",
+					Description: "Create an isolated proposal with repository-wide authorization by default",
+					Usage:       "isolate <change-id> <intent> [--expected <path>...] [--possible <path>...] [--protected <path>...]",
 					Handler:     handleChangeIsolate,
 					Options:     surfaceOptions(false),
 				},
@@ -394,9 +394,9 @@ func valueSuggestions(values []string, prefix, description string) []Suggestion 
 
 func surfaceOptions(includeActual bool) []Option {
 	options := []Option{
-		{Name: "--expected", Description: "One or more strongly expected tracked paths"},
-		{Name: "--possible", Description: "One or more additionally allowed tracked paths"},
-		{Name: "--protected", Description: "One or more forbidden tracked paths"},
+		{Name: "--expected", Description: "Strongly expected tracked paths; . selects repository-wide authorization"},
+		{Name: "--possible", Description: "Additionally allowed tracked paths; . selects repository-wide authorization"},
+		{Name: "--protected", Description: "Forbidden tracked paths or subtrees"},
 	}
 	if includeActual {
 		options = append(options, Option{Name: "--actual", Description: "Complete actual path set to classify"})

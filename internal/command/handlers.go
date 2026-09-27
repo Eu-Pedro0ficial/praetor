@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -555,7 +556,7 @@ func handleAnalysisReport(session *Session, invocation Invocation, output io.Wri
 	if err != nil {
 		return Result{}, err
 	}
-	request, _, err := parseCategorizedSurfaceArguments(invocation.Arguments[1:], false)
+	request, _, err := parseCategorizedSurfaceArguments(invocation.Arguments[1:], false, false)
 	if err != nil {
 		return Result{}, err
 	}
@@ -628,7 +629,7 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 		return Result{}, err
 	}
 	arguments := invocation.Arguments
-	if len(arguments) < 3 {
+	if len(arguments) < 2 {
 		return Result{}, errInvalidArguments
 	}
 	changeId, err := change.NewChangeId(arguments[0])
@@ -639,7 +640,7 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 	if err != nil {
 		return Result{}, err
 	}
-	scopeRequest, _, err := parseCategorizedSurfaceArguments(arguments[2:], false)
+	scopeRequest, _, err := parseCategorizedSurfaceArguments(arguments[2:], false, true)
 	if err != nil {
 		return Result{}, err
 	}
@@ -750,6 +751,7 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 	fmt.Fprintf(output, "Workspace state: %s\n", workspace.State())
 	fmt.Fprintf(output, "Base revision: %s\n", workspace.BaseRevision())
 	fmt.Fprintf(output, "Source state digest: %s\n", workspace.SourceStateDigest())
+	fmt.Fprintf(output, "Authorization mode: %s\n", currentProposal.ApprovedScope().Surface().AuthorizationMode())
 	fmt.Fprintln(output, "Isolation boundary: Git source/workspace only; not process, network, container, VM, or hostile-code isolation")
 	return Result{}, nil
 }
@@ -1328,10 +1330,10 @@ func writeProviderSelection(output io.Writer, session *Session) {
 }
 
 func parseSurfaceArguments(arguments []string) (source.ScopeRequest, []string, error) {
-	return parseCategorizedSurfaceArguments(arguments, true)
+	return parseCategorizedSurfaceArguments(arguments, true, false)
 }
 
-func parseCategorizedSurfaceArguments(arguments []string, includeActual bool) (source.ScopeRequest, []string, error) {
+func parseCategorizedSurfaceArguments(arguments []string, includeActual, defaultRepositoryWide bool) (source.ScopeRequest, []string, error) {
 	var request source.ScopeRequest
 	var actual []string
 	destinations := map[string]*[]string{
@@ -1369,8 +1371,28 @@ func parseCategorizedSurfaceArguments(arguments []string, includeActual bool) (s
 	if currentFlag != "" && len(*current) == 0 {
 		return source.ScopeRequest{}, nil, fmt.Errorf("surface option %s requires at least one path", currentFlag)
 	}
-	if len(request.Expected) == 0 {
-		return source.ScopeRequest{}, nil, fmt.Errorf("--expected requires at least one path")
+	expectedRoot := slices.Contains(request.Expected, ".")
+	possibleRoot := slices.Contains(request.Possible, ".")
+	if slices.Contains(request.Protected, ".") {
+		return source.ScopeRequest{}, nil, fmt.Errorf("--protected . would prohibit the complete repository")
+	}
+	if expectedRoot || possibleRoot {
+		if expectedRoot && possibleRoot {
+			return source.ScopeRequest{}, nil, fmt.Errorf("--expected . and --possible . are redundant; use one repository-root form")
+		}
+		if len(request.Expected)+len(request.Possible) != 1 {
+			return source.ScopeRequest{}, nil, fmt.Errorf("repository-root authorization cannot be combined with explicit expected or possible paths")
+		}
+		request.AuthorizationMode = source.AuthorizationRepositoryWide
+		request.Expected = nil
+		request.Possible = nil
+	} else if len(request.Expected) == 0 && len(request.Possible) == 0 {
+		if !defaultRepositoryWide {
+			return source.ScopeRequest{}, nil, fmt.Errorf("--expected or --possible requires at least one path")
+		}
+		request.AuthorizationMode = source.AuthorizationRepositoryWide
+	} else {
+		request.AuthorizationMode = source.AuthorizationExplicitPaths
 	}
 	if includeActual && len(actual) == 0 {
 		return source.ScopeRequest{}, nil, fmt.Errorf("--actual requires at least one path")
@@ -1430,6 +1452,7 @@ func writeSurfaceReport(
 	fmt.Fprintf(output, "Working tree: %s\n", snapshot.WorkingTreeState())
 	fmt.Fprintf(output, "Tracked paths: %d\n", len(snapshot.TrackedPaths()))
 	fmt.Fprintf(output, "Source state digest: %s\n", snapshot.SourceStateDigest())
+	fmt.Fprintf(output, "Authorization mode: %s\n", surface.AuthorizationMode())
 	fmt.Fprintf(output, "Expected: %s\n", formatRepositoryPaths(surface.ExpectedPaths()))
 	fmt.Fprintf(output, "Possible: %s\n", formatRepositoryPaths(surface.PossiblePaths()))
 	fmt.Fprintf(output, "Protected: %s\n", formatRepositoryPaths(surface.ProtectedPaths()))

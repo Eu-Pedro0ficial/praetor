@@ -18,7 +18,7 @@ required evidence, ADR or explicit decision, and human approval exist.
 |ADR-002 |Layered ports and adapters |ACCEPTED |Keep domain/core independent from external systems. |All milestones |New cross-layer dependency |Dependency and boundary review
 |ADR-003 |Provider capability routing |ACCEPTED |Route providers by capability and governance rather than hard-coded names. |M3.0 |Routing-authority change |Route and policy tests
 |ADR-004 |Change aggregate and state machine |ACCEPTED |Use Change as the primary aggregate with explicit transitions. |M0.2; M1.3 evolution |State redesign |Transition and audit tests
-|ADR-005 |Change surface control |ACCEPTED |Bound writes to an approved surface. |M0.3-M0.4; M1.2 maturity |Surface-authority change |Surface and patch evidence
+|ADR-005 |Change surface control |ACCEPTED |Bound writes to an explicit strict or repository-wide ApprovedScope with protected constraints. |M0.3-M0.4; UX4; M1.2 maturity |Surface-authority change |Surface and patch evidence
 |ADR-006 |Deterministic verification |ACCEPTED |Prefer actual tool evidence over model confidence. |M0.6; M1.5 maturity |Evidence-authority bypass |Verification evidence
 |ADR-007 |External Project Memory |ACCEPTED |Associate a separate memory repository through Project Registry. |M2.0 and M2.3 |Storage separation change |Source cleanliness and provenance
 |ADR-008 |Canonical memory representation separation |BENCHMARK REQUIRED |Keep canonical memory independent from query and AI projections; benchmark format first. |Before M2.0 persistence |Canonical representation change |Representative format benchmark and human approval

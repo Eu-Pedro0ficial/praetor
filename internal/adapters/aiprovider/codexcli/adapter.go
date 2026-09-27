@@ -394,7 +394,12 @@ func shapeImplementationRequest(request aiprovider.ExecutionRequest) string {
 	fmt.Fprintf(&prompt, "Workspace ID: %s\n", request.Workspace().WorkspaceId())
 	fmt.Fprintf(&prompt, "Base revision: %s\n", request.BaseRevision())
 	fmt.Fprintf(&prompt, "Source state digest: %s\n", request.SourceStateDigest())
-	fmt.Fprintf(&prompt, "Implementation task: %s\n\n", request.Intent())
+	fmt.Fprintf(&prompt, "Implementation task: %s\n", request.Intent())
+	fmt.Fprintf(&prompt, "Authorization mode: %s\n", surface.AuthorizationMode())
+	if surface.AuthorizationMode() == source.AuthorizationRepositoryWide {
+		prompt.WriteString("Repository scope: .\n")
+	}
+	prompt.WriteString("\n")
 	writePaths(&prompt, "Expected paths", surface.ExpectedPaths())
 	writePaths(&prompt, "Possible paths", surface.PossiblePaths())
 	writePaths(&prompt, "Protected paths", surface.ProtectedPaths())
@@ -410,7 +415,11 @@ func shapeImplementationRequest(request aiprovider.ExecutionRequest) string {
 			fmt.Fprintf(&prompt, "- %s\n", entry)
 		}
 	}
-	prompt.WriteString("\nModify only expected or possible paths. Never modify protected paths.\n")
+	if surface.AuthorizationMode() == source.AuthorizationRepositoryWide {
+		prompt.WriteString("\nYou may modify any repository-relative path inside this workspace except protected paths. Treat protected paths as forbidden subtrees.\n")
+	} else {
+		prompt.WriteString("\nModify only expected or possible paths. Treat protected paths as forbidden subtrees.\n")
+	}
 	return prompt.String()
 }
 

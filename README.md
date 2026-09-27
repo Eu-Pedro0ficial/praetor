@@ -67,6 +67,19 @@ clean it. They are also available as `isolate`, `patch`, and `discard` inside
 container, VM, or hostile-code security sandbox. Prompt repository names are
 presentation-only and do not define `ProjectId`.
 
+The recommended isolation workflow authorizes discovery across the repository
+while retaining every existing post-execution guard:
+
+    change isolate <change-id> "<intent>"
+
+Use `--protected <path>...` to forbid a tracked path or subtree. Use
+`--expected <path>...` and `--possible <path>...` when the operator needs a
+strict path allowlist. `--expected .` or `--possible .` is the explicit spelling
+of repository-wide authorization; the two root forms are equivalent and cannot
+be combined with each other or with explicit allowed paths. Git remains the
+authority for actual changed paths, and ApprovedScope remains the authority for
+accepting or rejecting the complete patch.
+
 M0.5 adds a provider-independent AI execution port and the single Core V0
 `codex-cli` adapter, which invokes an installed and authenticated OpenAI Codex
 CLI through non-interactive `codex exec`. After `change isolate`,

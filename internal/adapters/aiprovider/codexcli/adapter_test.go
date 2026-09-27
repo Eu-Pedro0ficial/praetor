@@ -51,6 +51,28 @@ func withSuccessfulPreflight(execution runnerFunction) runnerFunction {
 	}
 }
 
+func TestShapeImplementationRequestExplainsRepositoryWideAuthorization(t *testing.T) {
+	request, _ := adapterRequestFixture(t, "", false, source.ScopeRequest{
+		AuthorizationMode: source.AuthorizationRepositoryWide,
+		Protected:         []string{"go.mod"},
+	})
+	prompt := shapeImplementationRequest(request)
+	for _, expected := range []string{
+		"Authorization mode: repository-wide",
+		"Repository scope: .",
+		"Protected paths:\n- go.mod",
+		"You may modify any repository-relative path inside this workspace except protected paths.",
+		"Treat protected paths as forbidden subtrees.",
+	} {
+		if !strings.Contains(prompt, expected) {
+			t.Fatalf("repository-wide prompt lacks %q:\n%s", expected, prompt)
+		}
+	}
+	if strings.Contains(prompt, "Modify only expected or possible paths") {
+		t.Fatalf("repository-wide prompt retained strict-only instruction:\n%s", prompt)
+	}
+}
+
 func TestAdapterShapesCodexExecRequestAndNormalizesResponse(t *testing.T) {
 	request, canonicalRoot := adapterTestRequest(t, "gpt-test-1")
 	var captured processInvocation
@@ -588,7 +610,7 @@ func adapterPlanningTestRequest(t *testing.T, model string) (aiprovider.Executio
 	return adapterRequestFixture(t, model, true)
 }
 
-func adapterRequestFixture(t *testing.T, model string, planning bool) (aiprovider.ExecutionRequest, string) {
+func adapterRequestFixture(t *testing.T, model string, planning bool, scopeRequests ...source.ScopeRequest) (aiprovider.ExecutionRequest, string) {
 	t.Helper()
 	canonicalRoot := t.TempDir()
 	workspaceRoot := t.TempDir()
@@ -628,11 +650,15 @@ func adapterRequestFixture(t *testing.T, model string, planning bool) (aiprovide
 	if err != nil {
 		t.Fatalf("NewSourceSnapshot() error = %v", err)
 	}
-	analysis, err := source.AnalyzeImpact(currentChange, snapshot, source.ScopeRequest{
+	scopeRequest := source.ScopeRequest{
 		Expected:  []string{"service.go"},
 		Possible:  []string{"service_test.go"},
 		Protected: []string{"go.mod"},
-	})
+	}
+	if len(scopeRequests) > 0 {
+		scopeRequest = scopeRequests[0]
+	}
+	analysis, err := source.AnalyzeImpact(currentChange, snapshot, scopeRequest)
 	if err != nil {
 		t.Fatalf("AnalyzeImpact() error = %v", err)
 	}

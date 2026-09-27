@@ -2,6 +2,7 @@ package source
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
@@ -16,8 +17,8 @@ type ImpactAnalysis struct {
 	candidateSurface  ChangeSurface
 }
 
-// AnalyzeImpact produces a candidate surface from explicit scope input and
-// verifies every candidate path against the tracked snapshot inventory.
+// AnalyzeImpact produces a candidate surface from developer authorization
+// input and verifies explicit paths against the tracked snapshot inventory.
 func AnalyzeImpact(
 	currentChange change.Change,
 	snapshot SourceSnapshot,
@@ -37,11 +38,19 @@ func AnalyzeImpact(
 	if err != nil {
 		return ImpactAnalysis{}, err
 	}
-	for _, repositoryPath := range allSurfacePaths(candidateSurface) {
+	for _, repositoryPath := range append(candidateSurface.ExpectedPaths(), candidateSurface.PossiblePaths()...) {
 		if !snapshot.ContainsTrackedPath(repositoryPath) {
 			return ImpactAnalysis{}, fmt.Errorf(
 				"Change Surface path %q is not present in the tracked source inventory",
 				repositoryPath,
+			)
+		}
+	}
+	for _, protectedPath := range candidateSurface.ProtectedPaths() {
+		if !snapshot.ContainsTrackedPath(protectedPath) && !snapshotContainsTrackedDescendant(snapshot, protectedPath) {
+			return ImpactAnalysis{}, fmt.Errorf(
+				"protected Change Surface path %q does not match the tracked source inventory",
+				protectedPath,
 			)
 		}
 	}
@@ -83,8 +92,8 @@ type ApprovedScope struct {
 	surface           ChangeSurface
 }
 
-// EstablishApprovedScope makes the explicit candidate surface the current
-// M0.3 validation boundary.
+// EstablishApprovedScope makes the candidate surface the current M0.3
+// validation boundary.
 func EstablishApprovedScope(analysis ImpactAnalysis) (ApprovedScope, error) {
 	if analysis.changeId == "" || !analysis.projectId.IsValid() {
 		return ApprovedScope{}, fmt.Errorf("valid ImpactAnalysis is required")
@@ -133,7 +142,7 @@ func (scope ApprovedScope) SourceStateDigest() SourceStateDigest {
 	return scope.sourceStateDigest
 }
 
-// Surface returns the authorized file-level Change Surface.
+// Surface returns the authorized repository Change Surface.
 func (scope ApprovedScope) Surface() ChangeSurface {
 	return scope.surface
 }
@@ -147,10 +156,12 @@ func (scope ApprovedScope) ValidateActualSurface(actualPathValues []string) (Sur
 	return validateActualSurface(scope.surface, actualPathValues)
 }
 
-func allSurfacePaths(surface ChangeSurface) []RepositoryPath {
-	paths := make([]RepositoryPath, 0, len(surface.expected)+len(surface.possible)+len(surface.protected))
-	paths = append(paths, surface.expected...)
-	paths = append(paths, surface.possible...)
-	paths = append(paths, surface.protected...)
-	return paths
+func snapshotContainsTrackedDescendant(snapshot SourceSnapshot, directory RepositoryPath) bool {
+	prefix := string(directory) + "/"
+	for _, trackedPath := range snapshot.TrackedPaths() {
+		if strings.HasPrefix(string(trackedPath), prefix) {
+			return true
+		}
+	}
+	return false
 }

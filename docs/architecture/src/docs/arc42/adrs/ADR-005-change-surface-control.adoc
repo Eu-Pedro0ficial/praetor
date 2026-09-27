@@ -7,3 +7,33 @@
 *Decision:* Impact analysis defines expected/possible/protected surfaces; sandbox/policy compare and constrain actual writes. ADR-040 adds explainable inferred and uncertain impact while preserving `ApprovedScope` as separate write authority. Impact or RiskProfile output never expands that authority.
 
 *Consequences:* Reduces unrelated regression risk. Incorrect impact analysis can over/under constrain and needs an explicit expansion workflow.
+
+==== UX4 Repository-Wide Authorization Amendment
+
+A Change Surface has one explicit authorization mode:
+
+* `explicit-paths` keeps the existing exact expected/possible allowlist;
+* `repository-wide` authorizes any normalized repository-relative path
+  discovered during implementation, subject to protected constraints.
+
+`change isolate` selects repository-wide mode when expected and possible are
+omitted. The CLI root token `.` is an equivalent explicit selection through
+either expected or possible syntax; it is not persisted as both categories and
+does not change their meaning. Both root forms together, a root form mixed with
+an explicit allowed path, and protection of the repository root are rejected as
+ambiguous or self-contradictory.
+
+Protected constraints take precedence in both modes and cover the named tracked
+path or tracked subtree. Git-derived changed paths remain the actual-surface
+authority. Repository path normalization, ProposalWorkspace isolation,
+canonical-source guards, complete-patch fail-closed validation and cleanup are
+unchanged. Repository-wide authorization cannot name or validate a path outside
+the isolated Git worktree.
+
+Repository-wide actual paths are classified as possible because they were not
+predicted strongly enough to be expected. Explicit strict scopes retain exact
+expected/possible classification and continue to reject every other path.
+
+New ApprovedScope artifacts use kind schema v2 and persist
+`authorization_mode`. Historical v1 artifacts have no such field and are
+always rehydrated as `explicit-paths`; they are never silently widened.

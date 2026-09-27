@@ -19,12 +19,13 @@ import (
 )
 
 type durableArtifactSpec struct {
-	kind       artifact.Kind
-	role       string
-	mediaType  string
-	payload    []byte
-	createdAt  time.Time
-	allowLarge bool
+	kind              artifact.Kind
+	kindSchemaVersion uint32
+	role              string
+	mediaType         string
+	payload           []byte
+	createdAt         time.Time
+	allowLarge        bool
 }
 
 func proposalFoundationSpecs(current proposal.Proposal) ([]durableArtifactSpec, error) {
@@ -39,10 +40,11 @@ func proposalFoundationSpecs(current proposal.Proposal) ([]durableArtifactSpec, 
 		return nil, err
 	}
 	sourceSpec := durableArtifactSpec{kind: artifact.KindSourceSnapshot, role: "source-snapshot", mediaType: "application/json", payload: sourcePayload, createdAt: time.Now()}
-	scopeSpec, err := jsonArtifactSpec(artifact.KindApprovedScope, "approved-scope", map[string]any{"expected": scope.Surface().ExpectedPaths(), "possible": scope.Surface().PossiblePaths(), "protected": scope.Surface().ProtectedPaths()}, time.Now())
+	scopeSpec, err := jsonArtifactSpec(artifact.KindApprovedScope, "approved-scope", map[string]any{"authorization_mode": scope.Surface().AuthorizationMode(), "expected": scope.Surface().ExpectedPaths(), "possible": scope.Surface().PossiblePaths(), "protected": scope.Surface().ProtectedPaths()}, time.Now())
 	if err != nil {
 		return nil, err
 	}
+	scopeSpec.kindSchemaVersion = 2
 	return []durableArtifactSpec{sourceSpec, scopeSpec}, nil
 }
 
@@ -202,7 +204,11 @@ func buildDurableArtifacts(current change.Change, bindingRevision uint64, specs 
 		if createdAt.IsZero() {
 			createdAt = time.Now().UTC()
 		}
-		item, err := artifact.New(id, current.ProjectId(), current.ChangeId(), spec.kind, 1, 1, spec.mediaType, createdAt, artifact.Producer{Component: "praetor-runtime"}, spec.payload, spec.allowLarge)
+		kindSchemaVersion := spec.kindSchemaVersion
+		if kindSchemaVersion == 0 {
+			kindSchemaVersion = 1
+		}
+		item, err := artifact.New(id, current.ProjectId(), current.ChangeId(), spec.kind, 1, kindSchemaVersion, spec.mediaType, createdAt, artifact.Producer{Component: "praetor-runtime"}, spec.payload, spec.allowLarge)
 		if err != nil {
 			return nil, nil, nil, err
 		}

@@ -56,21 +56,29 @@ not read or hash untracked file contents. The digest is not repository
 identity, `ProjectId`, or evidence for move, clone, fork, mirror, or
 reassociation semantics.
 
-`ImpactAnalysis` takes the Change, SourceSnapshot and explicit developer path
-scope. It verifies every candidate against the tracked inventory; it performs
-no AI inference, AST analysis, dependency analysis or semantic code search.
+`ImpactAnalysis` takes the Change, SourceSnapshot and a developer authorization
+request. Explicit expected and possible candidates are verified against the
+tracked inventory; protected paths may name either a tracked file or a tracked
+subtree. It performs no AI inference, AST analysis, dependency analysis or
+semantic code search.
 
-`ChangeSurface` keeps exact file paths in three distinct categories:
+`ChangeSurface` has an explicit authorization mode:
 
-* `expected` — strongly expected to change;
-* `possible` — additionally allowed if needed;
-* `protected` — forbidden even if also supplied in another category.
+* `explicit-paths` — exact `expected` paths are strongly expected and exact
+  `possible` paths are additionally allowed;
+* `repository-wide` — every normalized repository-relative path is allowed as
+  a discovered `possible` change unless a protected constraint matches it.
 
-Inputs are canonicalized with deterministic precedence: `protected` over
-`expected` over `possible`. `ApprovedScope` is the explicit M0.3 file boundary
-used for validation; it is not a mature M0.7 human approval decision.
+`protected` paths are forbidden in both modes and protect both the named path
+and its descendants. Inputs are canonicalized with deterministic precedence:
+`protected` over `expected` over `possible`, followed by the repository-wide
+fallback. `ApprovedScope` is the M0.3 repository write boundary used for
+validation; it is not a mature M0.7 human approval decision.
 
-M0.3 validates exact file paths only. Symbol scope remains represented in the
+The CLI token `.` selects repository-wide mode but is not stored as an
+`expected` or `possible` path. Absolute paths, traversal and malformed paths
+remain invalid. The Git worktree and normalized repository-relative patch paths
+bound repository-wide authority. Symbol scope remains represented in the
 longer-term conceptual model below but is not claimed or enforced by the
 current runtime.
 

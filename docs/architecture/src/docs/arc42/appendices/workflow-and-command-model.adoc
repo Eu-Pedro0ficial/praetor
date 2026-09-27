@@ -11,12 +11,19 @@ mode-valid discovery. Readline remains a presentation adapter only.
 [source,text]
 ----
 status
-analysis [impact ...]
-change [new|isolate|implement|patch|discard ...]
+analysis [model|impact|report|inspect ...]
+change [new|list|show|select|artifacts|history|diagnose|recover|content|
+        isolate|implement|patch|verify|approve|reject|apply|close|discard ...]
+policy [show|list|evaluate|exception ...]
 provider [list|show|select|model ...]
-configure [project|layout ...]
-help
+configure project
+configure layout show
+configure layout sidebar [show|identity|context|provider|status] <on|off>
+configure layout color [accent|border|background|text] <color>
+configure layout reset
+help [<command> [<child> ...]]
 ?
+end
 exit
 ----
 
@@ -41,6 +48,58 @@ and contextual `?`. Successful verification records policy after the existing
 transition to `validated`; policy itself performs no transition. Positive
 approval requires a coherent retained decision, while rejection remains
 available.
+
+==== UX4 CLI Option Review
+
+The immutable registry exposes exactly four GNU-style named options, all owned
+by Change Surface commands:
+
+[cols="1,2,2,3",options="header"]
+|===
+|Option |Commands |Default/requirement |Semantics
+|`--expected <path>...`
+|`analysis impact`, `analysis report`, `change isolate`
+|Optional for isolation; analysis requires at least expected or possible
+|Strongly expected exact tracked paths. `.` selects repository-wide mode.
+|`--possible <path>...`
+|`analysis impact`, `analysis report`, `change isolate`
+|Optional for isolation; analysis requires at least expected or possible
+|Additional exact tracked paths. `.` selects repository-wide mode.
+|`--protected <path>...`
+|`analysis impact`, `analysis report`, `change isolate`
+|Optional
+|Forbidden tracked path or subtree in either authorization mode.
+|`--actual <path>...`
+|`analysis impact` only
+|Required
+|Complete caller-supplied surface for the M0.3 proof command; runtime patch
+validation obtains this set from Git instead.
+|===
+
+No other user-facing command has a named option. The positional inputs were
+reviewed as part of UX4:
+
+* `change show`, `artifacts`, `history` and `diagnose` infer the selected
+  Change when their ChangeId is omitted;
+* `change content` infers the selected Change but retains required ArtifactId;
+* `change approve` and `reject` keep rationale optional;
+* provider model omission continues to mean the provider default; explicit
+  provider/model selection cannot be inferred safely;
+* analysis intent, actual proof paths, recovery identity, policy exception
+  authority/reason, lifecycle state requests, and layout values remain
+  explicit because inference would be ambiguous or would weaken governance;
+* read-only commands and navigation have no unnecessary options.
+
+The optional leading `/` compatibility spelling is retained for existing
+scripts. Direct child invocation and contextual-mode invocation intentionally
+resolve the same registry definition, while `help` and `?` remain distinct
+full and contextual discovery actions. These equivalent entry forms add no
+authorization semantics and do not justify another alias or scope flag.
+
+UX4 removes the mandatory expected-path prediction only from `change isolate`.
+It also permits a possible-only strict surface because the domain already gives
+that category a complete deterministic meaning. No aliases or new flags were
+added.
 
 ==== M0.2 Executable Shell Proof
 
@@ -72,11 +131,14 @@ high-level analysis family:
 [source,text]
 ----
 analysis impact <change-id> <intent> \
-  --expected <path>... \
+  [--expected <path>...] \
   [--possible <path>...] \
   [--protected <path>...] \
   --actual <path>...
 ----
+
+At least one expected or possible path is required; either category may contain
+the sole token `.` to request repository-wide authorization.
 
 The shell resolves and retains the current registered project at startup. The
 command creates the process-local M0.2 Change, captures a SourceSnapshot, produces deterministic
@@ -98,7 +160,7 @@ M0.4 extends the existing `change` family:
 [source,text]
 ----
 change isolate <change-id> <intent> \
-  --expected <path>... \
+  [--expected <path>...] \
   [--possible <path>...] \
   [--protected <path>...]
 change patch
@@ -110,6 +172,14 @@ change discard
 worktree at the captured revision and advances the Change to `isolated`. Its
 random temporary path is outside canonical source and is not derived from
 `ChangeId`.
+
+With no expected or possible option, `change isolate` records
+`repository-wide` authorization rooted at `.`. The equivalent explicit forms are
+`--expected .` and `--possible .`. Using both root forms, mixing a root form
+with an explicit allowed path, or protecting `.` is rejected before Change
+creation. Supplying explicit expected and/or possible paths retains strict
+allowlist behavior. Protected paths and tracked subtrees take precedence in
+both modes.
 
 `change patch` extracts the actual Git patch and complete changed-path set. A
 surface-valid result is retained for later milestones while the Change remains

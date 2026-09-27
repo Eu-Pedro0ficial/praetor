@@ -255,6 +255,218 @@ func TestRegistryRejectsUnsafeAnalysisBeforeChangeMutation(t *testing.T) {
 	}
 }
 
+func TestRegistryRepositoryWideIsolationAllowsDiscoveryAndPreservesProtection(t *testing.T) {
+	t.Run("discovered tracked path is accepted", func(t *testing.T) {
+		repositoryRoot, dataDirectory, session, registry := prepareCommittedCommandTest(t)
+		var output bytes.Buffer
+		if _, err := registry.Dispatch(
+			session,
+			`change isolate change-repository-wide "discover the implementation surface" --protected internal/service`,
+			&output,
+		); err != nil {
+			t.Fatalf("repository-wide isolate error = %v", err)
+		}
+		if !strings.Contains(output.String(), "Authorization mode: repository-wide") {
+			t.Fatalf("isolate output = %q", output.String())
+		}
+		currentProposal, ok := session.CurrentProposal()
+		if !ok {
+			t.Fatal("repository-wide isolate did not retain ProposalWorkspace")
+		}
+		surface := currentProposal.ApprovedScope().Surface()
+		if surface.AuthorizationMode() != source.AuthorizationRepositoryWide ||
+			len(surface.ExpectedPaths()) != 0 || len(surface.PossiblePaths()) != 0 {
+			t.Fatalf("repository-wide ApprovedScope = mode %q expected %#v possible %#v", surface.AuthorizationMode(), surface.ExpectedPaths(), surface.PossiblePaths())
+		}
+		workspaceRoot := currentProposal.Workspace().Root()
+		writeCommandFile(t, workspaceRoot, "cmd/app/main.go", "package main\n\nconst Discovered = true\n")
+
+		output.Reset()
+		if _, err := registry.Dispatch(session, "change patch", &output); err != nil {
+			t.Fatalf("repository-wide patch error = %v", err)
+		}
+		if !strings.Contains(output.String(), "Surface valid: true") ||
+			!strings.Contains(output.String(), "Changed paths: cmd/app/main.go") {
+			t.Fatalf("repository-wide patch output = %q", output.String())
+		}
+		classified, ok := session.CurrentProposal()
+		if !ok {
+			t.Fatal("surface-valid repository-wide proposal was not retained")
+		}
+		patch, ok := classified.PatchArtifact()
+		if !ok || len(patch.ChangedPaths()) != 1 || patch.ChangedPaths()[0] != "cmd/app/main.go" {
+			t.Fatalf("repository-wide PatchArtifact = %#v, present=%t", patch, ok)
+		}
+		if contents, err := os.ReadFile(filepath.Join(repositoryRoot, "cmd", "app", "main.go")); err != nil ||
+			string(contents) != "package main\n" {
+			t.Fatalf("canonical source changed: %q, %v", contents, err)
+		}
+
+		events := readCommandAudit(t, dataDirectory)
+		var sawEstablished, sawValidated bool
+		for _, event := range events {
+			switch event.EventType {
+			case audit.EventChangeSurfaceEstablished:
+				if event.Metadata["authorization_mode"] == "repository-wide" && event.Metadata["repository_scope"] == "." {
+					sawEstablished = true
+				}
+			case audit.EventPatchSurfaceValidated:
+				if event.Metadata["approved_authorization_mode"] == "repository-wide" {
+					sawValidated = true
+				}
+			}
+		}
+		if !sawEstablished || !sawValidated {
+			t.Fatalf("repository-wide audit metadata missing: %#v", events)
+		}
+
+		output.Reset()
+		if _, err := registry.Dispatch(session, "change artifacts change-repository-wide", &output); err != nil {
+			t.Fatalf("list repository-wide artifacts: %v", err)
+		}
+		var approvedScopeArtifact string
+		for _, line := range strings.Split(output.String(), "\n") {
+			if strings.HasPrefix(line, "binding role=approved-scope artifact=") {
+				fields := strings.Fields(line)
+				approvedScopeArtifact = strings.TrimPrefix(fields[2], "artifact=")
+			}
+		}
+		if approvedScopeArtifact == "" {
+			t.Fatalf("approved-scope binding missing: %q", output.String())
+		}
+		output.Reset()
+		if _, err := registry.Dispatch(session, "change content "+approvedScopeArtifact+" change-repository-wide", &output); err != nil {
+			t.Fatalf("inspect repository-wide ApprovedScope: %v", err)
+		}
+		if !strings.Contains(output.String(), "authorization_mode") || !strings.Contains(output.String(), "repository-wide") {
+			t.Fatalf("ApprovedScope payload lacks repository-wide mode: %q", output.String())
+		}
+
+		assertGovernedCommandRepositoryClean(t, repositoryRoot)
+		if _, err := registry.Dispatch(session, "change discard", io.Discard); err != nil {
+			t.Fatalf("discard repository-wide proposal: %v", err)
+		}
+	})
+
+	t.Run("protected subtree is rejected", func(t *testing.T) {
+		repositoryRoot, _, session, registry := prepareCommittedCommandTest(t)
+		if _, err := registry.Dispatch(
+			session,
+			`change isolate change-repository-protected "protect a repository subtree" --protected internal/service`,
+			io.Discard,
+		); err != nil {
+			t.Fatalf("repository-wide isolate error = %v", err)
+		}
+		currentProposal, _ := session.CurrentProposal()
+		workspaceRoot := currentProposal.Workspace().Root()
+		writeCommandFile(t, workspaceRoot, "internal/service/service.go", "package service\n\nconst Forbidden = true\n")
+
+		var output bytes.Buffer
+		_, err := registry.Dispatch(session, "change patch", &output)
+		if err == nil || !strings.Contains(err.Error(), "protected path") {
+			t.Fatalf("protected subtree patch error = %v", err)
+		}
+		if !strings.Contains(output.String(), "- protected: internal/service/service.go") {
+			t.Fatalf("protected subtree patch output = %q", output.String())
+		}
+		if _, ok := session.CurrentProposal(); ok {
+			t.Fatal("protected repository-wide proposal remained active")
+		}
+		if _, err := os.Stat(workspaceRoot); !os.IsNotExist(err) {
+			t.Fatalf("protected workspace remains: %v", err)
+		}
+		assertGovernedCommandRepositoryClean(t, repositoryRoot)
+	})
+}
+
+func TestRegistryRepositoryRootSyntaxAndScopeConflicts(t *testing.T) {
+	t.Run("explicit root form", func(t *testing.T) {
+		_, _, session, registry := prepareCommittedCommandTest(t)
+		if _, err := registry.Dispatch(session, `change isolate change-root-form "use explicit root" --possible .`, io.Discard); err != nil {
+			t.Fatalf("--possible . isolate error = %v", err)
+		}
+		currentProposal, ok := session.CurrentProposal()
+		if !ok || currentProposal.ApprovedScope().Surface().AuthorizationMode() != source.AuthorizationRepositoryWide {
+			t.Fatalf("--possible . did not select repository-wide scope: %#v, %t", currentProposal, ok)
+		}
+		if _, err := registry.Dispatch(session, "change discard", io.Discard); err != nil {
+			t.Fatalf("discard explicit-root proposal: %v", err)
+		}
+	})
+
+	tests := []struct {
+		name      string
+		options   string
+		wantError string
+	}{
+		{name: "both root forms", options: "--expected . --possible .", wantError: "redundant"},
+		{name: "root mixed with explicit path", options: "--expected . --possible README.md", wantError: "cannot be combined"},
+		{name: "protected repository root", options: "--protected .", wantError: "complete repository"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, session, registry := prepareCommittedCommandTest(t)
+			_, err := registry.Dispatch(session, `change isolate change-scope-conflict "reject ambiguous scope" `+test.options, io.Discard)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("scope conflict error = %v, want containing %q", err, test.wantError)
+			}
+			if _, ok := session.CurrentChange(); ok {
+				t.Fatal("scope conflict created a Change")
+			}
+		})
+	}
+}
+
+func TestRegistryRepositoryWideIsolationHelpAndErrors(t *testing.T) {
+	_, _, session, registry := prepareCommittedCommandTest(t)
+	var output bytes.Buffer
+	if _, err := registry.Dispatch(session, "help change isolate", &output); err != nil {
+		t.Fatalf("help change isolate error = %v", err)
+	}
+	for _, expected := range []string{
+		"Create an isolated proposal with repository-wide authorization by default",
+		"isolate <change-id> <intent> [--expected <path>...] [--possible <path>...] [--protected <path>...]",
+	} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("change isolate help lacks %q: %q", expected, output.String())
+		}
+	}
+
+	tests := []struct {
+		name      string
+		command   string
+		wantError string
+	}{
+		{name: "missing intent", command: "change isolate change-missing-intent", wantError: "usage: isolate <change-id> <intent>"},
+		{name: "unknown option", command: `change isolate change-unknown-option "intent" --unknown README.md`, wantError: `unknown surface option "--unknown"`},
+		{name: "empty expected", command: `change isolate change-empty-expected "intent" --expected`, wantError: "requires at least one path"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := registry.Dispatch(session, test.command, io.Discard)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("error = %v, want containing %q", err, test.wantError)
+			}
+		})
+	}
+}
+
+func TestRegistryAnalysisAcceptsPossibleOnlyStrictScope(t *testing.T) {
+	_, _, session, registry := prepareCommittedCommandTest(t)
+	var output bytes.Buffer
+	if _, err := registry.Dispatch(
+		session,
+		`analysis impact change-possible-only "possible-only strict scope" --possible README.md --actual README.md`,
+		&output,
+	); err != nil {
+		t.Fatalf("possible-only analysis error = %v", err)
+	}
+	if !strings.Contains(output.String(), "Authorization mode: explicit-paths") ||
+		!strings.Contains(output.String(), "Possible changes: README.md") {
+		t.Fatalf("possible-only analysis output = %q", output.String())
+	}
+}
+
 func TestRegistryM04RetainsSurfaceValidPatchWithoutAdvancingValidation(t *testing.T) {
 	repositoryRoot, dataDirectory, session, registry := prepareCommittedCommandTest(t)
 	baseRevision := strings.TrimSpace(string(runCommandGitOutput(t, repositoryRoot, "rev-parse", "HEAD")))

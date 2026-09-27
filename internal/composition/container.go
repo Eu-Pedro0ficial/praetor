@@ -885,6 +885,7 @@ func proposalLifecycleMetadata(event proposal.LifecycleEvent) (map[string]any, e
 		}
 		surface := event.ApprovedScope.Surface()
 		metadata["allowed"] = event.Validation.Allowed()
+		metadata["approved_authorization_mode"] = string(surface.AuthorizationMode())
 		metadata["approved_expected_paths"] = repositoryPathStrings(surface.ExpectedPaths())
 		metadata["approved_possible_paths"] = repositoryPathStrings(surface.PossiblePaths())
 		metadata["approved_protected_paths"] = repositoryPathStrings(surface.ProtectedPaths())
@@ -1160,12 +1161,17 @@ func repositoryIntelligenceMetadata(event intelligence.LifecycleEvent) (map[stri
 }
 
 func surfaceMetadata(digest source.SourceStateDigest, surface source.ChangeSurface) map[string]any {
-	return map[string]any{
+	metadata := map[string]any{
 		"source_state_digest": string(digest),
+		"authorization_mode":  string(surface.AuthorizationMode()),
 		"expected_paths":      repositoryPathStrings(surface.ExpectedPaths()),
 		"possible_paths":      repositoryPathStrings(surface.PossiblePaths()),
 		"protected_paths":     repositoryPathStrings(surface.ProtectedPaths()),
 	}
+	if surface.AuthorizationMode() == source.AuthorizationRepositoryWide {
+		metadata["repository_scope"] = "."
+	}
+	return metadata
 }
 
 func repositoryPathStrings(paths []source.RepositoryPath) []string {

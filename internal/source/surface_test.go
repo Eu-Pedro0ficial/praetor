@@ -75,6 +75,71 @@ func TestNewChangeSurfaceRequiresAuthorizedPath(t *testing.T) {
 	}
 }
 
+func TestRepositoryWideSurfaceAuthorizesDiscoveryAndProtectsSubtrees(t *testing.T) {
+	currentChange := newSourceTestChange(t, sourceProjectId)
+	snapshot := newSourceTestSnapshot(t, sourceProjectId)
+	analysis, err := source.AnalyzeImpact(currentChange, snapshot, source.ScopeRequest{
+		AuthorizationMode: source.AuthorizationRepositoryWide,
+		Protected:         []string{"internal/service"},
+	})
+	if err != nil {
+		t.Fatalf("AnalyzeImpact() repository-wide error = %v", err)
+	}
+	approvedScope, err := source.EstablishApprovedScope(analysis)
+	if err != nil {
+		t.Fatalf("EstablishApprovedScope() error = %v", err)
+	}
+	surface := approvedScope.Surface()
+	if surface.AuthorizationMode() != source.AuthorizationRepositoryWide ||
+		len(surface.ExpectedPaths()) != 0 || len(surface.PossiblePaths()) != 0 {
+		t.Fatalf("repository-wide surface = mode %q expected %#v possible %#v", surface.AuthorizationMode(), surface.ExpectedPaths(), surface.PossiblePaths())
+	}
+
+	allowed, err := approvedScope.ValidateActualSurface([]string{"README.md"})
+	if err != nil || !allowed.Allowed() {
+		t.Fatalf("repository-wide discovered path = %#v, error = %v", allowed, err)
+	}
+	assertRepositoryPaths(t, allowed.PossibleChanges(), []source.RepositoryPath{"README.md"})
+
+	rejected, err := approvedScope.ValidateActualSurface([]string{"internal/service/service.go"})
+	var validationError *source.SurfaceValidationError
+	if !errors.As(err, &validationError) || rejected.Allowed() {
+		t.Fatalf("protected subtree validation = %#v, error = %v", rejected, err)
+	}
+	if violations := rejected.Violations(); len(violations) != 1 ||
+		violations[0].Kind() != source.ViolationProtected ||
+		violations[0].Path() != "internal/service/service.go" {
+		t.Fatalf("protected subtree violations = %#v", violations)
+	}
+
+	outside, err := approvedScope.ValidateActualSurface([]string{"/tmp/outside-repository.go", "../outside-repository.go"})
+	if err == nil || outside.Allowed() {
+		t.Fatalf("repository boundary validation = %#v, error = %v", outside, err)
+	}
+	if violations := outside.Violations(); len(violations) != 2 ||
+		violations[0].Kind() != source.ViolationInvalid ||
+		violations[1].Kind() != source.ViolationInvalid {
+		t.Fatalf("repository boundary violations = %#v", violations)
+	}
+}
+
+func TestChangeSurfaceAuthorizationModesRemainUnambiguous(t *testing.T) {
+	if _, err := source.NewChangeSurface(source.ScopeRequest{}); err == nil {
+		t.Fatal("zero-value historical explicit scope became repository-wide")
+	}
+	if _, err := source.NewChangeSurface(source.ScopeRequest{
+		AuthorizationMode: source.AuthorizationRepositoryWide,
+		Expected:          []string{"README.md"},
+	}); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+		t.Fatalf("mixed repository-wide and explicit scope error = %v", err)
+	}
+	if _, err := source.NewChangeSurface(source.ScopeRequest{
+		AuthorizationMode: "unknown",
+	}); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("unknown authorization mode error = %v", err)
+	}
+}
+
 func TestImpactAnalysisLinksChangeSnapshotAndTrackedCandidateSurface(t *testing.T) {
 	currentChange := newSourceTestChange(t, sourceProjectId)
 	snapshot := newSourceTestSnapshot(t, sourceProjectId)

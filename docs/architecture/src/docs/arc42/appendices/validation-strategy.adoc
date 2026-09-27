@@ -77,10 +77,13 @@ so spelling variations cannot bypass a protected path.
 
 Validation applies the following precedence:
 
-. a protected actual path is a violation;
+. an actual path matching a protected path or protected subtree is a violation;
 . an expected actual path is accepted and classified as expected;
 . a possible actual path is accepted and classified as possible;
-. any other normalized path is an unexpected-path violation;
+. in `repository-wide` mode, any other valid repository-relative path is
+  accepted and classified as possible;
+. in `explicit-paths` mode, any other normalized path is an unexpected-path
+  violation;
 . malformed actual input is an invalid-path violation.
 
 Duplicate normalized actual paths are classified once. If any actual path is
@@ -98,11 +101,12 @@ patch relative to the approved base revision. Modified, added and deleted
 files participate in the same comparison. Rename detection is disabled so the
 underlying delete/add paths remain explicit.
 
-The existing M0.3 precedence and typed violations remain authoritative. Every
-changed path must be expected or possible. A single protected, unexpected or
-invalid path rejects the complete patch without dropping allowed files or
-hunks. An empty proposal is also rejected. A successful result is named
-`surface-valid` and stays at the Change's `isolated` stage; it does not claim
+The existing M0.3 precedence and typed violations remain authoritative. In
+strict mode every changed path must be expected or possible; in repository-wide
+mode every valid repository-relative changed path is possible unless protected.
+A single protected, unexpected or invalid path rejects the complete patch
+without dropping allowed files or hunks. An empty proposal is also rejected.
+A successful result is named `surface-valid` and stays at the Change's `isolated` stage; it does not claim
 M0.6 deterministic verification or M0.7 human approval.
 
 Canonical inspection surrounds workspace creation, the narrow controlled
