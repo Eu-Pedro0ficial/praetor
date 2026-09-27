@@ -41,6 +41,7 @@
 |R-036 |Excluded untracked input is interpreted as no impact |Incomplete blast radius and false confidence |Include sorted untracked status-name evidence in the comparable fingerprint and emit explicit KnowledgeGaps for excluded content
 |R-037 |Advisory impact or risk silently expands source authority |Unauthorized writes or governance bypass |Keep ApprovedScope separate under ADR-005/ADR-040 and test that analysis cannot grant write authority
 |R-038 |M1.2 history context becomes premature regression prediction |Opaque or misleading DiffRisk authority |Bound history to provenance/ownership/co-change context; retain regression prediction and learned outcomes in M4.2
+|R-039 |Provider context grows invisibly or repository-wide authority is mistaken for eager materialization |Unexpected provider cost, latency, or irrelevant context |Account exact serialized components before invocation, bound each materialized source, audit omissions, and let the provider inspect the isolated ProposalWorkspace
 |===
 
 === Known Architectural Debt at Baseline

@@ -91,6 +91,17 @@ selection without recompilation. Omitting a model uses the provider default.
 Manual selection is not routing, and M0.5 provides no fallback or
 multi-provider execution.
 
+ApprovedScope is write authority, not a request-materialization instruction.
+Repository-wide authorization does not serialize the tracked repository into
+the provider prompt. The implementation request carries compact identity,
+workspace, intent, authorization, governance, and current intent-matched
+ImpactReport guidance; Codex inspects source through the isolated
+ProposalWorkspace. Before invocation, the adapter accounts exact serialized
+bytes and characters plus bounded item/omission counts by logical component.
+Provider lifecycle audit events retain only these numeric diagnostics and
+correlate them with provider-reported token usage after completion; prompt
+content and raw provider streams are not persisted.
+
 Codex CLI authentication remains owned by Codex CLI. Praetor does not persist
 provider credentials. This path retains Git source/workspace isolation only;
 it is not process, host-filesystem, credential, network, container, VM, or

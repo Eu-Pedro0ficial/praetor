@@ -103,6 +103,10 @@ The M0.5 implementation extends the retained M0.4 proposal flow:
 . `change implement` creates a Praetor-owned execution-attempt identity and a
   provider-independent request linked to the Change, ApprovedScope, workspace,
   base revision, and source-state digest;
+. the selected adapter serializes and accounts the exact provider request by
+  fixed logical component before any provider lifecycle event or process
+  invocation; an invalid or over-budget governance-critical request fails
+  closed without invoking the provider;
 . the canonical-source guard verifies the source boundary, then `codex-cli`
   performs bounded local version/capability preflight and runs non-interactive
   `codex exec` with the ProposalWorkspace as its process and Codex working
@@ -116,10 +120,22 @@ The M0.5 implementation extends the retained M0.4 proposal flow:
   drifted attempt fails without deterministic-validation or approval claims.
 
 Provider start/completion/failure and the resulting patch events share the
-Praetor attempt identity. Failed attempts record normalized failure and
-Git-observed partial changed paths when available, never raw provider output.
-The command cleans its process-owned failed proposal; canonical source remains
-untouched and external drift is not repaired.
+Praetor attempt identity. Every provider lifecycle event carries bounded
+request-context accounting; completion also carries the provider's
+authoritative input, cached-input, output, and reasoning token counts when
+available. Bytes and characters are local serialization measurements and are
+never presented as token estimates. Failed attempts record normalized failure
+and Git-observed partial changed paths when available, never raw provider
+output. The command cleans its process-owned failed proposal; canonical source
+remains untouched and external drift is not repaired.
+
+For implementation requests, intent is limited to 32 KiB. Explicit serialized
+scope is limited to 4,096 paths and 256 KiB. The complete provider request is
+limited to 512 KiB. Advisory impact context retains at most 64 entries and 16
+KiB, with at most 1,000 bytes per projected line; omitted-entry counts and
+truncation are explicit. Authorization and governance are never silently
+truncated. Repository-wide scope sends the root authority marker and protected
+paths, not the repository inventory or source bodies.
 
 `provider list`, `provider show`, `provider select`, and `provider model`
 expose only explicit session selection. There is no automatic provider

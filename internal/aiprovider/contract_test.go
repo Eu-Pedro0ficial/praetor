@@ -406,6 +406,9 @@ func newRegistryProvider(t *testing.T, identifier string) *registryProvider {
 func (provider *registryProvider) Descriptor() aiprovider.ProviderDescriptor {
 	return provider.descriptor
 }
+func (*registryProvider) AccountRequest(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error) {
+	return aiprovider.NewRequestContextAccounting(nil)
+}
 func (*registryProvider) Execute(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
 	return aiprovider.ProviderResponse{}, errors.New("not used")
 }

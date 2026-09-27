@@ -56,19 +56,21 @@ func TestShapeImplementationRequestExplainsRepositoryWideAuthorization(t *testin
 		AuthorizationMode: source.AuthorizationRepositoryWide,
 		Protected:         []string{"go.mod"},
 	})
-	prompt := shapeImplementationRequest(request)
+	prompt, _, err := serializeImplementationRequest(request)
+	if err != nil {
+		t.Fatalf("serializeImplementationRequest() error = %v", err)
+	}
 	for _, expected := range []string{
-		"Authorization mode: repository-wide",
+		"Mode: repository-wide",
 		"Repository scope: .",
 		"Protected paths:\n- go.mod",
-		"You may modify any repository-relative path inside this workspace except protected paths.",
-		"Treat protected paths as forbidden subtrees.",
+		"Write constraint: any repository-relative path is authorized except protected paths and their descendants.",
 	} {
 		if !strings.Contains(prompt, expected) {
 			t.Fatalf("repository-wide prompt lacks %q:\n%s", expected, prompt)
 		}
 	}
-	if strings.Contains(prompt, "Modify only expected or possible paths") {
+	if strings.Contains(prompt, "only expected or possible paths are authorized") {
 		t.Fatalf("repository-wide prompt retained strict-only instruction:\n%s", prompt)
 	}
 }
@@ -128,13 +130,14 @@ func TestAdapterShapesCodexExecRequestAndNormalizesResponse(t *testing.T) {
 		t.Fatalf("process directory = %q, want ProposalWorkspace %q", captured.directory, request.Workspace().Root())
 	}
 	for _, expected := range []string{
-		"Implementation task: Change Greeting() to return hello-praetor.",
+		"TASK INTENT\nChange Greeting() to return hello-praetor.",
 		"Expected paths:\n- service.go",
 		"Possible paths:\n- service_test.go",
 		"Protected paths:\n- go.mod",
-		"Bounded implementation context (advisory; it does not expand the approved write surface):",
+		"ADVISORY IMPACT CONTEXT",
+		"Advisory only; it does not authorize writes.",
 		"impact=EXPECTED kind=file location=service.go basis=manifest confidence=HIGH",
-		"isolated ProposalWorkspace, never canonical source",
+		"Inspect the isolated ProposalWorkspace at the current working directory.",
 	} {
 		if !strings.Contains(captured.standardInput, expected) {
 			t.Fatalf("shaped request lacks %q:\n%s", expected, captured.standardInput)
@@ -602,6 +605,184 @@ func (port *adapterPatchPort) Extract(proposal.ProposalWorkspace) (proposal.Extr
 	return port.extracted, nil
 }
 
+func TestImplementationRequestAccountingMatchesSerializedComponents(t *testing.T) {
+	request, _ := adapterTestRequest(t, "")
+	prompt, accounting, err := serializeImplementationRequest(request)
+	if err != nil {
+		t.Fatalf("serializeImplementationRequest() error = %v", err)
+	}
+	t.Logf("strict implementation request: bytes=%d characters=%d", accounting.TotalBytes(), accounting.TotalCharacters())
+	if accounting.TotalBytes() != len(prompt) ||
+		accounting.TotalCharacters() != len([]rune(prompt)) ||
+		len(accounting.Components()) != aiprovider.MaximumRequestContextComponents {
+		t.Fatalf("request accounting = bytes:%d/%d chars:%d/%d components:%d",
+			accounting.TotalBytes(), len(prompt),
+			accounting.TotalCharacters(), len([]rune(prompt)),
+			len(accounting.Components()))
+	}
+	componentBytes := 0
+	componentCharacters := 0
+	for _, component := range accounting.Components() {
+		t.Logf("component=%s bytes=%d characters=%d items=%d omitted=%d truncated=%t", component.Kind(), component.ByteCount(), component.CharacterCount(), component.ItemCount(), component.OmittedItems(), component.Truncated())
+		componentBytes += component.ByteCount()
+		componentCharacters += component.CharacterCount()
+	}
+	if componentBytes != len(prompt) || componentCharacters != len([]rune(prompt)) {
+		t.Fatalf("component totals = bytes:%d chars:%d", componentBytes, componentCharacters)
+	}
+	intent := string(request.Intent())
+	if strings.Count(prompt, intent) != 1 {
+		t.Fatalf("intent occurrence count = %d in prompt:\n%s", strings.Count(prompt, intent), prompt)
+	}
+	if strings.Count(prompt, "service_test.go") != 1 || strings.Count(prompt, "go.mod") != 1 {
+		t.Fatalf("possible/protected scope was duplicated:\n%s", prompt)
+	}
+	if strings.Contains(prompt, "func Greeting()") {
+		t.Fatalf("source body was eagerly serialized:\n%s", prompt)
+	}
+	sourceComponent := requestContextComponent(t, accounting, aiprovider.RequestContextSource)
+	if sourceComponent.ByteCount() != 0 || sourceComponent.ItemCount() != 0 {
+		t.Fatalf("source context accounting = %#v", sourceComponent)
+	}
+	adapter := NewDefault()
+	adapterAccounting, err := adapter.AccountRequest(request)
+	if err != nil {
+		t.Fatalf("AccountRequest() error = %v", err)
+	}
+	if adapterAccounting.TotalBytes() != accounting.TotalBytes() {
+		t.Fatalf("adapter accounting bytes = %d, serialized = %d", adapterAccounting.TotalBytes(), accounting.TotalBytes())
+	}
+}
+
+func TestRepositoryWideLargeInventoryIsAuthorizationNotMaterialization(t *testing.T) {
+	trackedPaths := []string{"go.mod", "service.go", "service_test.go"}
+	for index := 0; index < 10_000; index++ {
+		trackedPaths = append(trackedPaths, "bulk/large-repository-file-"+strconv.Itoa(index)+".go")
+	}
+	slices.Sort(trackedPaths)
+	scope := source.ScopeRequest{
+		AuthorizationMode: source.AuthorizationRepositoryWide,
+		Protected:         []string{"go.mod"},
+	}
+	request, _ := adapterRequestFixtureWithOptions(t, "", adapterFixtureOptions{
+		scope:        &scope,
+		trackedPaths: trackedPaths,
+	})
+	prompt, accounting, err := serializeImplementationRequest(request)
+	if err != nil {
+		t.Fatalf("serializeImplementationRequest() error = %v", err)
+	}
+	t.Logf("repository-wide implementation request with %d tracked paths: bytes=%d characters=%d", len(trackedPaths), accounting.TotalBytes(), accounting.TotalCharacters())
+	if strings.Contains(prompt, "bulk/large-repository-file-9999.go") ||
+		strings.Contains(prompt, "func Greeting()") {
+		t.Fatalf("large repository inventory or source body was materialized:\n%s", prompt)
+	}
+	if !strings.Contains(prompt, "Mode: repository-wide") ||
+		!strings.Contains(prompt, "Repository scope: .") ||
+		!strings.Contains(prompt, "Protected paths:\n- go.mod") {
+		t.Fatalf("repository-wide authority is incomplete:\n%s", prompt)
+	}
+	if accounting.TotalBytes() > 2<<10 {
+		t.Fatalf("repository-wide request unexpectedly scales with inventory: %d bytes", accounting.TotalBytes())
+	}
+	repositoryComponent := requestContextComponent(t, accounting, aiprovider.RequestContextRepository)
+	if repositoryComponent.ItemCount() != 1 {
+		t.Fatalf("repository context item count = %d", repositoryComponent.ItemCount())
+	}
+	sourceComponent := requestContextComponent(t, accounting, aiprovider.RequestContextSource)
+	if sourceComponent.ByteCount() != 0 || sourceComponent.ItemCount() != 0 {
+		t.Fatalf("large source context accounting = %#v", sourceComponent)
+	}
+}
+
+func TestImplementationRequestReportsAdvisoryContextOmission(t *testing.T) {
+	implementationContext, err := aiprovider.NewImplementationContextWithDiagnostics(
+		"current ImpactReport",
+		[]string{"impact=EXPECTED kind=file location=service.go"},
+		100,
+		true,
+	)
+	if err != nil {
+		t.Fatalf("NewImplementationContextWithDiagnostics() error = %v", err)
+	}
+	request, _ := adapterRequestFixtureWithOptions(t, "", adapterFixtureOptions{
+		implementationContext: &implementationContext,
+	})
+	prompt, accounting, err := serializeImplementationRequest(request)
+	if err != nil {
+		t.Fatalf("serializeImplementationRequest() error = %v", err)
+	}
+	if !strings.Contains(prompt, "omitted by context budget: 99 entries") ||
+		!strings.Contains(prompt, "inspect the ProposalWorkspace for additional evidence") {
+		t.Fatalf("advisory omission is not actionable:\n%s", prompt)
+	}
+	impact := requestContextComponent(t, accounting, aiprovider.RequestContextImpactReport)
+	if impact.ItemCount() != 1 || impact.OmittedItems() != 99 || !impact.Truncated() || !accounting.Truncated() {
+		t.Fatalf("impact accounting = %#v, aggregate truncated = %t", impact, accounting.Truncated())
+	}
+}
+
+func TestImplementationRequestFailsClosedAtGovernanceCriticalBudgets(t *testing.T) {
+	t.Run("intent", func(t *testing.T) {
+		request, _ := adapterRequestFixtureWithOptions(t, "", adapterFixtureOptions{
+			intent: strings.Repeat("i", maximumImplementationIntentBytes+1),
+		})
+		if _, _, err := serializeImplementationRequest(request); err == nil ||
+			!strings.Contains(err.Error(), "intent exceeds") {
+			t.Fatalf("intent budget error = %v", err)
+		}
+	})
+
+	t.Run("approved scope path count", func(t *testing.T) {
+		paths := make([]string, maximumImplementationScopePaths+1)
+		for index := range paths {
+			paths[index] = "scope/path-" + strconv.Itoa(index) + ".go"
+		}
+		slices.Sort(paths)
+		scope := source.ScopeRequest{Expected: paths}
+		request, _ := adapterRequestFixtureWithOptions(t, "", adapterFixtureOptions{
+			scope:        &scope,
+			trackedPaths: paths,
+		})
+		if _, _, err := serializeImplementationRequest(request); err == nil ||
+			!strings.Contains(err.Error(), "approved scope exceeds") {
+			t.Fatalf("scope budget error = %v", err)
+		}
+	})
+
+	t.Run("approved scope bytes", func(t *testing.T) {
+		paths := make([]string, 1000)
+		for index := range paths {
+			paths[index] = "scope/" + strings.Repeat("long-segment-", 25) + strconv.Itoa(index) + ".go"
+		}
+		slices.Sort(paths)
+		scope := source.ScopeRequest{Expected: paths}
+		request, _ := adapterRequestFixtureWithOptions(t, "", adapterFixtureOptions{
+			scope:        &scope,
+			trackedPaths: paths,
+		})
+		if _, _, err := serializeImplementationRequest(request); err == nil ||
+			!strings.Contains(err.Error(), "scope serialization exceeds") {
+			t.Fatalf("scope byte budget error = %v", err)
+		}
+	})
+}
+
+func requestContextComponent(
+	t *testing.T,
+	accounting aiprovider.RequestContextAccounting,
+	kind aiprovider.RequestContextComponentKind,
+) aiprovider.RequestContextComponent {
+	t.Helper()
+	for _, component := range accounting.Components() {
+		if component.Kind() == kind {
+			return component
+		}
+	}
+	t.Fatalf("request context component %q is absent", kind)
+	return aiprovider.RequestContextComponent{}
+}
+
 func adapterTestRequest(t *testing.T, model string) (aiprovider.ExecutionRequest, string) {
 	return adapterRequestFixture(t, model, false)
 }
@@ -610,7 +791,24 @@ func adapterPlanningTestRequest(t *testing.T, model string) (aiprovider.Executio
 	return adapterRequestFixture(t, model, true)
 }
 
+type adapterFixtureOptions struct {
+	planning              bool
+	scope                 *source.ScopeRequest
+	trackedPaths          []string
+	intent                string
+	implementationContext *aiprovider.ImplementationContext
+}
+
 func adapterRequestFixture(t *testing.T, model string, planning bool, scopeRequests ...source.ScopeRequest) (aiprovider.ExecutionRequest, string) {
+	t.Helper()
+	options := adapterFixtureOptions{planning: planning}
+	if len(scopeRequests) > 0 {
+		options.scope = &scopeRequests[0]
+	}
+	return adapterRequestFixtureWithOptions(t, model, options)
+}
+
+func adapterRequestFixtureWithOptions(t *testing.T, model string, options adapterFixtureOptions) (aiprovider.ExecutionRequest, string) {
 	t.Helper()
 	canonicalRoot := t.TempDir()
 	workspaceRoot := t.TempDir()
@@ -627,10 +825,14 @@ func adapterRequestFixture(t *testing.T, model string, planning bool, scopeReque
 		}
 	}
 	createdAt := time.Date(2026, time.September, 1, 12, 0, 0, 0, time.UTC)
+	intent := options.intent
+	if intent == "" {
+		intent = "Change Greeting() to return hello-praetor."
+	}
 	currentChange, err := change.New(
 		"change-codex-adapter",
 		adapterTestProjectId,
-		"Change Greeting() to return hello-praetor.",
+		change.ChangeIntent(intent),
 		createdAt,
 	)
 	if err != nil {
@@ -639,12 +841,16 @@ func adapterRequestFixture(t *testing.T, model string, planning bool, scopeReque
 	if _, err := currentChange.Transition(change.StatePlanned, createdAt.Add(time.Second), "planned"); err != nil {
 		t.Fatalf("planned transition error = %v", err)
 	}
+	trackedPaths := options.trackedPaths
+	if trackedPaths == nil {
+		trackedPaths = []string{"go.mod", "service.go", "service_test.go"}
+	}
 	snapshot, err := source.NewSourceSnapshot(
 		adapterTestProjectId,
 		canonicalRoot,
 		"0123456789abcdef0123456789abcdef01234567",
 		source.WorkingTreeClean,
-		[]string{"go.mod", "service.go", "service_test.go"},
+		trackedPaths,
 		source.SourceStateDigest("sha256:"+strings.Repeat("b", 64)),
 	)
 	if err != nil {
@@ -655,8 +861,8 @@ func adapterRequestFixture(t *testing.T, model string, planning bool, scopeReque
 		Possible:  []string{"service_test.go"},
 		Protected: []string{"go.mod"},
 	}
-	if len(scopeRequests) > 0 {
-		scopeRequest = scopeRequests[0]
+	if options.scope != nil {
+		scopeRequest = *options.scope
 	}
 	analysis, err := source.AnalyzeImpact(currentChange, snapshot, scopeRequest)
 	if err != nil {
@@ -690,7 +896,7 @@ func adapterRequestFixture(t *testing.T, model string, planning bool, scopeReque
 		t.Fatalf("NewSelection() error = %v", err)
 	}
 	var request aiprovider.ExecutionRequest
-	if planning {
+	if options.planning {
 		changedContents := "package service\n\nfunc Greeting() string { return \"hello-praetor\" }\n"
 		if err := os.WriteFile(filepath.Join(workspaceRoot, "service.go"), []byte(changedContents), 0o600); err != nil {
 			t.Fatalf("write planned fixture change: %v", err)
@@ -721,6 +927,9 @@ func adapterRequestFixture(t *testing.T, model string, planning bool, scopeReque
 		)
 		if contextError != nil {
 			t.Fatalf("NewImplementationContext() error = %v", contextError)
+		}
+		if options.implementationContext != nil {
+			implementationContext = *options.implementationContext
 		}
 		request, err = aiprovider.NewExecutionRequestWithContext(
 			attemptId,

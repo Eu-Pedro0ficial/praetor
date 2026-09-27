@@ -167,6 +167,9 @@ func TestOrdinaryAttachDoesNotImplicitlyMigrateLegacyAudit(t *testing.T) {
 func (provider *compositionProvider) Descriptor() aiprovider.ProviderDescriptor {
 	return provider.descriptor
 }
+func (*compositionProvider) AccountRequest(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error) {
+	return aiprovider.NewRequestContextAccounting(nil)
+}
 
 func (*compositionProvider) Execute(
 	context.Context,
@@ -559,5 +562,48 @@ func TestNewProposalServiceRequiresM04Dependencies(t *testing.T) {
 				t.Fatalf("NewProposalService() accepted missing %s", test.name)
 			}
 		})
+	}
+}
+
+func TestProviderRequestContextAuditMetadataIsBoundedAndContentFree(t *testing.T) {
+	kinds := []aiprovider.RequestContextComponentKind{
+		aiprovider.RequestContextGovernance,
+		aiprovider.RequestContextIntent,
+		aiprovider.RequestContextApprovedScope,
+		aiprovider.RequestContextImpactReport,
+		aiprovider.RequestContextSource,
+		aiprovider.RequestContextRepository,
+		aiprovider.RequestContextProviderInstructions,
+		aiprovider.RequestContextOther,
+	}
+	components := make([]aiprovider.RequestContextComponent, 0, len(kinds))
+	for _, kind := range kinds {
+		component, err := aiprovider.MeasureRequestContextComponent(
+			kind,
+			"SECRET PROMPT CONTENT "+strings.Repeat("x", 1024),
+			3,
+			2,
+			true,
+		)
+		if err != nil {
+			t.Fatalf("MeasureRequestContextComponent() error = %v", err)
+		}
+		components = append(components, component)
+	}
+	accounting, err := aiprovider.NewRequestContextAccounting(components)
+	if err != nil {
+		t.Fatalf("NewRequestContextAccounting() error = %v", err)
+	}
+	metadata := providerRequestContextMetadata(accounting)
+	serialized := fmt.Sprintf("%v", metadata)
+	if strings.Contains(serialized, "SECRET PROMPT CONTENT") || strings.Contains(serialized, strings.Repeat("x", 64)) {
+		t.Fatalf("request accounting retained measured content: %s", serialized)
+	}
+	if len(serialized) > 4096 {
+		t.Fatalf("request accounting metadata is unbounded: %d bytes", len(serialized))
+	}
+	metadataComponents, ok := metadata["components"].([]map[string]any)
+	if !ok || len(metadataComponents) != aiprovider.MaximumRequestContextComponents {
+		t.Fatalf("request accounting components = %#v", metadata["components"])
 	}
 }

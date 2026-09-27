@@ -223,6 +223,21 @@ output, and normalizes failures.
 No Codex CLI process types, flags, or event structures cross the port. A
 future OpenAI HTTP/SDK adapter is a separate implementation of the same port.
 
+The provider-independent port also accounts for each exact serialized request
+before execution. `RequestContextAccounting` retains only bytes, Unicode
+characters, included-item counts, omitted-item counts, and truncation state for
+a fixed eight-category vocabulary: provider instructions, intent, approved
+scope, governance, advisory impact, source context, repository context, and
+other. The concrete adapter owns serialization and measurement; neither Codex
+prompt text nor provider-specific request types enter domain semantics.
+
+ApprovedScope remains mutation authority. It does not direct eager context
+materialization. The implementation adapter sends compact scope constraints
+and workspace identity while source content and the tracked inventory remain
+available for inspection in the isolated ProposalWorkspace. Only a current
+ImpactReport whose intent matches the Change may contribute bounded advisory
+navigation entries. This advisory projection never expands ApprovedScope.
+
 ==== Sandbox Runtime
 
 Provides isolated execution for agent-proposed source changes. Preferred strategies include isolated worktrees and/or containers. The main working tree is not the default direct write target.

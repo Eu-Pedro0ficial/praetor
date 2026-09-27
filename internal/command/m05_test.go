@@ -27,6 +27,7 @@ const commandExecutionAttemptId aiprovider.ExecutionAttemptId = "attempt-abcdef0
 
 type commandFakeProvider struct {
 	descriptor aiprovider.ProviderDescriptor
+	account    func(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error)
 	execute    func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error)
 }
 
@@ -55,6 +56,12 @@ func newCommandFakeProvider(
 
 func (provider *commandFakeProvider) Descriptor() aiprovider.ProviderDescriptor {
 	return provider.descriptor
+}
+func (provider *commandFakeProvider) AccountRequest(request aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error) {
+	if provider.account != nil {
+		return provider.account(request)
+	}
+	return aiprovider.NewRequestContextAccounting(nil)
 }
 
 func (provider *commandFakeProvider) Execute(
@@ -557,6 +564,9 @@ func assertCommandProviderAudit(
 				t.Fatalf("provider completion metadata = %#v", event.Metadata)
 			}
 		}
+		if _, exists := event.Metadata["request_context"]; !exists {
+			t.Fatalf("provider audit lacks request context accounting: %#v", event.Metadata)
+		}
 		metadata := fmt.Sprintf("%v", event.Metadata)
 		if strings.Contains(metadata, "secret-provider-stderr") ||
 			strings.Contains(metadata, "package service") {
@@ -601,6 +611,23 @@ func TestChangeImplementCompletedProviderWithoutPatchRetainsDiagnosticsThenClean
 			startedAt.Add(time.Second),
 		)
 	})
+	component, err := aiprovider.MeasureRequestContextComponent(
+		aiprovider.RequestContextIntent,
+		"TASK INTENT\nChange Greeting without guessing.\n",
+		1,
+		0,
+		false,
+	)
+	if err != nil {
+		t.Fatalf("MeasureRequestContextComponent() error = %v", err)
+	}
+	requestAccounting, err := aiprovider.NewRequestContextAccounting([]aiprovider.RequestContextComponent{component})
+	if err != nil {
+		t.Fatalf("NewRequestContextAccounting() error = %v", err)
+	}
+	provider.account = func(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error) {
+		return requestAccounting, nil
+	}
 	repositoryRoot, dataDirectory, session, registry := prepareM05CommandTest(t, provider)
 	if _, err := registry.Dispatch(
 		session,
@@ -619,6 +646,16 @@ func TestChangeImplementCompletedProviderWithoutPatchRetainsDiagnosticsThenClean
 	for _, expected := range []string{
 		"Provider execution completed; implementation did not succeed.",
 		"Execution attempt: " + string(commandExecutionAttemptId),
+		fmt.Sprintf(
+			"Request context: total_bytes=%d total_characters=%d total_items=1 truncated=false",
+			requestAccounting.TotalBytes(),
+			requestAccounting.TotalCharacters(),
+		),
+		fmt.Sprintf(
+			"Request context component: intent bytes=%d characters=%d items=1 omitted=0 truncated=false",
+			component.ByteCount(),
+			component.CharacterCount(),
+		),
 		"Provider: codex-cli",
 		"Model: provider default",
 		"Provider outcome: completed (protocol completion only)",
@@ -669,6 +706,20 @@ func TestChangeImplementCompletedProviderWithoutPatchRetainsDiagnosticsThenClean
 		completed.Metadata["summary_present"] != true ||
 		completed.Metadata["summary_truncated"] != true {
 		t.Fatalf("completed provider diagnostics = %#v", completed.Metadata)
+	}
+	requestContext, ok := completed.Metadata["request_context"].(map[string]any)
+	if !ok ||
+		fmt.Sprint(requestContext["total_bytes"]) != fmt.Sprint(requestAccounting.TotalBytes()) ||
+		fmt.Sprint(requestContext["total_items"]) != "1" {
+		t.Fatalf("durable request context diagnostics = %#v", completed.Metadata["request_context"])
+	}
+	usage, ok := completed.Metadata["usage"].(map[string]any)
+	if !ok ||
+		fmt.Sprint(usage["input_tokens"]) != "120" ||
+		fmt.Sprint(usage["cached_input_tokens"]) != "20" ||
+		fmt.Sprint(usage["output_tokens"]) != "35" ||
+		fmt.Sprint(usage["reasoning_output_tokens"]) != "8" {
+		t.Fatalf("durable provider usage diagnostics = %#v", completed.Metadata["usage"])
 	}
 	rejected := events[rejectedIndex]
 	if rejected.Metadata["reason"] != emptyPatch.Error() ||

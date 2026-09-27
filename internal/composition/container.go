@@ -924,6 +924,7 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 	if modelIdentifier, selected := selection.ModelIdentifier(); selected {
 		metadata["model"] = string(modelIdentifier)
 	}
+	metadata["request_context"] = providerRequestContextMetadata(event.RequestContext)
 
 	switch event.EventType {
 	case execution.EventProviderExecutionStarted,
@@ -979,6 +980,29 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 		return nil, fmt.Errorf("unknown provider lifecycle event type %q", event.EventType)
 	}
 	return metadata, nil
+}
+
+func providerRequestContextMetadata(
+	accounting aiprovider.RequestContextAccounting,
+) map[string]any {
+	components := make([]map[string]any, 0, len(accounting.Components()))
+	for _, component := range accounting.Components() {
+		components = append(components, map[string]any{
+			"component":     string(component.Kind()),
+			"bytes":         component.ByteCount(),
+			"characters":    component.CharacterCount(),
+			"items":         component.ItemCount(),
+			"omitted_items": component.OmittedItems(),
+			"truncated":     component.Truncated(),
+		})
+	}
+	return map[string]any{
+		"total_bytes":      accounting.TotalBytes(),
+		"total_characters": accounting.TotalCharacters(),
+		"total_items":      accounting.TotalItems(),
+		"truncated":        accounting.Truncated(),
+		"components":       components,
+	}
 }
 
 func verificationLifecycleMetadata(event verification.LifecycleEvent) (map[string]any, error) {

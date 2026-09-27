@@ -836,6 +836,8 @@ func handleChangeImplement(session *Session, invocation Invocation, output io.Wr
 		fmt.Fprintln(output, "Model: provider default")
 	}
 	fmt.Fprintf(output, "Provider outcome: %s\n", response.Outcome())
+	writeRequestContextDiagnostics(output, executionResult.RequestContext())
+	writeProviderUsage(output, response)
 	if response.ExternalExecutionId() != "" {
 		fmt.Fprintf(output, "External execution ID: %s\n", response.ExternalExecutionId())
 	}

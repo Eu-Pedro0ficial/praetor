@@ -69,11 +69,16 @@ func (service *Service) PlanVerification(
 	if err != nil {
 		return result, err
 	}
+	requestContext, err := selectedProvider.AccountRequest(request)
+	if err != nil {
+		return result, fmt.Errorf("account verification planning request context: %w", err)
+	}
 	if err := service.recorder(LifecycleEvent{
-		EventType:  EventVerificationPlanningStarted,
-		Request:    request,
-		Descriptor: descriptor,
-		OccurredAt: service.clock().UTC(),
+		EventType:      EventVerificationPlanningStarted,
+		Request:        request,
+		Descriptor:     descriptor,
+		RequestContext: requestContext,
+		OccurredAt:     service.clock().UTC(),
 	}); err != nil {
 		return result, fmt.Errorf("record verification planning start: %w", err)
 	}
@@ -90,6 +95,7 @@ func (service *Service) PlanVerification(
 			FailureKind:           aiprovider.FailureKindOf(primary),
 			ExternalExecutionId:   externalExecutionId,
 			WorkspaceMayBeChanged: providerInvoked,
+			RequestContext:        requestContext,
 			OccurredAt:            service.clock().UTC(),
 		})
 		if recordError != nil {
@@ -146,12 +152,13 @@ func (service *Service) PlanVerification(
 		return fail(err, response, true)
 	}
 	if err := service.recorder(LifecycleEvent{
-		EventType:   EventVerificationPlanningCompleted,
-		Request:     request,
-		Descriptor:  descriptor,
-		Response:    response,
-		HasResponse: true,
-		OccurredAt:  service.clock().UTC(),
+		EventType:      EventVerificationPlanningCompleted,
+		Request:        request,
+		Descriptor:     descriptor,
+		Response:       response,
+		HasResponse:    true,
+		RequestContext: requestContext,
+		OccurredAt:     service.clock().UTC(),
 	}); err != nil {
 		return result, fmt.Errorf("record verification planning completion: %w", err)
 	}

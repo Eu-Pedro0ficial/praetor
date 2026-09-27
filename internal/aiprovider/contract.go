@@ -272,11 +272,24 @@ const (
 // implementation provider navigate the isolated checkout and never expands
 // ApprovedScope or authorizes a write.
 type ImplementationContext struct {
-	source  string
-	entries []string
+	source           string
+	entries          []string
+	availableEntries int
+	truncated        bool
 }
 
 func NewImplementationContext(source string, entries []string) (ImplementationContext, error) {
+	return NewImplementationContextWithDiagnostics(source, entries, len(entries), false)
+}
+
+// NewImplementationContextWithDiagnostics retains bounded advisory entries and
+// explicit omission metadata without retaining excluded content.
+func NewImplementationContextWithDiagnostics(
+	source string,
+	entries []string,
+	availableEntries int,
+	truncated bool,
+) (ImplementationContext, error) {
 	source = strings.TrimSpace(source)
 	if len(source) > 512 || strings.ContainsAny(source, "\x00\r\n") {
 		return ImplementationContext{}, fmt.Errorf("implementation context source is invalid")
@@ -297,13 +310,29 @@ func NewImplementationContext(source string, entries []string) (ImplementationCo
 		}
 		copyEntries = append(copyEntries, entry)
 	}
-	return ImplementationContext{source: source, entries: copyEntries}, nil
+	if availableEntries < len(copyEntries) {
+		return ImplementationContext{}, fmt.Errorf("implementation context available entry count is invalid")
+	}
+	if truncated != (availableEntries > len(copyEntries)) {
+		return ImplementationContext{}, fmt.Errorf("implementation context truncation metadata is inconsistent")
+	}
+	return ImplementationContext{
+		source:           source,
+		entries:          copyEntries,
+		availableEntries: availableEntries,
+		truncated:        truncated,
+	}, nil
 }
 
 func (context ImplementationContext) Source() string { return context.source }
 func (context ImplementationContext) Entries() []string {
 	return append([]string(nil), context.entries...)
 }
+func (context ImplementationContext) AvailableEntries() int { return context.availableEntries }
+func (context ImplementationContext) OmittedEntries() int {
+	return context.availableEntries - len(context.entries)
+}
+func (context ImplementationContext) Truncated() bool { return context.truncated }
 func (context ImplementationContext) Available() bool {
 	return context.source != "" || len(context.entries) > 0
 }
@@ -687,6 +716,7 @@ func (response ProviderResponse) CompletedAt() time.Time        { return respons
 // Provider is the provider-independent AI Provider Port.
 type Provider interface {
 	Descriptor() ProviderDescriptor
+	AccountRequest(ExecutionRequest) (RequestContextAccounting, error)
 	Execute(context.Context, ExecutionRequest) (ProviderResponse, error)
 }
 

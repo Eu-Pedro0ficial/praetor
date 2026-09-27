@@ -8,8 +8,10 @@ import (
 	"unicode/utf8"
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
+	"github.com/Eu-Pedro0ficial/praetor/internal/artifact"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/execution"
+	"github.com/Eu-Pedro0ficial/praetor/internal/impact"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/repositorymodel"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
@@ -22,7 +24,19 @@ func (session *Session) implementationContext(current change.Change) aiprovider.
 		return aiprovider.ImplementationContext{}
 	}
 	report, artifactId, freshness, err := session.impactAnalysis.Inspect(current.ChangeId(), "")
-	if err != nil || freshness != repositorymodel.FreshnessCurrent || report.Intent != string(current.Intent()) {
+	if err != nil {
+		return aiprovider.ImplementationContext{}
+	}
+	return implementationContextFromImpactReport(current, report, artifactId, freshness)
+}
+
+func implementationContextFromImpactReport(
+	current change.Change,
+	report impact.Report,
+	artifactId artifact.ArtifactId,
+	freshness repositorymodel.Freshness,
+) aiprovider.ImplementationContext {
+	if freshness != repositorymodel.FreshnessCurrent || report.Intent != string(current.Intent()) {
 		return aiprovider.ImplementationContext{}
 	}
 	sourceDescription := fmt.Sprintf(
@@ -32,47 +46,46 @@ func (session *Session) implementationContext(current change.Change) aiprovider.
 		report.RepositoryModelId,
 		report.Risk.Overall,
 	)
-	entries := make([]string, 0, aiprovider.MaximumImplementationContextEntries)
-	totalBytes := len(sourceDescription)
-	appendEntry := func(entry string) bool {
-		if len(entries) == aiprovider.MaximumImplementationContextEntries ||
-			totalBytes+len(entry) > aiprovider.MaximumImplementationContextBytes {
-			return false
-		}
-		entries = append(entries, entry)
-		totalBytes += len(entry)
-		return true
-	}
+	candidates := make([]string, 0, len(report.Items)+len(report.KnowledgeGaps))
 	for _, item := range report.Items {
 		location := item.Element.Path
 		if location == "" {
 			location = item.Element.Name
 		}
-		if !appendEntry(boundedContextLine(fmt.Sprintf(
+		candidates = append(candidates, boundedContextLine(fmt.Sprintf(
 			"impact=%s kind=%s location=%s basis=%s confidence=%s",
 			item.Classification,
 			item.Element.Kind,
 			location,
 			item.Basis,
 			item.Confidence,
-		))) {
-			break
-		}
+		)))
 	}
 	for _, gap := range report.KnowledgeGaps {
-		if len(entries) == aiprovider.MaximumImplementationContextEntries {
-			break
-		}
-		if !appendEntry(boundedContextLine(fmt.Sprintf(
+		candidates = append(candidates, boundedContextLine(fmt.Sprintf(
 			"knowledge-gap category=%s scope=%s consequence=%s",
 			gap.Category,
 			gap.Scope,
 			gap.Consequence,
-		))) {
-			break
-		}
+		)))
 	}
-	context, err := aiprovider.NewImplementationContext(sourceDescription, entries)
+
+	entries := make([]string, 0, min(len(candidates), aiprovider.MaximumImplementationContextEntries))
+	totalBytes := len(sourceDescription)
+	for _, entry := range candidates {
+		if len(entries) == aiprovider.MaximumImplementationContextEntries ||
+			totalBytes+len(entry) > aiprovider.MaximumImplementationContextBytes {
+			continue
+		}
+		entries = append(entries, entry)
+		totalBytes += len(entry)
+	}
+	context, err := aiprovider.NewImplementationContextWithDiagnostics(
+		sourceDescription,
+		entries,
+		len(candidates),
+		len(entries) < len(candidates),
+	)
 	if err != nil {
 		return aiprovider.ImplementationContext{}
 	}
@@ -118,20 +131,30 @@ func boundedDiagnosticReason(value string) string {
 	return value
 }
 
-func writeNoPatchDiagnostics(output io.Writer, result execution.Result, rejectionReason string) {
-	response, completed := result.Response()
-	if !completed {
-		return
+func writeRequestContextDiagnostics(output io.Writer, accounting aiprovider.RequestContextAccounting) {
+	fmt.Fprintf(
+		output,
+		"Request context: total_bytes=%d total_characters=%d total_items=%d truncated=%t\n",
+		accounting.TotalBytes(),
+		accounting.TotalCharacters(),
+		accounting.TotalItems(),
+		accounting.Truncated(),
+	)
+	for _, component := range accounting.Components() {
+		fmt.Fprintf(
+			output,
+			"Request context component: %s bytes=%d characters=%d items=%d omitted=%d truncated=%t\n",
+			component.Kind(),
+			component.ByteCount(),
+			component.CharacterCount(),
+			component.ItemCount(),
+			component.OmittedItems(),
+			component.Truncated(),
+		)
 	}
-	fmt.Fprintln(output, "Provider execution completed; implementation did not succeed.")
-	fmt.Fprintf(output, "Execution attempt: %s\n", result.AttemptId())
-	fmt.Fprintf(output, "Provider: %s\n", response.Selection().ProviderIdentifier())
-	if model, selected := response.Selection().ModelIdentifier(); selected {
-		fmt.Fprintf(output, "Model: %s\n", model)
-	} else {
-		fmt.Fprintln(output, "Model: provider default")
-	}
-	fmt.Fprintf(output, "Provider outcome: %s (protocol completion only)\n", response.Outcome())
+}
+
+func writeProviderUsage(output io.Writer, response aiprovider.ProviderResponse) {
 	if response.Usage().Available() {
 		fmt.Fprintf(
 			output,
@@ -141,9 +164,27 @@ func writeNoPatchDiagnostics(output io.Writer, result execution.Result, rejectio
 			response.Usage().OutputTokens(),
 			response.Usage().ReasoningOutputTokens(),
 		)
-	} else {
-		fmt.Fprintln(output, "Token usage: unavailable")
+		return
 	}
+	fmt.Fprintln(output, "Token usage: unavailable")
+}
+
+func writeNoPatchDiagnostics(output io.Writer, result execution.Result, rejectionReason string) {
+	response, completed := result.Response()
+	if !completed {
+		return
+	}
+	fmt.Fprintln(output, "Provider execution completed; implementation did not succeed.")
+	fmt.Fprintf(output, "Execution attempt: %s\n", result.AttemptId())
+	writeRequestContextDiagnostics(output, result.RequestContext())
+	fmt.Fprintf(output, "Provider: %s\n", response.Selection().ProviderIdentifier())
+	if model, selected := response.Selection().ModelIdentifier(); selected {
+		fmt.Fprintf(output, "Model: %s\n", model)
+	} else {
+		fmt.Fprintln(output, "Model: provider default")
+	}
+	fmt.Fprintf(output, "Provider outcome: %s (protocol completion only)\n", response.Outcome())
+	writeProviderUsage(output, response)
 	if response.Summary() != "" {
 		fmt.Fprintf(output, "Provider summary (bounded, untrusted, truncated=%t): %s\n", response.SummaryTruncated(), response.Summary())
 	} else {

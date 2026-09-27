@@ -28,6 +28,7 @@ const executionTestAttemptId aiprovider.ExecutionAttemptId = "attempt-0123456789
 
 type fakeProvider struct {
 	descriptor aiprovider.ProviderDescriptor
+	account    func(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error)
 	execute    func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error)
 }
 
@@ -52,6 +53,12 @@ func newFakeProvider(t *testing.T, execute func(context.Context, aiprovider.Exec
 }
 
 func (provider *fakeProvider) Descriptor() aiprovider.ProviderDescriptor { return provider.descriptor }
+func (provider *fakeProvider) AccountRequest(request aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error) {
+	if provider.account != nil {
+		return provider.account(request)
+	}
+	return aiprovider.NewRequestContextAccounting(nil)
+}
 func (provider *fakeProvider) Execute(ctx context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
 	return provider.execute(ctx, request)
 }
@@ -178,6 +185,86 @@ func TestImplementationPipelineUsesExistingPatchAndSurfaceLifecycle(t *testing.T
 			assertPatchEventsLinkedToAttempt(t, *fixture.proposalEvents, test.wantPaths)
 		})
 	}
+}
+
+func TestProviderRequestAccountingPropagatesThroughResultAndLifecycle(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	provider := newFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		if err := os.WriteFile(
+			filepath.Join(request.Workspace().Root(), "service.go"),
+			[]byte("package service\n\nconst Accounted = true\n"),
+			0o600,
+		); err != nil {
+			return aiprovider.ProviderResponse{}, err
+		}
+		return successfulProviderResponse(t, request, "thread-accounted"), nil
+	})
+	component, err := aiprovider.MeasureRequestContextComponent(
+		aiprovider.RequestContextIntent,
+		"TASK INTENT\naccount this request\n",
+		1,
+		0,
+		false,
+	)
+	if err != nil {
+		t.Fatalf("MeasureRequestContextComponent() error = %v", err)
+	}
+	wantAccounting, err := aiprovider.NewRequestContextAccounting([]aiprovider.RequestContextComponent{component})
+	if err != nil {
+		t.Fatalf("NewRequestContextAccounting() error = %v", err)
+	}
+	provider.account = func(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error) {
+		return wantAccounting, nil
+	}
+	service, lifecycleEvents := prepareExecutionService(t, fixture.proposalService, provider)
+	selection, _ := aiprovider.NewSelection("test-provider", "")
+
+	result, err := service.Implement(context.Background(), fixture.currentChange, fixture.currentProposal, selection)
+	if err != nil {
+		t.Fatalf("Implement() error = %v", err)
+	}
+	if result.RequestContext().TotalBytes() != wantAccounting.TotalBytes() {
+		t.Fatalf("result request accounting = %#v", result.RequestContext())
+	}
+	if len(*lifecycleEvents) != 2 {
+		t.Fatalf("lifecycle event count = %d", len(*lifecycleEvents))
+	}
+	for _, event := range *lifecycleEvents {
+		if event.RequestContext.TotalBytes() != wantAccounting.TotalBytes() ||
+			len(event.RequestContext.Components()) != 1 {
+			t.Fatalf("event request accounting = %#v", event.RequestContext)
+		}
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
+}
+
+func TestProviderRequestAccountingFailurePreventsInvocation(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	providerInvoked := false
+	provider := newFakeProvider(t, func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		providerInvoked = true
+		return aiprovider.ProviderResponse{}, errors.New("provider must not run")
+	})
+	provider.account = func(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error) {
+		return aiprovider.RequestContextAccounting{}, errors.New("request exceeds governed budget")
+	}
+	service, lifecycleEvents := prepareExecutionService(t, fixture.proposalService, provider)
+	selection, _ := aiprovider.NewSelection("test-provider", "")
+
+	result, err := service.Implement(context.Background(), fixture.currentChange, fixture.currentProposal, selection)
+	if err == nil || !strings.Contains(err.Error(), "request exceeds governed budget") {
+		t.Fatalf("Implement() accounting error = %v", err)
+	}
+	if providerInvoked {
+		t.Fatal("provider ran after request accounting failed")
+	}
+	if len(*lifecycleEvents) != 0 {
+		t.Fatalf("provider lifecycle began before request accounting succeeded: %#v", *lifecycleEvents)
+	}
+	if result.Proposal().Workspace().State() != proposal.WorkspaceActive {
+		t.Fatalf("proposal state = %q", result.Proposal().Workspace().State())
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
 }
 
 func TestProviderFailureAfterPartialMutationIsAuditedWithoutFalseSuccess(t *testing.T) {

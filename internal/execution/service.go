@@ -42,6 +42,7 @@ type LifecycleEvent struct {
 	ProviderDiagnostic    string
 	ChangedPaths          []string
 	WorkspaceMayBeChanged bool
+	RequestContext        aiprovider.RequestContextAccounting
 	OccurredAt            time.Time
 }
 
@@ -53,6 +54,7 @@ type Result struct {
 	proposal          proposal.Proposal
 	validation        source.SurfaceValidationResult
 	providerCompleted bool
+	requestContext    aiprovider.RequestContextAccounting
 }
 
 func (result Result) AttemptId() aiprovider.ExecutionAttemptId { return result.attemptId }
@@ -61,6 +63,9 @@ func (result Result) Response() (aiprovider.ProviderResponse, bool) {
 }
 func (result Result) Proposal() proposal.Proposal                { return result.proposal }
 func (result Result) Validation() source.SurfaceValidationResult { return result.validation }
+func (result Result) RequestContext() aiprovider.RequestContextAccounting {
+	return result.requestContext
+}
 
 // Service composes exact manual provider selection with guarded workspace
 // execution. It contains no routing, fallback, or provider ranking.
@@ -152,11 +157,17 @@ func (service *Service) ImplementWithContext(
 		return result, err
 	}
 	result.attemptId = attemptId
+	requestContext, err := selectedProvider.AccountRequest(request)
+	if err != nil {
+		return result, fmt.Errorf("account provider request context: %w", err)
+	}
+	result.requestContext = requestContext
 	if err := service.recorder(LifecycleEvent{
-		EventType:  EventProviderExecutionStarted,
-		Request:    request,
-		Descriptor: descriptor,
-		OccurredAt: service.clock().UTC(),
+		EventType:      EventProviderExecutionStarted,
+		Request:        request,
+		Descriptor:     descriptor,
+		RequestContext: requestContext,
+		OccurredAt:     service.clock().UTC(),
 	}); err != nil {
 		return result, fmt.Errorf("record provider execution start: %w", err)
 	}
@@ -197,6 +208,7 @@ func (service *Service) ImplementWithContext(
 			ProviderDiagnostic:    providerDiagnostic,
 			ChangedPaths:          changedPaths,
 			WorkspaceMayBeChanged: providerInvoked,
+			RequestContext:        requestContext,
 			OccurredAt:            service.clock().UTC(),
 		})
 		if recordError != nil {
@@ -208,12 +220,13 @@ func (service *Service) ImplementWithContext(
 	result.response = response
 	result.providerCompleted = true
 	if err := service.recorder(LifecycleEvent{
-		EventType:   EventProviderExecutionCompleted,
-		Request:     request,
-		Descriptor:  descriptor,
-		Response:    response,
-		HasResponse: true,
-		OccurredAt:  service.clock().UTC(),
+		EventType:      EventProviderExecutionCompleted,
+		Request:        request,
+		Descriptor:     descriptor,
+		Response:       response,
+		HasResponse:    true,
+		RequestContext: requestContext,
+		OccurredAt:     service.clock().UTC(),
 	}); err != nil {
 		return result, fmt.Errorf("record provider execution completion: %w", err)
 	}

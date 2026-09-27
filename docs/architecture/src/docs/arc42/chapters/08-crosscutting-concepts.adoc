@@ -84,6 +84,24 @@ authority. Risk is advisory. `LOW < MODERATE < HIGH`, while `INDETERMINATE` is
 an unordered epistemic result with no automatic approval, rejection, or policy
 effect.
 
+=== Provider Context Materialization
+
+Change authorization and provider context materialization are separate.
+ApprovedScope answers where a complete Git-derived patch may write.
+Materialization answers which bounded information is serialized for an
+individual provider request. Repository-wide authorization therefore remains a
+compact capability and does not cause whole-repository prompt expansion.
+
+The implementation request retains information the provider cannot safely
+reconstruct from source: Change intent, workspace/source identity, write
+authority, protected paths, governance, and bounded current advisory impact.
+It omits eager source bodies, the complete SourceSnapshot inventory, and the
+full RepositoryModel because the provider can inspect the isolated
+ProposalWorkspace. Exact adapter-side component accounting is appended to
+provider lifecycle audit metadata without persisting request content. Provider
+usage remains a separate authoritative report because bytes and tokens are
+different measures.
+
 === Memory Architecture
 
 ==== Scopes
