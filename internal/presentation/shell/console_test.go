@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -162,4 +163,80 @@ func assertRenderedWidth(t *testing.T, rendered string, width int) {
 			t.Fatalf("line %d width = %d, want %d: %q", index, got, width, line)
 		}
 	}
+}
+
+func TestInteractiveHistoryWrapsLongOutputWithoutDataLoss(t *testing.T) {
+	history := newConsoleHistory()
+	history.lines = nil
+	value := "  column-a | column-b | supercalifragilisticexpialidocious | segredo-世界-e\u0301"
+	history.appendOutput(value)
+
+	rows := history.visible(100, 12)
+	if len(rows) < 4 {
+		t.Fatalf("wrapped rows = %#v", rows)
+	}
+	var reconstructed strings.Builder
+	for _, row := range rows {
+		if width := displayWidth(row.text); width > 12 {
+			t.Fatalf("wrapped row width = %d: %q", width, row.text)
+		}
+		if strings.Contains(row.text, "…") {
+			t.Fatalf("wrapped output was truncated: %#v", rows)
+		}
+		reconstructed.WriteString(row.text)
+	}
+	if got, want := reconstructed.String(), "  "+sanitizeTerminalText(value); got != want {
+		t.Fatalf("reconstructed output = %q, want %q", got, want)
+	}
+}
+
+func TestInteractiveHistoryReflowsOnResizeAndRemainsScrollable(t *testing.T) {
+	history := newConsoleHistory()
+	history.lines = nil
+	for index := 0; index < 10; index++ {
+		history.appendOutput(strings.Repeat(string(rune('a'+index)), 24))
+	}
+
+	narrow := history.visible(100, 8)
+	wide := history.visible(100, 24)
+	if len(narrow) <= len(wide) {
+		t.Fatalf("narrow rows = %d, wide rows = %d", len(narrow), len(wide))
+	}
+
+	latest := history.visible(4, 8)
+	history.scrollOlder(4, 8)
+	older := history.visible(4, 8)
+	if history.scrollOffset == 0 {
+		t.Fatal("PageUp did not move through wrapped display rows")
+	}
+	if fmt.Sprint(latest) == fmt.Sprint(older) {
+		t.Fatalf("PageUp retained the same wrapped viewport: %#v", latest)
+	}
+	history.scrollNewer(4, 8)
+	if history.scrollOffset != 0 {
+		t.Fatalf("PageDown scroll offset = %d, want 0", history.scrollOffset)
+	}
+}
+
+func TestFullScreenRendererMakesLongHelpAndErrorsVerticallyReachable(t *testing.T) {
+	_, _, session, _ := prepareShellTest(t)
+	dimensions := terminalDimensions{Width: 32, Height: 50}
+	renderer := newConsoleRenderer(session, func() terminalDimensions { return dimensions }, false)
+	renderer.setFullScreen(true)
+	renderer.history.lines = nil
+	renderer.AppendOutput("usage: change diagnose --reason=" + strings.Repeat("x", 70))
+	renderer.AppendOutput("praetor: " + strings.Repeat("erro-世界-", 10))
+
+	rendered := renderer.Render()
+	if count := strings.Count(rendered, "…"); count > 1 {
+		t.Fatalf("interactive body output was horizontally truncated:\n%s", rendered)
+	}
+	assertRenderedWidth(t, rendered, dimensions.Width)
+
+	dimensions.Width = 48
+	resized := renderer.Render()
+	if count := strings.Count(resized, "…"); count > 1 {
+		t.Fatalf("resized body output was horizontally truncated:\n%s", resized)
+	}
+	assertRenderedWidth(t, resized, dimensions.Width)
 }

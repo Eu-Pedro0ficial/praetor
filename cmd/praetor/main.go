@@ -10,10 +10,27 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/shell"
 )
 
+type startupOptions struct {
+	debug bool
+	help  bool
+}
+
+type debugConfiguration struct {
+	option   shell.Option
+	recorder shell.InteractionRecorder
+	path     string
+}
+
 func run(arguments []string) (runError error) {
-	if len(arguments) != 0 {
-		return errors.New("praetor starts an interactive shell; use plain hierarchical commands inside the session")
+	options, err := parseStartupOptions(arguments)
+	if err != nil {
+		return err
 	}
+	if options.help {
+		_, err = fmt.Fprint(os.Stdout, startupUsage())
+		return err
+	}
+
 	container := composition.New()
 	session, err := container.NewInteractiveSession(".")
 	if err != nil {
@@ -22,12 +39,34 @@ func run(arguments []string) (runError error) {
 	defer func() {
 		runError = errors.Join(runError, session.Close())
 	}()
-	registry, err := command.DefaultRegistry()
+
+	debugConfig, err := configureDebug(options, session)
 	if err != nil {
 		return err
 	}
-	interactiveShell, err := shell.New(registry, session, os.Stdout)
+	if debugConfig.path != "" {
+		if _, err := fmt.Fprintf(os.Stdout, "Development debug transcript: %s\n", debugConfig.path); err != nil {
+			_ = debugConfig.recorder.Close(err)
+			return err
+		}
+	}
+
+	registry, err := command.DefaultRegistry()
 	if err != nil {
+		if debugConfig.recorder != nil {
+			_ = debugConfig.recorder.Close(err)
+		}
+		return err
+	}
+	var shellOptions []shell.Option
+	if debugConfig.option != nil {
+		shellOptions = append(shellOptions, debugConfig.option)
+	}
+	interactiveShell, err := shell.New(registry, session, os.Stdout, shellOptions...)
+	if err != nil {
+		if debugConfig.recorder != nil {
+			_ = debugConfig.recorder.Close(err)
+		}
 		return err
 	}
 	return interactiveShell.Run()
@@ -35,7 +74,7 @@ func run(arguments []string) (runError error) {
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "praetor: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "praetor: %v\n", err)
 		os.Exit(1)
 	}
 }

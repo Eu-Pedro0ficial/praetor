@@ -51,6 +51,15 @@ service persists layout and a bounded color vocabulary through the explicit
 composition root; neither preferences nor terminal state enter the domain or
 application model.
 
+Interactive history retains logical rows and reflows them by Unicode grapheme
+display width for the current viewport. Vertical viewport navigation therefore
+reaches long output after narrow rendering or resize; redirected output bypasses
+interactive reflow. A build-tagged development transcript adapter may observe
+the shell command/logical-output boundary. It persists bounded, sanitized
+diagnostics under XDG STATE and is absent from ordinary/release executable
+composition; command handlers, application services, provider adapters, and
+domain code do not depend on it.
+
 ==== Workflow Engine
 
 The Workflow Engine is the orchestration authority. It evaluates the current Change state, exact bound WorkflowSnapshot, policies, approvals and generated artifacts to determine which operations are allowed. M1.1 retains the original embedded Core V0 YAML bytes, identity, version, schema version, and digest; it never substitutes a current definition or automatically migrates an in-flight Change.

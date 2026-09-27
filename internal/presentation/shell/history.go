@@ -73,46 +73,46 @@ func (history *consoleHistory) appendOutput(value string) {
 	history.trimLocked()
 }
 
-func (history *consoleHistory) visible(height int) []consoleRow {
-	if history == nil || height <= 0 {
+func (history *consoleHistory) visible(height, width int) []consoleRow {
+	if history == nil || height <= 0 || width <= 0 {
 		return nil
 	}
 
 	history.mutex.Lock()
 	defer history.mutex.Unlock()
 
-	total := len(history.lines)
+	rows := history.wrappedRowsLocked(width)
+	total := len(rows)
 	if total == 0 {
 		return nil
+	}
+	if history.scrollOffset > total {
+		history.scrollOffset = total
 	}
 
 	end := total - history.scrollOffset
 	if end < 0 {
 		end = 0
 	}
-	if end > total {
-		end = total
-	}
-
 	start := end - height
 	if start < 0 {
 		start = 0
 	}
 
 	result := make([]consoleRow, end-start)
-	copy(result, history.lines[start:end])
+	copy(result, rows[start:end])
 	return result
 }
 
-func (history *consoleHistory) scrollOlder(viewportHeight int) {
-	if history == nil || viewportHeight <= 0 {
+func (history *consoleHistory) scrollOlder(viewportHeight, width int) {
+	if history == nil || viewportHeight <= 0 || width <= 0 {
 		return
 	}
 
 	history.mutex.Lock()
 	defer history.mutex.Unlock()
 
-	maximumOffset := len(history.lines) - viewportHeight
+	maximumOffset := len(history.wrappedRowsLocked(width)) - viewportHeight
 	if maximumOffset <= 0 {
 		history.scrollOffset = 0
 		return
@@ -129,7 +129,7 @@ func (history *consoleHistory) scrollOlder(viewportHeight int) {
 	}
 }
 
-func (history *consoleHistory) scrollNewer(viewportHeight int) {
+func (history *consoleHistory) scrollNewer(viewportHeight, width int) {
 	if history == nil || viewportHeight <= 0 {
 		return
 	}
@@ -148,15 +148,15 @@ func (history *consoleHistory) scrollNewer(viewportHeight int) {
 	}
 }
 
-func (history *consoleHistory) scrollbarThumb(viewportHeight int) int {
-	if history == nil || viewportHeight <= 0 {
+func (history *consoleHistory) scrollbarThumb(viewportHeight, width int) int {
+	if history == nil || viewportHeight <= 0 || width <= 0 {
 		return -1
 	}
 
 	history.mutex.Lock()
 	defer history.mutex.Unlock()
 
-	total := len(history.lines)
+	total := len(history.wrappedRowsLocked(width))
 	if total <= viewportHeight {
 		return -1
 	}
@@ -176,6 +176,16 @@ func (history *consoleHistory) scrollbarThumb(viewportHeight int) int {
 	}
 
 	return start * (viewportHeight - 1) / maximumStart
+}
+
+func (history *consoleHistory) wrappedRowsLocked(width int) []consoleRow {
+	var rows []consoleRow
+	for _, line := range history.lines {
+		for _, wrapped := range wrapTerminalText(line.text, width) {
+			rows = append(rows, consoleRow{text: wrapped, color: line.color})
+		}
+	}
+	return rows
 }
 
 func (history *consoleHistory) trimLocked() {

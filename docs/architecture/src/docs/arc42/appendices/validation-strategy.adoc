@@ -230,6 +230,13 @@ grapheme-aware truncation, deterministic identity artwork, and retained command
 output. Direct/contextual help, `?`, and completion tests prove non-mutation.
 Real wide and narrow PTY inspection complements unit tests for border, prompt,
 readline, completion, persistence, reset, and existing-command behavior.
+Presentation regression tests also prove grapheme-aware long-output reflow,
+narrow and resized viewport behavior, vertical reachability, deterministic
+Up/Down history and PgUp/PgDn bindings, UTF-8 help alignment, logical transcript
+ordering, private collision-safe creation, Project identity, common-secret
+redaction, control neutralization, explicit create/write failure, and distinct
+ordinary versus `praetor_debug` startup surfaces. Redirected output remains
+outside interactive wrapping.
 
 ==== M1.1 Durability Validation
 

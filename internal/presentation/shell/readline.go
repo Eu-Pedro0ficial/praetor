@@ -55,6 +55,12 @@ func newReadlineEditor(registry command.Registry, session *command.Session) (*re
 		"praetor-scroll-newer":    editor.scrollViewportNewer,
 	})
 	for _, keymap := range []string{"emacs", "vi-insert"} {
+		if err := terminalShell.Config.Bind(keymap, "[A", "previous-history", false); err != nil {
+			return nil, fmt.Errorf("bind history Up in %s mode: %w", keymap, err)
+		}
+		if err := terminalShell.Config.Bind(keymap, "[B", "next-history", false); err != nil {
+			return nil, fmt.Errorf("bind history Down in %s mode: %w", keymap, err)
+		}
 		if err := terminalShell.Config.Bind(keymap, "?", "praetor-contextual-help", false); err != nil {
 			return nil, fmt.Errorf("bind contextual help in %s mode: %w", keymap, err)
 		}
@@ -104,13 +110,14 @@ func formatContextualSuggestions(suggestions []command.Suggestion) string {
 	}
 	width := 0
 	for _, suggestion := range suggestions {
-		if len(suggestion.Text) > width {
-			width = len(suggestion.Text)
+		if displayWidth(suggestion.Text) > width {
+			width = displayWidth(suggestion.Text)
 		}
 	}
 	var output strings.Builder
 	for _, suggestion := range suggestions {
-		fmt.Fprintf(&output, "%-*s  %s\n", width, suggestion.Text, suggestion.Description)
+		padding := width - displayWidth(suggestion.Text)
+		fmt.Fprintf(&output, "%s%s  %s\n", suggestion.Text, strings.Repeat(" ", padding), suggestion.Description)
 	}
 	return strings.TrimSuffix(output.String(), "\n")
 }

@@ -299,3 +299,154 @@ func prepareShellTest(t *testing.T) (string, string, *command.Session, command.R
 	}
 	return repositoryRoot, filepath.Join(xdgDataHome, "praetor"), session, registry
 }
+
+type observedInteraction struct {
+	events   []string
+	output   strings.Builder
+	endError error
+}
+
+func (recorder *observedInteraction) BeginCommand(line string) (io.Writer, error) {
+	recorder.events = append(recorder.events, "> "+line)
+	recorder.output.Reset()
+	return &recorder.output, nil
+}
+
+func (recorder *observedInteraction) EndCommand() error {
+	recorder.events = append(recorder.events, recorder.output.String())
+	return recorder.endError
+}
+
+func (recorder *observedInteraction) Close(runError error) error {
+	if runError == nil {
+		recorder.events = append(recorder.events, "closed: success")
+	} else {
+		recorder.events = append(recorder.events, "closed: "+runError.Error())
+	}
+	return nil
+}
+
+func TestAdapterRecorderObservesLogicalCommandsOutputsAndErrors(t *testing.T) {
+	_, _, session, registry := prepareShellTest(t)
+	editor := &scriptedEditor{reads: []scriptedRead{
+		{line: "status"},
+		{line: "unknown"},
+		{line: "exit"},
+	}}
+	recorder := &observedInteraction{}
+	adapter, err := newWithEditor(registry, session, io.Discard, editor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter.recorder = recorder
+	if err := adapter.Run(); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	if len(recorder.events) != 7 {
+		t.Fatalf("recorder events = %#v", recorder.events)
+	}
+	for index, expected := range []string{"> status", "Project ID:", "> unknown", "praetor: unknown command", "> exit", "", "closed: success"} {
+		if !strings.Contains(recorder.events[index], expected) {
+			t.Fatalf("event %d = %q, want substring %q; all=%#v", index, recorder.events[index], expected, recorder.events)
+		}
+	}
+}
+
+func TestAdapterFailsDeterministicallyWhenTranscriptWriteFails(t *testing.T) {
+	_, _, session, registry := prepareShellTest(t)
+	writeFailure := errors.New("transcript storage failed")
+	recorder := &observedInteraction{endError: writeFailure}
+	adapter, err := newWithEditor(
+		registry,
+		session,
+		io.Discard,
+		&scriptedEditor{reads: []scriptedRead{{line: "status"}}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter.recorder = recorder
+	if err := adapter.Run(); !errors.Is(err, writeFailure) {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got := recorder.events[len(recorder.events)-1]; !strings.Contains(got, writeFailure.Error()) {
+		t.Fatalf("recorder close outcome = %q", got)
+	}
+}
+
+func TestReadlineHistoryViewportBindingsAndUTF8HelpAlignment(t *testing.T) {
+	_, _, session, registry := prepareShellTest(t)
+	editor, err := newReadlineEditor(registry, session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for keymap, bindings := range map[string]map[string]string{
+		"emacs": {
+			"\x1b[A":  "previous-history",
+			"\x1b[B":  "next-history",
+			"\x1b[5~": "praetor-scroll-older",
+			"\x1b[6~": "praetor-scroll-newer",
+		},
+		"vi-insert": {
+			"\x1b[A":  "previous-history",
+			"\x1b[B":  "next-history",
+			"\x1b[5~": "praetor-scroll-older",
+			"\x1b[6~": "praetor-scroll-newer",
+		},
+	} {
+		for sequence, action := range bindings {
+			binding, ok := editor.shell.Config.Binds[keymap][sequence]
+			if !ok || binding.Action != action {
+				t.Fatalf("%s binding %q = %#v, want %q", keymap, sequence, binding, action)
+			}
+		}
+	}
+
+	line := []rune("status 世界 partial")
+	cursor := len([]rune("status 世界"))
+	editor.shell.Line().Set(line...)
+	editor.shell.Cursor().Set(cursor)
+	editor.scrollOlder = func() string { return "" }
+	editor.scrollNewer = func() string { return "" }
+	editor.scrollViewportOlder()
+	editor.scrollViewportNewer()
+	if got := string(*editor.shell.Line()); got != string(line) {
+		t.Fatalf("viewport redraw changed partial input to %q", got)
+	}
+	if got := editor.shell.Cursor().Pos(); got != cursor {
+		t.Fatalf("viewport redraw moved cursor to %d, want %d", got, cursor)
+	}
+
+	formatted := formatContextualSuggestions([]command.Suggestion{
+		{Text: "界", Description: "wide"},
+		{Text: "abc", Description: "ascii"},
+	})
+	lines := strings.Split(formatted, "\n")
+	firstPrefix := strings.TrimSuffix(lines[0], "wide")
+	secondPrefix := strings.TrimSuffix(lines[1], "ascii")
+	if displayWidth(firstPrefix) != displayWidth(secondPrefix) {
+		t.Fatalf("UTF-8 help columns are not display-width aligned: %q", formatted)
+	}
+}
+
+func TestScrollbackOutputPreservesLongLogicalLines(t *testing.T) {
+	_, _, session, registry := prepareShellTest(t)
+	intent := strings.Repeat("long-世界-value-", 20)
+	editor := &scriptedEditor{reads: []scriptedRead{
+		{line: "change new change-long-output \"" + intent + "\" planned"},
+		{line: "change show"},
+		{line: "exit"},
+	}}
+	var output bytes.Buffer
+	adapter, err := newWithEditor(registry, session, &output, editor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapter.Run(); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !strings.Contains(output.String(), "Intent: "+intent+"\n") {
+		t.Fatalf("redirected output altered long logical line:\n%s", output.String())
+	}
+}

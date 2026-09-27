@@ -138,6 +138,45 @@ rollback; replay then fails closed against canonical drift. Temporary proposal
 workspaces are cleaned after terminal closure without placing `.praetor` or
 patch files in governed source.
 
+### Development shell diagnostics
+
+Ordinary and release builds use:
+
+    go build -o praetor ./cmd/praetor
+
+They do not accept or advertise `--debug`. To compile the development-only
+transcript support, use:
+
+    go build -tags praetor_debug -o /tmp/praetor-debug ./cmd/praetor
+
+Run that binary inside the governed repository with:
+
+    /tmp/praetor-debug --debug
+
+The session prints the created path. Transcripts are private `0600` files
+under `$XDG_STATE_HOME/praetor/debug-transcripts`, falling back to
+`~/.local/state/praetor/debug-transcripts`. Their collision-safe names contain
+the UTC start time and ProjectId. They contain bounded build/session metadata,
+each entered command as `> command`, the corresponding logical Praetor output,
+command errors, and the session outcome. Terminal screen control, unrelated
+parent-terminal data, and raw provider streams are not captured.
+
+Transcript redaction covers common Authorization/Bearer values, API keys,
+access tokens, passwords, secrets, and OpenAI-style `sk-` keys, and neutralizes
+terminal control characters. This is best-effort pattern matching, not a secret
+scanner; developers must still treat transcripts as sensitive. A transcript is
+bounded to 1 MiB per command output and 8 MiB per session. Explicit
+`--debug` fails startup when the file cannot be created and terminates the
+session with an error when it cannot be written, avoiding a false impression
+that diagnostics were retained.
+
+Interactive full-screen command output is reflowed by Unicode grapheme display
+width whenever the terminal width changes. Long words, tables, help, and errors
+therefore remain vertically reachable with PgUp/PgDn. Redirected/non-TTY
+command output remains unchanged and machine friendly. Readline retains command
+editing, completion, UTF-8 input, partial-buffer redisplay, Ctrl-C/EOF behavior,
+and Up/Down history; Praetor owns PgUp/PgDn viewport scrolling.
+
 M0.9 adds the lightweight Engineering Console presentation without changing
 Core V0 governance. A restrained header, adaptive status sidebar, binary
 Praetor identity, and truthful footer are rendered around the existing

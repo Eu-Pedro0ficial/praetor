@@ -18,6 +18,15 @@ type lineEditor interface {
 	Readline() (string, error)
 }
 
+// InteractionRecorder observes the shell's logical command/output boundary.
+// Implementations remain presentation concerns and never receive raw terminal
+// rendering or provider streams directly.
+type InteractionRecorder interface {
+	BeginCommand(commandLine string) (io.Writer, error)
+	EndCommand() error
+	Close(runError error) error
+}
+
 // Adapter runs one retained-context interactive Praetor shell.
 type Adapter struct {
 	registry          command.Registry
@@ -26,10 +35,31 @@ type Adapter struct {
 	editor            lineEditor
 	renderer          *consoleRenderer
 	interactiveScreen bool
+	recorder          InteractionRecorder
+}
+
+// Option configures optional presentation behavior.
+type Option func(*Adapter) error
+
+// WithInteractionRecorder records logical shell interaction. The caller owns
+// recorder construction; Adapter closes it when the interactive run ends.
+func WithInteractionRecorder(recorder InteractionRecorder) Option {
+	return func(adapter *Adapter) error {
+		if recorder == nil {
+			return fmt.Errorf("interaction recorder is required")
+		}
+		adapter.recorder = recorder
+		return nil
+	}
 }
 
 // New constructs the approved readline-backed presentation adapter.
-func New(registry command.Registry, session *command.Session, output io.Writer) (*Adapter, error) {
+func New(
+	registry command.Registry,
+	session *command.Session,
+	output io.Writer,
+	options ...Option,
+) (*Adapter, error) {
 	editor, err := newReadlineEditor(registry, session)
 	if err != nil {
 		return nil, err
@@ -42,6 +72,14 @@ func New(registry command.Registry, session *command.Session, output io.Writer) 
 	adapter.renderer = newConsoleRenderer(session, dimensions, color)
 	adapter.interactiveScreen = terminalIsInteractive(output)
 	adapter.renderer.setFullScreen(adapter.interactiveScreen)
+	for _, option := range options {
+		if option == nil {
+			return nil, fmt.Errorf("shell option is required")
+		}
+		if err := option(adapter); err != nil {
+			return nil, err
+		}
+	}
 
 	editor.setPrompt(adapter.renderer.Prompt)
 	editor.setRightPrompt(adapter.renderer.RightPrompt)
@@ -102,9 +140,14 @@ func (adapter *Adapter) Run() error {
 // RunContext propagates execution-scoped cancellation to commands such as
 // M0.5 provider implementation. Readline remains responsible for terminal
 // interrupt behavior while waiting for input.
-func (adapter *Adapter) RunContext(ctx context.Context) error {
+func (adapter *Adapter) RunContext(ctx context.Context) (runError error) {
 	if ctx == nil {
 		return fmt.Errorf("shell execution context is required")
+	}
+	if adapter.recorder != nil {
+		defer func() {
+			runError = errors.Join(runError, adapter.recorder.Close(runError))
+		}()
 	}
 
 	if adapter.interactiveScreen {
@@ -112,6 +155,27 @@ func (adapter *Adapter) RunContext(ctx context.Context) error {
 	}
 
 	return adapter.runScrollbackContext(ctx)
+}
+
+func (adapter *Adapter) commandOutput(commandLine string, visible io.Writer) (io.Writer, error) {
+	if adapter.recorder == nil {
+		return visible, nil
+	}
+	recorded, err := adapter.recorder.BeginCommand(commandLine)
+	if err != nil {
+		return nil, fmt.Errorf("record interactive command: %w", err)
+	}
+	return io.MultiWriter(visible, recorded), nil
+}
+
+func (adapter *Adapter) finishCommand() error {
+	if adapter.recorder == nil {
+		return nil
+	}
+	if err := adapter.recorder.EndCommand(); err != nil {
+		return fmt.Errorf("record interactive output: %w", err)
+	}
+	return nil
 }
 
 func (adapter *Adapter) runScrollbackContext(ctx context.Context) error {
@@ -145,20 +209,25 @@ func (adapter *Adapter) runScrollbackContext(ctx context.Context) error {
 			continue
 		}
 
+		commandOutput, recorderError := adapter.commandOutput(line, adapter.output)
+		if recorderError != nil {
+			return recorderError
+		}
 		result, dispatchError := adapter.registry.DispatchContext(
 			ctx,
 			adapter.session,
 			line,
-			adapter.output,
+			commandOutput,
 		)
 		if dispatchError != nil {
-			if _, writeError := fmt.Fprintf(
-				adapter.output,
-				"praetor: %v\n",
-				dispatchError,
-			); writeError != nil {
+			if _, writeError := fmt.Fprintf(commandOutput, "praetor: %v\n", dispatchError); writeError != nil {
 				return writeError
 			}
+		}
+		if err := adapter.finishCommand(); err != nil {
+			return err
+		}
+		if dispatchError != nil {
 			continue
 		}
 
@@ -204,14 +273,16 @@ func (adapter *Adapter) runFullScreenContext(ctx context.Context) (runError erro
 			return fmt.Errorf("read interactive command: %w", err)
 		}
 
-		line = strings.TrimSpace(line)
-		if line == "" {
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
 
 		adapter.renderer.AppendCommand(line)
-
-		commandOutput := newConsoleHistoryWriter(adapter.renderer)
+		historyOutput := newConsoleHistoryWriter(adapter.renderer)
+		commandOutput, recorderError := adapter.commandOutput(line, historyOutput)
+		if recorderError != nil {
+			return recorderError
+		}
 
 		result, dispatchError := adapter.registry.DispatchContext(
 			ctx,
@@ -224,7 +295,10 @@ func (adapter *Adapter) runFullScreenContext(ctx context.Context) (runError erro
 			_, _ = fmt.Fprintf(commandOutput, "praetor: %v\n", dispatchError)
 		}
 
-		commandOutput.Flush()
+		historyOutput.Flush()
+		if err := adapter.finishCommand(); err != nil {
+			return err
+		}
 
 		if dispatchError != nil {
 			continue

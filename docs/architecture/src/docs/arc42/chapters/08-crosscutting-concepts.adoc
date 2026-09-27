@@ -190,6 +190,13 @@ UTF-8 and control characters are neutralized, display width is measured by
 grapheme clusters, and ANSI sequences originate only from a fixed
 Praetor-owned palette when the output terminal supports color.
 
+Development debug transcripts are separate from durable audit authority. They
+are build-tagged, user-local XDG STATE diagnostics with private permissions,
+finite command/session bounds, control neutralization, and best-effort
+redaction for common credentials. They retain logical shell interaction only,
+never authorize provider raw-stream retention, and remain sensitive diagnostic
+artifacts rather than canonical Project records.
+
 === Role-Based Authority
 
 A possible configurable authority model is:

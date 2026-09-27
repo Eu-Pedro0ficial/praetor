@@ -253,6 +253,15 @@ verification, approval alone, and session close never apply source.
   prompt redisplay, and the input cursor. Rendering cannot execute commands or
   alter Project, Change, provider, verification, decision, audit, or source
   state.
+. In full-screen terminals, logical history is sanitized and reflowed to the
+  current command-surface width before vertical viewport selection. Resize
+  recomputes display rows; non-TTY output is dispatched without this wrapping.
+. A binary compiled with the explicit `praetor_debug` build tag may attach one
+  presentation recorder before the shell starts. It creates a private XDG STATE
+  transcript, records bounded/redacted commands and logical Praetor output in
+  order, records the session outcome, and fails explicitly on create/write
+  errors. Ordinary builds have no operational `--debug` path. Provider raw
+  streams and terminal control output do not enter this recorder.
 
 ==== M1.0 Local Policy Evaluation
 

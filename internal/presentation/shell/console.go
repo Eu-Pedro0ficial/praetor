@@ -105,14 +105,27 @@ func (renderer *consoleRenderer) ScrollOlder() {
 	if renderer == nil || renderer.history == nil {
 		return
 	}
-	renderer.history.scrollOlder(renderer.viewportHeight())
+	renderer.history.scrollOlder(renderer.viewportHeight(), renderer.historyWidth())
 }
 
 func (renderer *consoleRenderer) ScrollNewer() {
 	if renderer == nil || renderer.history == nil {
 		return
 	}
-	renderer.history.scrollNewer(renderer.viewportHeight())
+	renderer.history.scrollNewer(renderer.viewportHeight(), renderer.historyWidth())
+}
+
+func (renderer *consoleRenderer) historyWidth() int {
+	dimensions := renderer.dimensions()
+	width := dimensions.Width
+	if width < minimumConsoleWidth {
+		width = minimumConsoleWidth
+	}
+	layout := renderer.session.LayoutPreferences()
+	if layout.Sidebar.Visible && dimensions.Width >= minimumSidebarWidth {
+		return width - sidebarWidthFor(width) - 5
+	}
+	return width - 4
 }
 
 // terminalDefaultBackground returns an OSC 11 sequence that temporarily makes
@@ -232,7 +245,8 @@ func (renderer *consoleRenderer) renderViewport() string {
 	status := renderer.session.StatusSnapshot()
 	showSidebar := layout.Sidebar.Visible && dimensions.Width >= minimumSidebarWidth
 	bodyHeight := renderer.viewportHeight()
-	body := renderer.history.visible(bodyHeight)
+	historyWidth := renderer.historyWidth()
+	body := renderer.history.visible(bodyHeight, historyWidth)
 
 	lines := []string{
 		renderer.horizontal("┌", "┐", width, layout),
@@ -248,7 +262,7 @@ func (renderer *consoleRenderer) renderViewport() string {
 		sidebarWidth := sidebarWidthFor(width)
 		leftWidth := width - sidebarWidth - 3
 		sidebar := sidebarRows(layout, status)
-		scrollbarThumb := renderer.history.scrollbarThumb(bodyHeight)
+		scrollbarThumb := renderer.history.scrollbarThumb(bodyHeight, historyWidth)
 
 		lines = append(lines, renderer.splitRule(leftWidth, sidebarWidth, layout))
 
@@ -678,17 +692,61 @@ func (renderer *consoleRenderer) lineStyle(value string, layout preferences.Layo
 	return backgroundCode(layout.Colors.Background) + foregroundCode(foreground) + value + "\x1b[0m"
 }
 
-func fitTerminalText(value string, width int) string {
+func wrapTerminalText(value string, width int) []string {
 	if width <= 0 {
-		return ""
+		return []string{""}
 	}
+	value = sanitizeTerminalText(value)
+	if value == "" {
+		return []string{""}
+	}
+
+	var rows []string
+	var row strings.Builder
+	used := 0
+	graphemes := uniseg.NewGraphemes(value)
+	for graphemes.Next() {
+		cluster := graphemes.Str()
+		clusterWidth := uniseg.StringWidth(cluster)
+		if clusterWidth < 0 {
+			clusterWidth = 0
+		}
+		if used > 0 && used+clusterWidth > width {
+			rows = append(rows, row.String())
+			row.Reset()
+			used = 0
+		}
+		if clusterWidth > width {
+			rows = append(rows, cluster)
+			continue
+		}
+		row.WriteString(cluster)
+		used += clusterWidth
+	}
+	if row.Len() > 0 {
+		rows = append(rows, row.String())
+	}
+	if len(rows) == 0 {
+		return []string{""}
+	}
+	return rows
+}
+
+func sanitizeTerminalText(value string) string {
 	value = strings.ToValidUTF8(value, "�")
-	value = strings.Map(func(character rune) rune {
+	return strings.Map(func(character rune) rune {
 		if unicode.IsControl(character) {
 			return ' '
 		}
 		return character
 	}, value)
+}
+
+func fitTerminalText(value string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	value = sanitizeTerminalText(value)
 	if displayWidth(value) <= width {
 		return value
 	}
