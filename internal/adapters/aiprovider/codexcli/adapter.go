@@ -350,22 +350,22 @@ func validateRequiredCapabilities(output []byte) error {
 }
 
 func (adapter *Adapter) arguments(request aiprovider.ExecutionRequest) []string {
-	sandbox := "workspace-write"
-	if request.RoleContract().WorkspaceAccess() == aiprovider.WorkspaceAccessReadOnly {
-		sandbox = "read-only"
-	}
 	arguments := []string{
 		"exec",
 		"--ephemeral",
 		"--ignore-user-config",
 	}
-	if sandbox == "workspace-write" {
+	if request.RoleContract().WorkspaceAccess() == aiprovider.WorkspaceAccessReadOnly {
+		arguments = append(arguments, "--sandbox", "read-only")
+	} else {
+		// Codex CLI defines --approve-for-me as automatic approval review using
+		// its workspace-write sandbox. The CLI rejects combining this option
+		// with an explicit --sandbox value.
 		arguments = append(arguments, "--approve-for-me")
 	}
 	arguments = append(arguments,
 		"--json",
 		"--color", "never",
-		"--sandbox", sandbox,
 		"--cd", request.Workspace().Root(),
 	)
 	if modelIdentifier, selected := request.Selection().ModelIdentifier(); selected {

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -94,7 +95,6 @@ func TestAdapterShapesCodexExecRequestAndNormalizesResponse(t *testing.T) {
 		"--approve-for-me",
 		"--json",
 		"--color", "never",
-		"--sandbox", "workspace-write",
 		"--cd", request.Workspace().Root(),
 		"--model", "gpt-test-1",
 		"-",
@@ -761,5 +761,25 @@ func TestAdapterRetainsBoundedSanitizedFailureDiagnostic(t *testing.T) {
 	if strings.Contains(executionError.Error(), diagnostic) ||
 		strings.Contains(executionError.Error(), secret) {
 		t.Fatalf("normalized public error leaked diagnostic: %q", executionError.Error())
+	}
+}
+
+func TestAdapterNeverCombinesAutomaticApprovalWithExplicitSandbox(t *testing.T) {
+	implementationRequest, _ := adapterTestRequest(t, "")
+	planningRequest, _ := adapterPlanningTestRequest(t, "")
+	adapter := NewDefault()
+
+	implementationArguments := adapter.arguments(implementationRequest)
+	if !slices.Contains(implementationArguments, "--approve-for-me") || slices.Contains(implementationArguments, "--sandbox") {
+		t.Fatalf("implementation arguments must use automatic review without explicit sandbox: %#v", implementationArguments)
+	}
+	planningArguments := adapter.arguments(planningRequest)
+	if slices.Contains(planningArguments, "--approve-for-me") || !slices.Contains(planningArguments, "--sandbox") {
+		t.Fatalf("planning arguments must use an explicit read-only sandbox without automatic review: %#v", planningArguments)
+	}
+	for _, arguments := range [][]string{implementationArguments, planningArguments} {
+		if slices.Contains(arguments, "--dangerously-bypass-approvals-and-sandbox") || slices.Contains(arguments, "danger-full-access") {
+			t.Fatalf("unsafe Codex argument generated: %#v", arguments)
+		}
 	}
 }
