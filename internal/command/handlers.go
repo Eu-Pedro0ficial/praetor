@@ -743,16 +743,9 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 	}
 
 	workspace := currentProposal.Workspace()
-	fmt.Fprintf(output, "Change ID: %s\n", workspace.ChangeId())
-	fmt.Fprintf(output, "Project ID: %s\n", workspace.ProjectId())
-	fmt.Fprintf(output, "Change state: %s\n", currentChange.State())
-	fmt.Fprintf(output, "Workspace ID: %s\n", workspace.WorkspaceId())
-	fmt.Fprintf(output, "Workspace root: %s\n", workspace.Root())
-	fmt.Fprintf(output, "Workspace state: %s\n", workspace.State())
-	fmt.Fprintf(output, "Base revision: %s\n", workspace.BaseRevision())
-	fmt.Fprintf(output, "Source state digest: %s\n", workspace.SourceStateDigest())
-	fmt.Fprintf(output, "Authorization mode: %s\n", currentProposal.ApprovedScope().Surface().AuthorizationMode())
-	fmt.Fprintln(output, "Isolation boundary: Git source/workspace only; not process, network, container, VM, or hostile-code isolation")
+	fmt.Fprintf(output, "Change: %s (%s)\n", workspace.ChangeId(), currentChange.State())
+	fmt.Fprintf(output, "Workspace: %s\n", workspace.Root())
+	writeScopeSummary(output, currentProposal.ApprovedScope().Surface())
 	return Result{}, nil
 }
 
@@ -1454,14 +1447,15 @@ func writeSurfaceReport(
 	fmt.Fprintf(output, "Working tree: %s\n", snapshot.WorkingTreeState())
 	fmt.Fprintf(output, "Tracked paths: %d\n", len(snapshot.TrackedPaths()))
 	fmt.Fprintf(output, "Source state digest: %s\n", snapshot.SourceStateDigest())
-	fmt.Fprintf(output, "Authorization mode: %s\n", surface.AuthorizationMode())
-	fmt.Fprintf(output, "Expected: %s\n", formatRepositoryPaths(surface.ExpectedPaths()))
-	fmt.Fprintf(output, "Possible: %s\n", formatRepositoryPaths(surface.PossiblePaths()))
-	fmt.Fprintf(output, "Protected: %s\n", formatRepositoryPaths(surface.ProtectedPaths()))
+	writeScopeSummary(output, surface)
 	fmt.Fprintf(output, "Actual: %s\n", formatSuppliedPaths(validation.SuppliedPaths()))
 	fmt.Fprintf(output, "Allowed: %t\n", validation.Allowed())
-	fmt.Fprintf(output, "Expected changes: %s\n", formatRepositoryPaths(validation.ExpectedChanges()))
-	fmt.Fprintf(output, "Possible changes: %s\n", formatRepositoryPaths(validation.PossibleChanges()))
+	if len(validation.ExpectedChanges()) > 0 {
+		fmt.Fprintf(output, "Expected changes: %s\n", formatRepositoryPaths(validation.ExpectedChanges()))
+	}
+	if len(validation.PossibleChanges()) > 0 {
+		fmt.Fprintf(output, "Possible changes: %s\n", formatRepositoryPaths(validation.PossibleChanges()))
+	}
 	if len(validation.Violations()) == 0 {
 		fmt.Fprintln(output, "Violations: none")
 		return
@@ -1475,6 +1469,23 @@ func writeSurfaceReport(
 			formatPathForOutput(violation.Path()),
 			violation.Reason(),
 		)
+	}
+}
+
+func writeScopeSummary(output io.Writer, surface source.ChangeSurface) {
+	scope := string(surface.AuthorizationMode())
+	if surface.AuthorizationMode() == source.AuthorizationExplicitPaths {
+		scope = "explicit"
+	}
+	fmt.Fprintf(output, "Scope: %s\n", scope)
+	if len(surface.ExpectedPaths()) > 0 {
+		fmt.Fprintf(output, "Expected: %s\n", formatRepositoryPaths(surface.ExpectedPaths()))
+	}
+	if len(surface.PossiblePaths()) > 0 {
+		fmt.Fprintf(output, "Possible: %s\n", formatRepositoryPaths(surface.PossiblePaths()))
+	}
+	if len(surface.ProtectedPaths()) > 0 {
+		fmt.Fprintf(output, "Protected: %s\n", formatRepositoryPaths(surface.ProtectedPaths()))
 	}
 }
 

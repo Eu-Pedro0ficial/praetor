@@ -141,14 +141,14 @@ func DefaultRegistry() (Registry, error) {
 					Description: "Analyze the bounded impact and Change Surface",
 					Usage:       "impact <change-id> <intent> [--expected <path>...] [--possible <path>...] [--protected <path>...] --actual <path>... (expected or possible is required; . means repository-wide)",
 					Handler:     handleAnalysisImpact,
-					Options:     surfaceOptions(true),
+					Options:     surfaceOptions(true, false),
 				},
 				{
 					Name:        "report",
 					Description: "Persist an explainable Change-owned ImpactReport",
 					Usage:       "report <change-id> [--expected <path>...] [--possible <path>...] [--protected <path>...] (expected or possible is required; . means repository-wide)",
 					Handler:     handleAnalysisReport,
-					Options:     surfaceOptions(false),
+					Options:     surfaceOptions(false, false),
 				},
 				{
 					Name:        "inspect",
@@ -161,7 +161,7 @@ func DefaultRegistry() (Registry, error) {
 		{
 			Name:        "change",
 			Description: "Enter software Change governance mode",
-			Usage:       "change [new|list|show|select|artifacts|history|diagnose|recover|content|isolate|implement|patch|verify|approve|reject|apply|close|discard ...]",
+			Usage:       "change [command]",
 			Mode:        ModeChange,
 			Children: []Definition{
 				{Name: "list", Description: "List durable Changes for the active Project", Usage: "list", Handler: handleChangeList},
@@ -180,10 +180,10 @@ func DefaultRegistry() (Registry, error) {
 				},
 				{
 					Name:        "isolate",
-					Description: "Create an isolated proposal with repository-wide authorization by default",
-					Usage:       "isolate <change-id> <intent> [--expected <path>...] [--possible <path>...] [--protected <path>...]",
+					Description: "Create an isolated proposal; scope is repository-wide unless paths are provided",
+					Usage:       "isolate <change-id> <intent>",
 					Handler:     handleChangeIsolate,
-					Options:     surfaceOptions(false),
+					Options:     surfaceOptions(false, true),
 				},
 				{
 					Name:        "implement",
@@ -392,10 +392,16 @@ func valueSuggestions(values []string, prefix, description string) []Suggestion 
 	return suggestions
 }
 
-func surfaceOptions(includeActual bool) []Option {
+func surfaceOptions(includeActual, defaultRepositoryWide bool) []Option {
+	expectedDescription := "Strongly expected tracked paths; . selects repository-wide authorization"
+	possibleDescription := "Additionally allowed tracked paths; . selects repository-wide authorization"
+	if defaultRepositoryWide {
+		expectedDescription = "Expected tracked paths; providing paths selects explicit scope"
+		possibleDescription = "Additional allowed tracked paths; providing paths selects explicit scope"
+	}
 	options := []Option{
-		{Name: "--expected", Description: "Strongly expected tracked paths; . selects repository-wide authorization"},
-		{Name: "--possible", Description: "Additionally allowed tracked paths; . selects repository-wide authorization"},
+		{Name: "--expected", Description: expectedDescription},
+		{Name: "--possible", Description: possibleDescription},
 		{Name: "--protected", Description: "Forbidden tracked paths or subtrees"},
 	}
 	if includeActual {

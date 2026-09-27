@@ -106,11 +106,11 @@ func TestM12IsolateResumesCreatedDurableChangeAfterSessionRestart(t *testing.T) 
 	}
 
 	for _, want := range []string{
-		"Change ID: " + changeID,
-		"Change state: isolated",
-		"Workspace state:",
-		"Base revision:",
-		"Source state digest:",
+		"Change: " + changeID + " (isolated)",
+		"Workspace:",
+		"Scope: explicit",
+		"Expected: internal/service/service.go",
+		"Protected: go.mod",
 	} {
 		if !strings.Contains(output.String(), want) {
 			t.Fatalf("isolate output lacks %q: %q", want, output.String())

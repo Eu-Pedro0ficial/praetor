@@ -117,6 +117,16 @@ func TestRegistryHelpStatusAndActiveProjectContextReuse(t *testing.T) {
 	}
 
 	output.Reset()
+	if _, err := registry.Dispatch(session, "help change", &output); err != nil {
+		t.Fatalf("help change error = %v", err)
+	}
+	if !strings.Contains(output.String(), "Usage: change [command]") ||
+		!strings.Contains(output.String(), "isolate") ||
+		strings.Contains(output.String(), "change [new|list|") {
+		t.Fatalf("change help repeats child syntax: %q", output.String())
+	}
+
+	output.Reset()
 	for range 2 {
 		if _, err := registry.Dispatch(session, "status", &output); err != nil {
 			t.Fatalf("status error = %v", err)
@@ -255,6 +265,40 @@ func TestRegistryRejectsUnsafeAnalysisBeforeChangeMutation(t *testing.T) {
 	}
 }
 
+func TestRegistrySimplestIsolationWorkflowDefaultsRepositoryWide(t *testing.T) {
+	repositoryRoot, _, session, registry := prepareCommittedCommandTest(t)
+	var output bytes.Buffer
+	if _, err := registry.Dispatch(
+		session,
+		"change isolate change-simple \"use the simplest workflow\"",
+		&output,
+	); err != nil {
+		t.Fatalf("simplest isolate error = %v", err)
+	}
+	proposal, ok := session.CurrentProposal()
+	if !ok || proposal.ApprovedScope().Surface().AuthorizationMode() != source.AuthorizationRepositoryWide {
+		t.Fatalf("simplest isolate proposal = %#v/%t", proposal, ok)
+	}
+	for _, expected := range []string{
+		"Change: change-simple (isolated)\n",
+		"Workspace: ",
+		"Scope: repository-wide\n",
+	} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("simplest isolate output %q lacks %q", output.String(), expected)
+		}
+	}
+	if strings.Contains(output.String(), "Expected:") ||
+		strings.Contains(output.String(), "Possible:") ||
+		strings.Contains(output.String(), "Protected:") {
+		t.Fatalf("simplest isolate printed empty scope categories: %q", output.String())
+	}
+	if _, err := registry.Dispatch(session, "change discard", io.Discard); err != nil {
+		t.Fatalf("discard simplest proposal: %v", err)
+	}
+	assertGovernedCommandRepositoryClean(t, repositoryRoot)
+}
+
 func TestRegistryRepositoryWideIsolationAllowsDiscoveryAndPreservesProtection(t *testing.T) {
 	t.Run("discovered tracked path is accepted", func(t *testing.T) {
 		repositoryRoot, dataDirectory, session, registry := prepareCommittedCommandTest(t)
@@ -266,8 +310,28 @@ func TestRegistryRepositoryWideIsolationAllowsDiscoveryAndPreservesProtection(t 
 		); err != nil {
 			t.Fatalf("repository-wide isolate error = %v", err)
 		}
-		if !strings.Contains(output.String(), "Authorization mode: repository-wide") {
-			t.Fatalf("isolate output = %q", output.String())
+		for _, expected := range []string{
+			"Change: change-repository-wide (isolated)\n",
+			"Workspace: ",
+			"Scope: repository-wide\n",
+			"Protected: internal/service\n",
+		} {
+			if !strings.Contains(output.String(), expected) {
+				t.Fatalf("isolate output %q lacks %q", output.String(), expected)
+			}
+		}
+		for _, redundant := range []string{
+			"Authorization mode:",
+			"Expected:",
+			"Possible:",
+			"Project ID:",
+			"Workspace ID:",
+			"Source state digest:",
+			"Isolation boundary:",
+		} {
+			if strings.Contains(output.String(), redundant) {
+				t.Fatalf("concise repository-wide output %q contains %q", output.String(), redundant)
+			}
 		}
 		currentProposal, ok := session.CurrentProposal()
 		if !ok {
@@ -424,8 +488,12 @@ func TestRegistryRepositoryWideIsolationHelpAndErrors(t *testing.T) {
 		t.Fatalf("help change isolate error = %v", err)
 	}
 	for _, expected := range []string{
-		"Create an isolated proposal with repository-wide authorization by default",
-		"isolate <change-id> <intent> [--expected <path>...] [--possible <path>...] [--protected <path>...]",
+		"Create an isolated proposal; scope is repository-wide unless paths are provided",
+		"Usage: isolate <change-id> <intent>",
+		"--expected",
+		"--possible",
+		"--protected",
+		"providing paths selects explicit scope",
 	} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("change isolate help lacks %q: %q", expected, output.String())
@@ -447,8 +515,14 @@ func TestRegistryRepositoryWideIsolationHelpAndErrors(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), test.wantError) {
 				t.Fatalf("error = %v, want containing %q", err, test.wantError)
 			}
+			if test.name == "missing intent" && err.Error() != "usage: isolate <change-id> <intent>" {
+				t.Fatalf("missing-intent error is verbose: %q", err)
+			}
 		})
 	}
+	assertSuggestions(t, registry.ContextualHelp(session, "change isolate --"), []string{
+		"--expected", "--possible", "--protected",
+	})
 }
 
 func TestRegistryAnalysisAcceptsPossibleOnlyStrictScope(t *testing.T) {
@@ -461,9 +535,15 @@ func TestRegistryAnalysisAcceptsPossibleOnlyStrictScope(t *testing.T) {
 	); err != nil {
 		t.Fatalf("possible-only analysis error = %v", err)
 	}
-	if !strings.Contains(output.String(), "Authorization mode: explicit-paths") ||
+	if !strings.Contains(output.String(), "Scope: explicit") ||
+		!strings.Contains(output.String(), "Possible: README.md") ||
 		!strings.Contains(output.String(), "Possible changes: README.md") {
 		t.Fatalf("possible-only analysis output = %q", output.String())
+	}
+	if strings.Contains(output.String(), "Expected:") ||
+		strings.Contains(output.String(), "Protected:") ||
+		strings.Contains(output.String(), "Expected changes:") {
+		t.Fatalf("possible-only analysis printed empty scope categories: %q", output.String())
 	}
 }
 
@@ -494,9 +574,17 @@ func TestRegistryM04RetainsSurfaceValidPatchWithoutAdvancingValidation(t *testin
 		(relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
 		t.Fatalf("proposal workspace %q is inside canonical source", workspace.Root())
 	}
-	if !strings.Contains(output.String(), "Change state: isolated\n") ||
-		!strings.Contains(output.String(), "Git source/workspace only") {
-		t.Fatalf("isolation output = %q", output.String())
+	for _, expected := range []string{
+		"Change: change-proposal (isolated)\n",
+		"Workspace: " + workspace.Root() + "\n",
+		"Scope: explicit\n",
+		"Expected: internal/service/service.go\n",
+		"Possible: internal/service/service_test.go\n",
+		"Protected: go.mod\n",
+	} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("explicit isolation output %q lacks %q", output.String(), expected)
+		}
 	}
 
 	writeCommandFile(t, workspace.Root(), "internal/service/service.go", "package service\n\nconst Updated = true\n")
