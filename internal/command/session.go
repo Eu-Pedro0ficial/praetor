@@ -22,6 +22,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/repositorymodel"
+	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 	"github.com/Eu-Pedro0ficial/praetor/internal/verification"
 	"github.com/Eu-Pedro0ficial/praetor/internal/workflow"
 )
@@ -50,6 +51,9 @@ type Session struct {
 	hasCurrentChange          bool
 	currentProposal           proposal.Proposal
 	hasCurrentProposal        bool
+	proposalSource            source.SourceSnapshot
+	proposalScope             source.ApprovedScope
+	hasProposalFoundation     bool
 	lastVerification          verification.Result
 	hasLastVerification       bool
 	lastPolicyDecision        policy.BundleDecision
@@ -282,6 +286,9 @@ func (session *Session) LastDecision() (approval.HumanDecision, bool) {
 }
 
 func (session *Session) setCurrentChange(currentChange change.Change) {
+	if session.hasCurrentChange && session.currentChange.ChangeId() != currentChange.ChangeId() {
+		session.clearProposalFoundation()
+	}
 	session.currentChange = currentChange
 	session.hasCurrentChange = true
 }
@@ -299,6 +306,9 @@ func (session *Session) setCurrentProposal(currentProposal proposal.Proposal) {
 	}
 	session.currentProposal = currentProposal
 	session.hasCurrentProposal = true
+	session.proposalSource = currentProposal.CanonicalSource()
+	session.proposalScope = currentProposal.ApprovedScope()
+	session.hasProposalFoundation = true
 }
 
 func (session *Session) setLastVerification(result verification.Result) {
@@ -326,6 +336,22 @@ func (session *Session) clearCurrentProposal() {
 	session.canonicalMutationOccurred = false
 }
 
+func (session *Session) setProposalFoundation(snapshot source.SourceSnapshot, scope source.ApprovedScope) {
+	session.proposalSource = snapshot
+	session.proposalScope = scope
+	session.hasProposalFoundation = true
+}
+
+func (session *Session) proposalFoundation() (source.SourceSnapshot, source.ApprovedScope, bool) {
+	return session.proposalSource, session.proposalScope, session.hasProposalFoundation
+}
+
+func (session *Session) clearProposalFoundation() {
+	session.proposalSource = source.SourceSnapshot{}
+	session.proposalScope = source.ApprovedScope{}
+	session.hasProposalFoundation = false
+}
+
 // Close cleans any process-owned proposal workspace before the interactive
 // session ends. Canonical developer source is never repaired or overwritten.
 func (session *Session) Close() error {
@@ -334,32 +360,29 @@ func (session *Session) Close() error {
 	}
 	var proposalError error
 	if session.hasCurrentProposal {
-		var transitionError error
-		if !session.hasCurrentChange ||
-			(session.currentChange.State() != change.StateApproved &&
-				session.currentChange.State() != change.StateRejected &&
-				session.currentChange.State() != change.StateAuditLocked) {
-			transitionError = session.rejectCurrentChange("interactive session closed with proposal workspace")
-		}
-		var cleaned proposal.Proposal
-		var discardError error
-		if session.currentChange.State() == change.StateAuditLocked || session.canonicalMutationOccurred {
-			cleaned, discardError = session.proposalLifecycle.CleanupClosed(
-				session.currentProposal,
-				"interactive session closed after terminal canonical integration",
-			)
-		} else {
-			cleaned, discardError = session.proposalLifecycle.Discard(
-				session.currentProposal,
-				"interactive session closed",
-			)
-		}
-		if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
+		if session.currentProposal.Workspace().State() == proposal.WorkspaceCleaned {
 			session.clearCurrentProposal()
 		} else {
-			session.setCurrentProposal(cleaned)
+			var cleaned proposal.Proposal
+			var discardError error
+			if session.currentChange.State() == change.StateAuditLocked || session.canonicalMutationOccurred {
+				cleaned, discardError = session.proposalLifecycle.CleanupClosed(
+					session.currentProposal,
+					"interactive session closed after terminal canonical integration",
+				)
+			} else {
+				cleaned, discardError = session.proposalLifecycle.Discard(
+					session.currentProposal,
+					"interactive session closed",
+				)
+			}
+			if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
+				session.clearCurrentProposal()
+			} else {
+				session.setCurrentProposal(cleaned)
+			}
+			proposalError = discardError
 		}
-		proposalError = errors.Join(transitionError, discardError)
 	}
 	var authorityError error
 	var modelError error
@@ -381,6 +404,20 @@ func (session *Session) cleanupTerminalProposal(reason string) error {
 	cleaned, err := session.proposalLifecycle.CleanupClosed(session.currentProposal, reason)
 	if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
 		session.clearCurrentProposal()
+		session.clearProposalFoundation()
+	} else {
+		session.setCurrentProposal(cleaned)
+	}
+	return err
+}
+
+func (session *Session) rejectAndDiscardWorkspaceOnly(reason string) error {
+	if session == nil || !session.hasCurrentProposal {
+		return fmt.Errorf("current proposal workspace is required")
+	}
+	cleaned, err := session.proposalLifecycle.Discard(session.currentProposal, reason)
+	if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
+		session.clearCurrentProposal()
 	} else {
 		session.setCurrentProposal(cleaned)
 	}
@@ -391,14 +428,16 @@ func (session *Session) rejectAndDiscardProposal(reason string) error {
 	if session == nil || !session.hasCurrentProposal {
 		return fmt.Errorf("current proposal workspace is required")
 	}
-	transitionError := session.rejectCurrentChange(reason)
 	cleaned, discardError := session.proposalLifecycle.Discard(session.currentProposal, reason)
 	if cleaned.Workspace().State() == proposal.WorkspaceCleaned {
 		session.clearCurrentProposal()
 	} else {
 		session.setCurrentProposal(cleaned)
 	}
-	return errors.Join(transitionError, discardError)
+	if discardError != nil {
+		return discardError
+	}
+	return session.rejectCurrentChange(reason)
 }
 
 func (session *Session) rejectCurrentChange(context string) error {

@@ -168,3 +168,47 @@ func TestFinalizeRecoveredCanonicalCommitsTerminalAuthorityAtomically(t *testing
 		t.Fatalf("audit-locked Change without application-result authority error=%v", err)
 	}
 }
+
+func TestActiveWorkspaceAuditBlockerFailsClosedForIncompleteProviderOutcome(t *testing.T) {
+	const workspaceId = "proposal-00112233445566778899aabbccddeeff"
+	event := func(eventType string, metadata map[string]any) audit.Event {
+		if metadata == nil {
+			metadata = map[string]any{}
+		}
+		metadata["workspace_id"] = workspaceId
+		return audit.Event{EventType: eventType, Metadata: metadata}
+	}
+	tests := []struct {
+		name   string
+		events []audit.Event
+		want   string
+	}{
+		{
+			name:   "started without outcome",
+			events: []audit.Event{event(audit.EventProposalWorkspaceCreated, nil), event(audit.EventProviderExecutionStarted, nil)},
+			want:   "provider attempt has no durable outcome",
+		},
+		{
+			name:   "completed without patch outcome",
+			events: []audit.Event{event(audit.EventProviderExecutionCompleted, nil)},
+			want:   "provider completion has no durable patch outcome",
+		},
+		{
+			name:   "pre-invocation guard failure",
+			events: []audit.Event{event(audit.EventProviderExecutionFailed, map[string]any{"failure_stage": "pre-invocation-guard"})},
+			want:   "canonical source guard failed",
+		},
+		{
+			name:   "classified rejection is safe to replace",
+			events: []audit.Event{event(audit.EventProviderExecutionCompleted, nil), event(audit.EventPatchRejected, nil)},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := activeWorkspaceAuditBlocker(test.events, workspaceId)
+			if !strings.Contains(got, test.want) {
+				t.Fatalf("blocker = %q, want containing %q", got, test.want)
+			}
+		})
+	}
+}

@@ -223,7 +223,7 @@ func DefaultRegistry() (Registry, error) {
 				},
 				{
 					Name:        "close",
-					Description: "Close an explicitly rejected Change with canonical source unchanged",
+					Description: "Close a rejected Change with canonical source unchanged",
 					Usage:       "close",
 					Handler:     handleChangeClose,
 				},

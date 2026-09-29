@@ -409,6 +409,83 @@ func (service *Service) CloseRejected(
 	)
 }
 
+// CloseAbandoned closes an explicitly discarded Change after proving that the
+// canonical repository still equals its durable isolation snapshot. It never
+// invokes patch application and requires durable authority so the closure fact
+// and terminal transition commit atomically.
+func (service *Service) CloseAbandoned(
+	ctx context.Context,
+	currentChange change.Change,
+	snapshot source.SourceSnapshot,
+	reason string,
+) (change.Change, error) {
+	if service == nil || service.durable == nil {
+		return currentChange, fmt.Errorf("durable abandoned Change closure is not configured")
+	}
+	if ctx == nil {
+		return currentChange, fmt.Errorf("abandoned Change closure context is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return currentChange, fmt.Errorf("abandoned Change closure cancelled: %w", err)
+	}
+	if currentChange.State() != change.StateRejected {
+		return currentChange, fmt.Errorf("Change %q must be rejected before abandoned closure", currentChange.ChangeId())
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return currentChange, fmt.Errorf("abandoned Change closure reason is required")
+	}
+	actual, err := service.inspector(currentChange.ProjectId(), service.repositoryRoot)
+	if err != nil {
+		return currentChange, fmt.Errorf("inspect canonical source for abandoned closure: %w", err)
+	}
+	if snapshot.ProjectId() != currentChange.ProjectId() ||
+		snapshot.RepositoryRoot() != service.repositoryRoot ||
+		actual.ProjectId() != snapshot.ProjectId() ||
+		actual.RepositoryRoot() != snapshot.RepositoryRoot() ||
+		actual.HeadRevision() != snapshot.HeadRevision() ||
+		actual.WorkingTreeState() != source.WorkingTreeClean ||
+		actual.SourceStateDigest() != snapshot.SourceStateDigest() ||
+		!equalRepositoryPaths(actual.TrackedPaths(), snapshot.TrackedPaths()) {
+		return currentChange, fmt.Errorf("abandoned Change canonical source no longer matches durable isolation authority")
+	}
+	now := service.clock().UTC()
+	candidate := currentChange
+	transition, err := candidate.Transition(change.StateAuditLocked, now, "discarded Change closed with canonical source unchanged")
+	if err != nil {
+		return currentChange, err
+	}
+	closure, err := audit.NewEvent(EventChangeClosureRecorded, string(candidate.ProjectId()), string(candidate.ChangeId()), service.repositoryRoot, map[string]any{
+		"base_revision":               snapshot.HeadRevision(),
+		"source_state_digest":         string(snapshot.SourceStateDigest()),
+		"canonical_mutation_occurred": false,
+		"canonical_source_unchanged":  true,
+		"disposition":                 "abandoned-closure",
+		"reason":                      reason,
+		"event_timestamp":             now.Format(time.RFC3339Nano),
+	}, now)
+	if err != nil {
+		return currentChange, err
+	}
+	lifecycle, err := audit.NewEvent(workflow.EventChangeTransition, string(candidate.ProjectId()), string(candidate.ChangeId()), service.repositoryRoot, map[string]any{
+		"previous_state":       transition.PreviousState,
+		"resulting_state":      transition.ResultingState,
+		"transition_timestamp": transition.OccurredAt.Format(time.RFC3339Nano),
+		"context":              transition.Context,
+	}, transition.OccurredAt)
+	if err != nil {
+		return currentChange, err
+	}
+	if err := service.durable.CommitAuthority(authority.AuthorityCommit{
+		ExpectedRevision: currentChange.Revision(),
+		Candidate:        candidate,
+		AuditEvents:      []audit.Event{closure, lifecycle},
+	}); err != nil {
+		return currentChange, err
+	}
+	return candidate, nil
+}
+
 func durableIntegrationMetadata(currentProposal proposal.Proposal, verificationResult verification.Result, decision approval.HumanDecision) (map[string]any, error) {
 	patch, ok := currentProposal.PatchArtifact()
 	if !ok {

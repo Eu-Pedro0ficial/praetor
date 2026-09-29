@@ -37,6 +37,8 @@ const (
 	EventPatchExtracted                   = "PATCH_EXTRACTED"
 	EventPatchSurfaceValidated            = "PATCH_SURFACE_VALIDATED"
 	EventPatchRejected                    = "PATCH_REJECTED"
+	EventProposalWorkspaceFailed          = "PROPOSAL_WORKSPACE_FAILED"
+	EventProposalWorkspaceCleanupFailed   = "PROPOSAL_WORKSPACE_CLEANUP_FAILED"
 	EventProposalWorkspaceDiscarded       = "PROPOSAL_WORKSPACE_DISCARDED"
 	EventProviderExecutionStarted         = "PROVIDER_EXECUTION_STARTED"
 	EventProviderExecutionCompleted       = "PROVIDER_EXECUTION_COMPLETED"
@@ -516,6 +518,8 @@ func eventRequiresChangeId(eventType string) bool {
 		EventPatchExtracted,
 		EventPatchSurfaceValidated,
 		EventPatchRejected,
+		EventProposalWorkspaceFailed,
+		EventProposalWorkspaceCleanupFailed,
 		EventProposalWorkspaceDiscarded,
 		EventProviderExecutionStarted,
 		EventProviderExecutionCompleted,

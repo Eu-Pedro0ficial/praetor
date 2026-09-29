@@ -13,11 +13,13 @@ import (
 )
 
 const (
-	EventProposalWorkspaceCreated   = "PROPOSAL_WORKSPACE_CREATED"
-	EventPatchExtracted             = "PATCH_EXTRACTED"
-	EventPatchSurfaceValidated      = "PATCH_SURFACE_VALIDATED"
-	EventPatchRejected              = "PATCH_REJECTED"
-	EventProposalWorkspaceDiscarded = "PROPOSAL_WORKSPACE_DISCARDED"
+	EventProposalWorkspaceCreated       = "PROPOSAL_WORKSPACE_CREATED"
+	EventPatchExtracted                 = "PATCH_EXTRACTED"
+	EventPatchSurfaceValidated          = "PATCH_SURFACE_VALIDATED"
+	EventPatchRejected                  = "PATCH_REJECTED"
+	EventProposalWorkspaceFailed        = "PROPOSAL_WORKSPACE_FAILED"
+	EventProposalWorkspaceCleanupFailed = "PROPOSAL_WORKSPACE_CLEANUP_FAILED"
+	EventProposalWorkspaceDiscarded     = "PROPOSAL_WORKSPACE_DISCARDED"
 )
 
 // WorkspaceRequest is the application-owned request for Git worktree source
@@ -192,8 +194,25 @@ func (service *Service) CreateWorkspace(
 	canonicalSource source.SourceSnapshot,
 	approvedScope source.ApprovedScope,
 ) (Proposal, error) {
-	if currentChange.State() != change.StatePlanned {
-		return Proposal{}, fmt.Errorf("Change %q must be planned before proposal workspace creation", currentChange.ChangeId())
+	return service.createWorkspace(currentChange, canonicalSource, approvedScope, change.StatePlanned)
+}
+
+func (service *Service) CreateReplacementWorkspace(
+	currentChange change.Change,
+	canonicalSource source.SourceSnapshot,
+	approvedScope source.ApprovedScope,
+) (Proposal, error) {
+	return service.createWorkspace(currentChange, canonicalSource, approvedScope, change.StateIsolated)
+}
+
+func (service *Service) createWorkspace(
+	currentChange change.Change,
+	canonicalSource source.SourceSnapshot,
+	approvedScope source.ApprovedScope,
+	requiredState change.ChangeState,
+) (Proposal, error) {
+	if currentChange.State() != requiredState {
+		return Proposal{}, fmt.Errorf("Change %q must be %s before proposal workspace creation", currentChange.ChangeId(), requiredState)
 	}
 	if currentChange.ProjectId() != canonicalSource.ProjectId() ||
 		currentChange.ProjectId() != approvedScope.ProjectId() ||
@@ -248,6 +267,33 @@ func (service *Service) CreateWorkspace(
 		return Proposal{}, cleanupOnFailure(err)
 	}
 	return currentProposal, nil
+}
+
+// FailWorkspace marks a workspace unsafe for another provider attempt while
+// retaining it for explicit cleanup and forensic inspection.
+func (service *Service) FailWorkspace(currentProposal Proposal, reason, executionAttemptId string) (Proposal, error) {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return currentProposal, fmt.Errorf("proposal workspace failure reason is required")
+	}
+	if currentProposal.workspace.State() == WorkspaceFailed {
+		return currentProposal, nil
+	}
+	failedWorkspace, err := currentProposal.workspace.transition(WorkspaceFailed)
+	if err != nil {
+		return currentProposal, err
+	}
+	failedProposal := currentProposal.withWorkspace(failedWorkspace)
+	if err := service.recorder(LifecycleEvent{
+		EventType:          EventProposalWorkspaceFailed,
+		Workspace:          failedWorkspace,
+		Disposition:        string(WorkspaceFailed),
+		Reason:             reason,
+		ExecutionAttemptId: executionAttemptId,
+	}); err != nil {
+		return failedProposal, fmt.Errorf("record proposal workspace failure: %w", err)
+	}
+	return failedProposal, nil
 }
 
 // Mutate applies one controlled callback to the isolated workspace and checks
@@ -529,7 +575,18 @@ func (service *Service) Discard(
 	}
 	preCleanupGuardError := guard.Verify()
 	if err := service.workspaces.Remove(currentProposal.workspace); err != nil {
-		return currentProposal, errors.Join(preCleanupGuardError, fmt.Errorf("remove proposal workspace: %w", err))
+		failedWorkspace, transitionError := currentProposal.workspace.transition(WorkspaceCleanupFailed)
+		if transitionError != nil {
+			return currentProposal, errors.Join(preCleanupGuardError, fmt.Errorf("remove proposal workspace: %w", err), transitionError)
+		}
+		failedProposal := currentProposal.withWorkspace(failedWorkspace)
+		recordError := service.recorder(LifecycleEvent{
+			EventType:   EventProposalWorkspaceCleanupFailed,
+			Workspace:   failedWorkspace,
+			Disposition: string(WorkspaceCleanupFailed),
+			Reason:      "proposal workspace removal failed",
+		})
+		return failedProposal, errors.Join(preCleanupGuardError, fmt.Errorf("remove proposal workspace: %w", err), recordError)
 	}
 	cleanedWorkspace, err := currentProposal.workspace.transition(WorkspaceCleaned)
 	if err != nil {
@@ -565,14 +622,27 @@ func (service *Service) CleanupClosed(
 		return currentProposal, fmt.Errorf("proposal workspace %q is already cleaned", currentProposal.workspace.WorkspaceId())
 	}
 	if currentProposal.workspace.State() != WorkspaceRetained &&
-		currentProposal.workspace.State() != WorkspaceRejected {
+		currentProposal.workspace.State() != WorkspaceRejected &&
+		currentProposal.workspace.State() != WorkspaceFailed &&
+		currentProposal.workspace.State() != WorkspaceCleanupFailed {
 		return currentProposal, fmt.Errorf(
 			"proposal workspace %q must be retained or rejected for terminal cleanup",
 			currentProposal.workspace.WorkspaceId(),
 		)
 	}
 	if err := service.workspaces.Remove(currentProposal.workspace); err != nil {
-		return currentProposal, fmt.Errorf("remove closed proposal workspace: %w", err)
+		failedWorkspace, transitionError := currentProposal.workspace.transition(WorkspaceCleanupFailed)
+		if transitionError != nil {
+			return currentProposal, errors.Join(fmt.Errorf("remove closed proposal workspace: %w", err), transitionError)
+		}
+		failedProposal := currentProposal.withWorkspace(failedWorkspace)
+		recordError := service.recorder(LifecycleEvent{
+			EventType:   EventProposalWorkspaceCleanupFailed,
+			Workspace:   failedWorkspace,
+			Disposition: string(WorkspaceCleanupFailed),
+			Reason:      "closed proposal workspace removal failed",
+		})
+		return failedProposal, errors.Join(fmt.Errorf("remove closed proposal workspace: %w", err), recordError)
 	}
 	cleanedWorkspace, err := currentProposal.workspace.transition(WorkspaceCleaned)
 	if err != nil {

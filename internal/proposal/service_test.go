@@ -305,7 +305,7 @@ func TestServiceFailurePathsRemainExplicit(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "worktree busy") {
 			t.Fatalf("Discard() error = %v", err)
 		}
-		if classified.Workspace().State() != WorkspaceActive {
+		if classified.Workspace().State() != WorkspaceCleanupFailed {
 			t.Fatalf("failed cleanup state = %q", classified.Workspace().State())
 		}
 	})

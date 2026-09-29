@@ -876,6 +876,8 @@ func proposalLifecycleMetadata(event proposal.LifecycleEvent) (map[string]any, e
 	switch event.EventType {
 	case proposal.EventProposalWorkspaceCreated,
 		proposal.EventPatchExtracted,
+		proposal.EventProposalWorkspaceFailed,
+		proposal.EventProposalWorkspaceCleanupFailed,
 		proposal.EventProposalWorkspaceDiscarded:
 		return metadata, nil
 	case proposal.EventPatchSurfaceValidated,
@@ -968,6 +970,7 @@ func providerExecutionMetadata(event execution.LifecycleEvent) (map[string]any, 
 		}
 		metadata["disposition"] = "failed"
 		metadata["failure_kind"] = string(event.FailureKind)
+		metadata["failure_stage"] = event.FailureStage
 		metadata["workspace_may_be_changed"] = event.WorkspaceMayBeChanged
 		metadata["changed_paths"] = append([]string(nil), event.ChangedPaths...)
 		if event.ExternalExecutionId != "" {

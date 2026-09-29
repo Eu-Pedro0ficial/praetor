@@ -184,11 +184,12 @@ both modes.
 `change patch` extracts the actual Git patch and complete changed-path set. A
 surface-valid result is retained for later milestones while the Change remains
 `isolated`; it is not deterministic evidence validation or human approval. An
-empty, protected, unexpected, invalid or mixed forbidden patch is rejected as
-a whole, advances the Change to `rejected`, and cleans the worktree.
-`change discard` explicitly performs the same rejection and owned-worktree
-cleanup.
-Session shutdown also rejects and cleans an outstanding proposal.
+empty, protected, unexpected, invalid, or mixed forbidden patch marks the
+workspace `rejected` while the Change remains `isolated`. `change implement`
+may replace it after proven cleanup; `change discard` explicitly cleans it and
+advances the Change to `rejected`. Session shutdown cleans an outstanding
+workspace without manufacturing a Change rejection, so durable selection can
+reconstruct a retry foundation.
 
 M0.4 provides only a narrow application callback for isolated-mutation tests.
 It does not expose a provider, generic shell runner or AI execution command.
@@ -209,11 +210,14 @@ provider select <provider>
 provider model <provider-scoped-model>
 ----
 
-`change implement` consumes the current process-local active proposal created
-by `change isolate`. It executes the exactly selected adapter in that
-ProposalWorkspace, then delegates to the existing M0.4 patch extraction and
-surface classification. It neither repeats isolation nor accepts an arbitrary
-working directory. Direct `change implement` and contextual `change` followed
+`change implement` consumes the current active proposal created by
+`change isolate`, or an audit-proven retry foundation after failure or restart. It
+executes the exactly selected adapter in that ProposalWorkspace, then delegates
+to the existing M0.4 patch extraction and surface classification. A failed or
+rejected workspace is never reused: the command must prove its cleanup, create
+a new random workspace from the same durable SourceSnapshot and ApprovedScope,
+and persist that replacement authority before invoking the provider. Direct
+`change implement` and contextual `change` followed
 by `implement` resolve the same handler. In Change mode, contextual `?`
 includes `implement` without exposing provider credentials or adapter flags.
 
@@ -226,11 +230,15 @@ enumerated. It is infrastructure/session configuration, not capability
 routing or domain state.
 No persistent Project configuration format is introduced.
 
-On provider, guard, empty-patch, or surface failure, the command rejects the
-Change and cleans the process-owned proposal according to the current M0.4
-ownership semantics. On success, it reports bounded provider provenance and
-the Git-derived patch summary; the proposal remains retained and the Change
-remains `isolated`.
+Provider invocation/process/cancellation failure marks the workspace
+`failed`; empty patch or ApprovedScope rejection marks it `rejected`; both
+leave the Change `isolated` and expose retry or explicit discard. A retry uses
+a new execution attempt and new workspace only after cleanup succeeds.
+Cleanup failure becomes `cleanup-failed`, is audited, and blocks provider
+execution. Pre-invocation configuration/accounting failures leave an unchanged
+active workspace retryable. On success, bounded provider provenance and the
+Git-derived patch summary are reported; the proposal remains retained and the
+Change remains `isolated`.
 
 ==== M0.6 Executable Verification Workflow
 
@@ -297,10 +305,13 @@ M0.8 adds direct `change apply` and `change close`, plus contextual `apply` and
 retained `APPROVE` chain and remains a separate developer operation. It runs
 preflight, durably records start, rechecks before mutation, performs
 working-tree-only application, proves the exact result, durably records
-completion, and only then requests `approved -> audit-locked`. `close`
-requires the exact `REJECT` chain, proves canonical source unchanged, records
-closure, and only then requests `rejected -> audit-locked`; it cannot call the
-canonical application port.
+completion, and only then requests `approved -> audit-locked`. `close` uses the
+exact `REJECT` chain for a governed human rejection. For an
+explicitly discarded operational proposal it instead uses the durable
+SourceSnapshot authority after workspace cleanup. Both paths prove canonical
+source unchanged, atomically record closure with the terminal transition, and
+only then request `rejected -> audit-locked`; neither can call the canonical
+application port.
 
 If mutation occurs before a later failure, the Change remains `approved`, the
 caller receives mutation/proof state, session cleanup removes only its owned
@@ -346,7 +357,11 @@ digests, schemas, and linkage into temporary projections before publishing the
 selected Change and its session caches together. Failed hydration leaves the
 previous session selection intact. An unsupported
 historical workflow remains selectable for inspection but no command may
-advance it.
+advance it. Failed/rejected workspace disposition is reconstructed from
+append-only workspace and provider events. A cleaned isolated workspace
+hydrates only its source/scope retry foundation; it is never recreated as live
+during selection. Historical records without enough evidence fail closed
+rather than being assigned a safe retry.
 
 Consequential operations reserve a Project-unique OperationId and immutable
 RequestDigest. The same identity/digest resolves its existing result; a changed

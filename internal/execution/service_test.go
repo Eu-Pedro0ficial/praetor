@@ -292,7 +292,7 @@ func TestProviderFailureAfterPartialMutationIsAuditedWithoutFalseSuccess(t *test
 	if err == nil {
 		t.Fatal("Implement() succeeded after partial provider failure")
 	}
-	if result.Proposal().Workspace().State() != proposal.WorkspaceActive || result.Validation().Allowed() {
+	if result.Proposal().Workspace().State() != proposal.WorkspaceFailed || result.Validation().Allowed() {
 		t.Fatalf("failed result state/validation = %q/%t", result.Proposal().Workspace().State(), result.Validation().Allowed())
 	}
 	if len(*lifecycleEvents) != 2 || (*lifecycleEvents)[1].EventType != execution.EventProviderExecutionFailed {
@@ -330,12 +330,16 @@ func TestProviderCancellationIsNormalizedAndAudited(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := service.Implement(ctx, fixture.currentChange, fixture.currentProposal, selection)
+	result, err := service.Implement(ctx, fixture.currentChange, fixture.currentProposal, selection)
 	if err == nil || aiprovider.FailureKindOf(err) != aiprovider.FailureCancelled {
 		t.Fatalf("Implement() cancellation error = %v", err)
 	}
-	if len(*lifecycleEvents) != 2 || (*lifecycleEvents)[1].FailureKind != aiprovider.FailureCancelled {
+	if len(*lifecycleEvents) != 2 || (*lifecycleEvents)[1].FailureKind != aiprovider.FailureCancelled ||
+		(*lifecycleEvents)[1].FailureStage != "provider-or-post-guard" {
 		t.Fatalf("cancellation events = %#v", *lifecycleEvents)
+	}
+	if result.Proposal().Workspace().State() != proposal.WorkspaceFailed {
+		t.Fatalf("cancelled proposal state = %q", result.Proposal().Workspace().State())
 	}
 	assertExecutionCanonicalUnchanged(t, fixture)
 }
@@ -435,10 +439,11 @@ func TestCanonicalDriftDuringProviderExecutionFailsClosedWithoutRepair(t *testin
 	if !errors.As(err, &driftError) {
 		t.Fatalf("Implement() error = %T %v, want canonical drift", err, err)
 	}
-	if result.Proposal().Workspace().State() != proposal.WorkspaceActive {
+	if result.Proposal().Workspace().State() != proposal.WorkspaceFailed {
 		t.Fatalf("drifted proposal state = %q", result.Proposal().Workspace().State())
 	}
-	if len(*lifecycleEvents) != 2 || (*lifecycleEvents)[1].EventType != execution.EventProviderExecutionFailed {
+	if len(*lifecycleEvents) != 2 || (*lifecycleEvents)[1].EventType != execution.EventProviderExecutionFailed ||
+		(*lifecycleEvents)[1].FailureStage != "provider-or-post-guard" {
 		t.Fatalf("drift events = %#v", *lifecycleEvents)
 	}
 	contents, readError := os.ReadFile(filepath.Join(fixture.canonicalRoot, "README.md"))

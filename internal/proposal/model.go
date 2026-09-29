@@ -28,10 +28,12 @@ type WorkspaceId string
 type WorkspaceState string
 
 const (
-	WorkspaceActive   WorkspaceState = "active"
-	WorkspaceRetained WorkspaceState = "retained"
-	WorkspaceRejected WorkspaceState = "rejected"
-	WorkspaceCleaned  WorkspaceState = "cleaned"
+	WorkspaceActive        WorkspaceState = "active"
+	WorkspaceRetained      WorkspaceState = "retained"
+	WorkspaceRejected      WorkspaceState = "rejected"
+	WorkspaceFailed        WorkspaceState = "failed"
+	WorkspaceCleanupFailed WorkspaceState = "cleanup-failed"
+	WorkspaceCleaned       WorkspaceState = "cleaned"
 )
 
 // ProposalWorkspace identifies source/workspace isolation for one Change.
@@ -187,10 +189,12 @@ func (workspace ProposalWorkspace) transition(resultingState WorkspaceState) (Pr
 	allowed := false
 	switch workspace.state {
 	case WorkspaceActive:
-		allowed = resultingState == WorkspaceRetained || resultingState == WorkspaceRejected || resultingState == WorkspaceCleaned
+		allowed = resultingState == WorkspaceRetained || resultingState == WorkspaceRejected || resultingState == WorkspaceFailed || resultingState == WorkspaceCleanupFailed || resultingState == WorkspaceCleaned
 	case WorkspaceRetained:
-		allowed = resultingState == WorkspaceRejected || resultingState == WorkspaceCleaned
-	case WorkspaceRejected:
+		allowed = resultingState == WorkspaceRejected || resultingState == WorkspaceFailed || resultingState == WorkspaceCleanupFailed || resultingState == WorkspaceCleaned
+	case WorkspaceRejected, WorkspaceFailed:
+		allowed = resultingState == WorkspaceCleanupFailed || resultingState == WorkspaceCleaned
+	case WorkspaceCleanupFailed:
 		allowed = resultingState == WorkspaceCleaned
 	}
 	if !allowed {
@@ -365,9 +369,21 @@ func RehydrateProposal(workspaceId WorkspaceId, workspaceRoot string, canonicalS
 // RehydrateWorkspaceProposal reconstructs an active durable workspace before
 // a PatchArtifact has been committed.
 func RehydrateWorkspaceProposal(workspaceId WorkspaceId, workspaceRoot string, canonicalSource source.SourceSnapshot, approvedScope source.ApprovedScope) (Proposal, error) {
+	return RehydrateWorkspaceProposalWithState(workspaceId, workspaceRoot, canonicalSource, approvedScope, WorkspaceActive)
+}
+
+// RehydrateWorkspaceProposalWithState reconstructs a durable workspace with
+// the operational disposition proven by append-only lifecycle evidence.
+func RehydrateWorkspaceProposalWithState(workspaceId WorkspaceId, workspaceRoot string, canonicalSource source.SourceSnapshot, approvedScope source.ApprovedScope, state WorkspaceState) (Proposal, error) {
 	workspace, err := NewProposalWorkspace(workspaceId, canonicalSource.ProjectId(), approvedScope.ChangeId(), canonicalSource.RepositoryRoot(), workspaceRoot, canonicalSource.HeadRevision(), canonicalSource.SourceStateDigest())
 	if err != nil {
 		return Proposal{}, err
+	}
+	if state != WorkspaceActive {
+		workspace, err = workspace.transition(state)
+		if err != nil {
+			return Proposal{}, err
+		}
 	}
 	return newProposal(workspace, canonicalSource, approvedScope)
 }

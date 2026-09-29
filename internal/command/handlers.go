@@ -14,6 +14,7 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/artifact"
+	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/impact"
@@ -53,6 +54,11 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 		fmt.Fprintln(output, "Last human decision: none")
 	}
 	fmt.Fprintf(output, "Recovery: %s\n", snapshot.Recovery)
+	fmt.Fprintf(output, "Last operation: %s\n", snapshot.LastOperation)
+	fmt.Fprintf(output, "Outcome: %s\n", snapshot.OperationOutcome)
+	fmt.Fprintf(output, "Canonical source: %s\n", snapshot.CanonicalSource)
+	fmt.Fprintf(output, "Proposal workspace: %s\n", snapshot.WorkspaceDisposition)
+	fmt.Fprintf(output, "Safe next actions: %s\n", snapshot.SafeNextActions)
 	return Result{}, nil
 }
 
@@ -400,17 +406,24 @@ func handleChangeDiagnose(session *Session, invocation Invocation, output io.Wri
 	if err != nil {
 		return Result{}, err
 	}
-	diagnoses, err := session.durableInspection.Diagnose(id)
+	detail, err := session.durableInspection.InspectChange(id)
 	if err != nil {
 		return Result{}, err
 	}
-	for _, diagnosis := range diagnoses {
+	for _, diagnosis := range detail.Diagnoses {
 		fmt.Fprintf(output, "%s: %s", diagnosis.Condition, boundedSingleLine(diagnosis.Detail, 1024))
 		if diagnosis.Operation != nil {
 			fmt.Fprintf(output, " operation=%s kind=%s", diagnosis.Operation.Id, boundedSingleLine(diagnosis.Operation.Kind, 128))
 		}
 		fmt.Fprintln(output)
 	}
+	lifecycle := durableLifecycleStatus(detail.Change, detail.Audit)
+	fmt.Fprintf(output, "lifecycle-recovery: %s\n", lifecycle.Recovery)
+	fmt.Fprintf(output, "last-operation: %s\n", lifecycle.LastOperation)
+	fmt.Fprintf(output, "outcome: %s\n", lifecycle.OperationOutcome)
+	fmt.Fprintf(output, "canonical-source: %s\n", lifecycle.CanonicalSource)
+	fmt.Fprintf(output, "proposal-workspace: %s\n", lifecycle.WorkspaceDisposition)
+	fmt.Fprintf(output, "safe-next-actions: %s\n", lifecycle.SafeNextActions)
 	return Result{}, nil
 }
 
@@ -666,8 +679,8 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 			if currentChange.Intent() != intent {
 				return Result{}, fmt.Errorf("existing Change %q intent does not match isolate request", changeId)
 			}
-			if currentChange.State() != change.StateCreated {
-				return Result{}, fmt.Errorf("existing Change %q must be in CREATED state to isolate; current state is %s", changeId, currentChange.State())
+			if currentChange.State() != change.StateCreated && currentChange.State() != change.StatePlanned {
+				return Result{}, fmt.Errorf("existing Change %q must be in CREATED or PLANNED state to isolate; current state is %s", changeId, currentChange.State())
 			}
 		}
 	} else {
@@ -678,15 +691,17 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 	}
 
 	session.setCurrentChange(currentChange)
-	currentChange, err = session.changeWorkflow.Transition(
-		changeId,
-		change.StatePlanned,
-		invocation.CommandPath+" proposal planning",
-	)
-	if err != nil {
-		return Result{}, err
+	if currentChange.State() == change.StateCreated {
+		currentChange, err = session.changeWorkflow.Transition(
+			changeId,
+			change.StatePlanned,
+			invocation.CommandPath+" proposal planning",
+		)
+		if err != nil {
+			return Result{}, err
+		}
+		session.setCurrentChange(currentChange)
 	}
-	session.setCurrentChange(currentChange)
 
 	preparedSurface, err := session.repositoryIntelligence.EstablishSurface(
 		currentChange,
@@ -694,10 +709,7 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 		scopeRequest,
 	)
 	if err != nil {
-		return Result{}, errors.Join(
-			err,
-			session.rejectCurrentChange("proposal surface establishment failed"),
-		)
+		return Result{}, fmt.Errorf("establish proposal surface; Change remains planned and isolation may be retried: %w", err)
 	}
 	currentProposal, err := session.proposalLifecycle.CreateWorkspace(
 		currentChange,
@@ -705,14 +717,13 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 		preparedSurface.ApprovedScope(),
 	)
 	if err != nil {
-		return Result{}, errors.Join(
-			err,
-			session.rejectCurrentChange("proposal workspace creation failed"),
-		)
+		return Result{}, fmt.Errorf("create proposal workspace; Change remains planned and isolation may be retried: %w", err)
 	}
+	session.setCurrentProposal(currentProposal)
 	foundation, artifactError := proposalFoundationSpecs(currentProposal)
 	if artifactError != nil {
-		return Result{}, artifactError
+		cleanupError := session.rejectAndDiscardWorkspaceOnly("proposal foundation construction failed")
+		return Result{}, errors.Join(artifactError, cleanupError)
 	}
 	var transitionError error
 	if session.durableAuthority != nil {
@@ -728,9 +739,11 @@ func handleChangeIsolate(session *Session, invocation Invocation, output io.Writ
 		if cleanedProposal.Workspace().State() != proposal.WorkspaceCleaned {
 			session.setCurrentProposal(cleanedProposal)
 		}
+		if cleanedProposal.Workspace().State() == proposal.WorkspaceCleaned {
+			session.clearCurrentProposal()
+		}
 		return Result{}, errors.Join(
-			transitionError,
-			session.rejectCurrentChange("proposal isolation transition failed"),
+			fmt.Errorf("persist proposal isolation; Change remains planned and isolation may be retried: %w", transitionError),
 			cleanupError,
 		)
 	}
@@ -777,24 +790,22 @@ func handleChangePatch(session *Session, invocation Invocation, output io.Writer
 		return Result{}, nil
 	}
 
-	cleanupError := session.rejectAndDiscardProposal("patch rejected by M0.4 surface comparison")
-	return Result{}, errors.Join(extractionError, cleanupError)
+	fmt.Fprintf(output, "Recovery: retryable; Change remains %s and the rejected workspace must be replaced before implementation retry\n", currentChangeState(session))
+	fmt.Fprintln(output, "Safe next actions: change implement; change discard")
+	return Result{}, extractionError
 }
 
 func handleChangeImplement(session *Session, invocation Invocation, output io.Writer) (Result, error) {
 	if len(invocation.Arguments) != 0 {
 		return Result{}, errInvalidArguments
 	}
-	currentProposal, ok := session.CurrentProposal()
-	if !ok {
-		return Result{}, fmt.Errorf("no current isolated proposal; use change isolate first")
-	}
 	currentChange, ok := session.CurrentChange()
 	if !ok || currentChange.State() != change.StateIsolated {
 		return Result{}, fmt.Errorf("current Change must be isolated before implementation")
 	}
-	if currentChange.ChangeId() != currentProposal.Workspace().ChangeId() {
-		return Result{}, fmt.Errorf("current Change and proposal linkage is inconsistent")
+	currentProposal, err := session.prepareImplementationWorkspace(currentChange)
+	if err != nil {
+		return Result{}, err
 	}
 
 	implementationContext := session.implementationContext(currentChange)
@@ -807,19 +818,19 @@ func handleChangeImplement(session *Session, invocation Invocation, output io.Wr
 	)
 	session.setCurrentProposal(executionResult.Proposal())
 	if implementationError != nil {
-		cleanupReason := implementationCleanupReason(implementationError)
+		failureReason := implementationCleanupReason(implementationError)
 		var emptyPatch proposal.EmptyPatchError
 		if errors.As(implementationError, &emptyPatch) {
-			writeNoPatchDiagnostics(output, executionResult, cleanupReason)
+			writeNoPatchDiagnostics(output, executionResult, failureReason)
 		}
-		cleanupError := session.rejectAndDiscardProposal(cleanupReason)
-		return Result{}, errors.Join(implementationError, cleanupError)
+		writeImplementationRecovery(output, currentChange, executionResult.Proposal(), implementationError, failureReason)
+		return Result{}, implementationError
 	}
 
 	response, completed := executionResult.Response()
 	if !completed {
-		cleanupError := session.rejectAndDiscardProposal("provider implementation returned no response")
-		return Result{}, errors.Join(fmt.Errorf("provider implementation returned no completed response"), cleanupError)
+		writeImplementationRecovery(output, currentChange, executionResult.Proposal(), nil, "provider implementation returned no response")
+		return Result{}, fmt.Errorf("provider implementation returned no completed response")
 	}
 	fmt.Fprintf(output, "Execution attempt: %s\n", executionResult.AttemptId())
 	fmt.Fprintf(output, "Provider: %s\n", response.Selection().ProviderIdentifier())
@@ -843,6 +854,117 @@ func handleChangeImplement(session *Session, invocation Invocation, output io.Wr
 		return Result{}, err
 	}
 	return Result{}, nil
+}
+
+func (session *Session) prepareImplementationWorkspace(currentChange change.Change) (proposal.Proposal, error) {
+	currentProposal, hasProposal := session.CurrentProposal()
+	if hasProposal {
+		if currentProposal.Workspace().ChangeId() != currentChange.ChangeId() {
+			return proposal.Proposal{}, fmt.Errorf("current Change and proposal linkage is inconsistent")
+		}
+		switch currentProposal.Workspace().State() {
+		case proposal.WorkspaceActive:
+			if blocker := session.activeWorkspaceExecutionBlocker(currentChange, currentProposal); blocker != "" {
+				return proposal.Proposal{}, fmt.Errorf("implementation blocked because workspace safety is not proven: %s; use change diagnose or change discard", blocker)
+			}
+			return currentProposal, nil
+		case proposal.WorkspaceRetained:
+			return proposal.Proposal{}, fmt.Errorf("current proposal is retained; use change verify or change discard")
+		case proposal.WorkspaceFailed, proposal.WorkspaceRejected, proposal.WorkspaceCleanupFailed:
+			cleaned, cleanupError := session.proposalLifecycle.Discard(currentProposal, "replace unsafe workspace before implementation retry")
+			session.setCurrentProposal(cleaned)
+			if cleanupError != nil {
+				return proposal.Proposal{}, fmt.Errorf("implementation retry blocked; prior workspace cleanup is not proven: %w", cleanupError)
+			}
+		case proposal.WorkspaceCleaned:
+		default:
+			return proposal.Proposal{}, fmt.Errorf("proposal workspace has unsupported recovery state %q", currentProposal.Workspace().State())
+		}
+	}
+	snapshot, scope, hasFoundation := session.proposalFoundation()
+	if !hasFoundation {
+		return proposal.Proposal{}, fmt.Errorf("implementation retry requires durable proposal foundation; use change diagnose")
+	}
+	replacement, err := session.proposalLifecycle.CreateReplacementWorkspace(currentChange, snapshot, scope)
+	if err != nil {
+		return proposal.Proposal{}, fmt.Errorf("create fresh implementation retry workspace: %w", err)
+	}
+	session.setCurrentProposal(replacement)
+	foundation, err := replacementProposalFoundationSpec(replacement)
+	if err == nil {
+		err = session.persistGovernedArtifacts(currentChange, foundation)
+	}
+	if err != nil {
+		cleaned, cleanupError := session.proposalLifecycle.Discard(replacement, "retry workspace foundation persistence failed")
+		session.setCurrentProposal(cleaned)
+		return proposal.Proposal{}, errors.Join(fmt.Errorf("persist fresh retry workspace authority: %w", err), cleanupError)
+	}
+	return replacement, nil
+}
+
+func (session *Session) activeWorkspaceExecutionBlocker(currentChange change.Change, currentProposal proposal.Proposal) string {
+	if session == nil || session.durableInspection == nil {
+		return ""
+	}
+	detail, err := session.durableInspection.InspectChange(currentChange.ChangeId())
+	if err != nil {
+		return "durable lifecycle evidence is unavailable"
+	}
+	return activeWorkspaceAuditBlocker(detail.Audit, string(currentProposal.Workspace().WorkspaceId()))
+}
+
+func activeWorkspaceAuditBlocker(events []audit.Event, workspaceId string) string {
+	for index := len(events) - 1; index >= 0; index-- {
+		event := events[index]
+		if event.Metadata["workspace_id"] != workspaceId {
+			continue
+		}
+		switch event.EventType {
+		case audit.EventPatchSurfaceValidated, audit.EventPatchRejected,
+			audit.EventProposalWorkspaceFailed, audit.EventProposalWorkspaceCleanupFailed,
+			audit.EventProposalWorkspaceDiscarded:
+			return ""
+		case audit.EventProviderExecutionFailed:
+			if event.Metadata["failure_stage"] == "pre-invocation-guard" {
+				return "the canonical source guard failed before provider invocation"
+			}
+			return ""
+		case audit.EventProviderExecutionCompleted:
+			return "provider completion has no durable patch outcome"
+		case audit.EventProviderExecutionStarted:
+			return "provider attempt has no durable outcome"
+		case audit.EventProposalWorkspaceCreated:
+			return ""
+		}
+	}
+	return "workspace creation authority is missing"
+}
+
+func writeImplementationRecovery(output io.Writer, currentChange change.Change, currentProposal proposal.Proposal, cause error, reason string) {
+	fmt.Fprintf(output, "Implementation outcome: %s\n", boundedSingleLine(reason, 512))
+	fmt.Fprintln(output, "Canonical source: unchanged by the implementation attempt")
+	fmt.Fprintf(output, "Change state: %s\n", currentChange.State())
+	var drift proposal.CanonicalSourceDriftError
+	if errors.As(cause, &drift) {
+		fmt.Fprintf(output, "Proposal workspace: retained (%s); canonical source drift blocks retry\n", currentProposal.Workspace().State())
+		fmt.Fprintln(output, "Recovery: action required")
+		fmt.Fprintln(output, "Safe next actions: change discard; change diagnose")
+		return
+	}
+	if currentProposal.Workspace().State() == proposal.WorkspaceActive {
+		fmt.Fprintln(output, "Proposal workspace: active and unchanged; safe to reuse")
+	} else {
+		fmt.Fprintf(output, "Proposal workspace: retained (%s); it will be cleaned before retry\n", currentProposal.Workspace().State())
+	}
+	fmt.Fprintln(output, "Recovery: retryable")
+	fmt.Fprintln(output, "Safe next actions: change implement; change discard; change diagnose")
+}
+
+func currentChangeState(session *Session) change.ChangeState {
+	if current, ok := session.CurrentChange(); ok {
+		return current.State()
+	}
+	return ""
 }
 
 func handleChangeVerify(session *Session, invocation Invocation, output io.Writer) (Result, error) {
@@ -1032,30 +1154,54 @@ func handleChangeClose(session *Session, invocation Invocation, output io.Writer
 		return Result{}, errInvalidArguments
 	}
 	currentChange, hasChange := session.CurrentChange()
+	if !hasChange || currentChange.State() != change.StateRejected {
+		return Result{}, fmt.Errorf("rejection closure requires the current rejected Change")
+	}
 	currentProposal, hasProposal := session.CurrentProposal()
 	verificationResult, hasVerification := session.LastVerification()
 	decision, hasDecision := session.LastDecision()
 	policyDecision, hasPolicyDecision := session.LastPolicyDecision()
-	if !hasChange || !hasProposal || !hasVerification || !hasDecision || !hasPolicyDecision {
-		return Result{}, fmt.Errorf("rejection closure requires the current rejected Change, retained proposal, EvidenceSet, and REJECT decision")
+	if hasProposal && hasVerification && hasDecision && hasPolicyDecision {
+		terminal, err := session.canonicalIntegration.CloseRejected(
+			invocation.Context,
+			currentChange,
+			currentProposal,
+			verificationResult,
+			policyDecision,
+			decision,
+		)
+		if err != nil {
+			return Result{}, err
+		}
+		session.setCurrentChange(terminal)
+		fmt.Fprintln(output, "Rejected Change closure: canonical source proven unchanged")
+		fmt.Fprintln(output, "Canonical application: not performed")
+		fmt.Fprintf(output, "Change state: %s\n", terminal.State())
+		cleanupError := session.cleanupTerminalProposal("rejected Change reached audit-locked with canonical source unchanged")
+		return Result{}, cleanupError
 	}
-	terminal, err := session.canonicalIntegration.CloseRejected(
+	if hasProposal {
+		return Result{}, fmt.Errorf("abandoned Change closure requires its proposal workspace to be cleaned first; use change discard")
+	}
+	snapshot, _, hasFoundation := session.proposalFoundation()
+	if !hasFoundation {
+		return Result{}, fmt.Errorf("abandoned Change closure requires durable source authority; use change diagnose")
+	}
+	terminal, err := session.canonicalIntegration.CloseAbandoned(
 		invocation.Context,
 		currentChange,
-		currentProposal,
-		verificationResult,
-		policyDecision,
-		decision,
+		snapshot,
+		"developer explicitly closed discarded Change",
 	)
 	if err != nil {
 		return Result{}, err
 	}
 	session.setCurrentChange(terminal)
-	fmt.Fprintln(output, "Rejected Change closure: canonical source proven unchanged")
+	session.clearProposalFoundation()
+	fmt.Fprintln(output, "Discarded Change closure: canonical source proven unchanged")
 	fmt.Fprintln(output, "Canonical application: not performed")
 	fmt.Fprintf(output, "Change state: %s\n", terminal.State())
-	cleanupError := session.cleanupTerminalProposal("rejected Change reached audit-locked with canonical source unchanged")
-	return Result{}, cleanupError
+	return Result{}, nil
 }
 
 func handleHumanDecision(
@@ -1292,11 +1438,40 @@ func handleChangeDiscard(session *Session, invocation Invocation, output io.Writ
 		return Result{}, fmt.Errorf("no current proposal workspace to discard")
 	}
 	workspaceId := currentProposal.Workspace().WorkspaceId()
-	err := session.rejectAndDiscardProposal("developer discarded proposal workspace")
-	if _, stillPresent := session.CurrentProposal(); !stillPresent {
-		fmt.Fprintf(output, "Proposal workspace discarded: %s\n", workspaceId)
+	currentChange, hasChange := session.CurrentChange()
+	if !hasChange {
+		return Result{}, fmt.Errorf("current Change is required to discard proposal workspace")
 	}
-	return Result{}, err
+	if currentChange.State() == change.StateAuditLocked {
+		err := session.cleanupTerminalProposal("developer retried terminal proposal workspace cleanup")
+		if err != nil {
+			return Result{}, err
+		}
+		fmt.Fprintf(output, "Proposal workspace discarded: %s\n", workspaceId)
+		fmt.Fprintln(output, "Change outcome: terminal; canonical source unchanged")
+		return Result{}, nil
+	}
+	if currentChange.State() == change.StatePlanned && session.durableAuthority != nil {
+		foundation, foundationError := proposalFoundationSpecs(currentProposal)
+		if foundationError == nil {
+			foundationError = session.persistGovernedArtifacts(currentChange, foundation...)
+		}
+		if foundationError != nil {
+			return Result{}, fmt.Errorf("persist closure authority before discarding planned workspace: %w", foundationError)
+		}
+	}
+	err := session.rejectAndDiscardProposal("developer discarded proposal workspace")
+	if err != nil {
+		if retained, stillPresent := session.CurrentProposal(); stillPresent {
+			fmt.Fprintf(output, "Proposal workspace: %s (%s); cleanup not proven\n", workspaceId, retained.Workspace().State())
+			fmt.Fprintln(output, "Recovery: action required; retry discard after resolving the cleanup failure")
+		}
+		return Result{}, err
+	}
+	fmt.Fprintf(output, "Proposal workspace discarded: %s\n", workspaceId)
+	fmt.Fprintln(output, "Change outcome: rejected; canonical source unchanged")
+	fmt.Fprintln(output, "Safe next action: change close")
+	return Result{}, nil
 }
 
 func requireNoCurrentProposal(session *Session) error {

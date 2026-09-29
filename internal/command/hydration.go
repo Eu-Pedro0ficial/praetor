@@ -8,6 +8,7 @@ import (
 
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/artifact"
+	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/inspection"
@@ -34,6 +35,7 @@ func (session *Session) hydrateDurableChangeStaged(detail inspection.ChangeDetai
 	current := detail.Change
 	session.currentProposal = proposal.Proposal{}
 	session.hasCurrentProposal = false
+	session.clearProposalFoundation()
 	session.lastVerification = verification.Result{}
 	session.hasLastVerification = false
 	session.lastPolicyDecision = policy.BundleDecision{}
@@ -66,7 +68,14 @@ func (session *Session) hydrateDurableChangeStaged(detail inspection.ChangeDetai
 	load := func(role string, kind artifact.Kind) (artifact.Artifact, error) {
 		return loadWithSchemas(role, kind, 1)
 	}
-	sourceItem, err := load("source-snapshot", artifact.KindSourceSnapshot)
+	sourceRole := "source-snapshot"
+	if latestWorkspace := latestCreatedWorkspaceId(detail.Audit); latestWorkspace != "" {
+		candidateRole := "source-snapshot:" + latestWorkspace
+		if _, exists := bindings[candidateRole]; exists {
+			sourceRole = candidateRole
+		}
+	}
+	sourceItem, err := load(sourceRole, artifact.KindSourceSnapshot)
 	if err != nil {
 		return err
 	}
@@ -93,9 +102,15 @@ func (session *Session) hydrateDurableChangeStaged(detail inspection.ChangeDetai
 	if err != nil {
 		return fmt.Errorf("%w: %v", authority.ErrCorrupt, err)
 	}
+	session.setProposalFoundation(snapshot, approvedScope)
+	workspaceId := proposal.WorkspaceId(sourcePayload.WorkspaceId)
+	workspaceState := durableWorkspaceState(detail.Audit, workspaceId)
+	if workspaceState == proposal.WorkspaceCleaned {
+		return nil
+	}
 	patchBinding, hasPatch := bindings["patch"]
 	if !hasPatch {
-		currentProposal, err := proposal.RehydrateWorkspaceProposal(proposal.WorkspaceId(sourcePayload.WorkspaceId), sourcePayload.WorkspaceRoot, snapshot, approvedScope)
+		currentProposal, err := proposal.RehydrateWorkspaceProposalWithState(workspaceId, sourcePayload.WorkspaceRoot, snapshot, approvedScope, workspaceState)
 		if err != nil {
 			return fmt.Errorf("rehydrate durable ProposalWorkspace: %w", err)
 		}
@@ -350,4 +365,44 @@ func (session *Session) hydrateHumanDecision(current change.Change, currentPropo
 		return approval.HumanDecision{}, fmt.Errorf("%w: durable HumanDecision linkage is invalid: %v", authority.ErrCorrupt, err)
 	}
 	return decision, nil
+}
+
+func durableWorkspaceState(events []audit.Event, workspaceId proposal.WorkspaceId) proposal.WorkspaceState {
+	state := proposal.WorkspaceActive
+	for _, event := range events {
+		if event.Metadata["workspace_id"] != string(workspaceId) {
+			continue
+		}
+		switch event.EventType {
+		case proposal.EventProposalWorkspaceCreated:
+			state = proposal.WorkspaceActive
+		case proposal.EventPatchSurfaceValidated:
+			state = proposal.WorkspaceRetained
+		case proposal.EventPatchRejected:
+			state = proposal.WorkspaceRejected
+		case proposal.EventProposalWorkspaceFailed:
+			state = proposal.WorkspaceFailed
+		case proposal.EventProposalWorkspaceCleanupFailed:
+			state = proposal.WorkspaceCleanupFailed
+		case proposal.EventProposalWorkspaceDiscarded:
+			state = proposal.WorkspaceCleaned
+		case "PROVIDER_EXECUTION_FAILED":
+			if event.Metadata["workspace_may_be_changed"] == true {
+				state = proposal.WorkspaceFailed
+			}
+		}
+	}
+	return state
+}
+
+func latestCreatedWorkspaceId(events []audit.Event) string {
+	latest := ""
+	for _, event := range events {
+		if event.EventType == proposal.EventProposalWorkspaceCreated {
+			if workspaceId, ok := event.Metadata["workspace_id"].(string); ok {
+				latest = workspaceId
+			}
+		}
+	}
+	return latest
 }

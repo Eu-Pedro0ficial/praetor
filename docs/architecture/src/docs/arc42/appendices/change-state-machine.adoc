@@ -60,17 +60,27 @@ disposition unchanged; no rollback or terminal state is manufactured.
 ==== M0.4 Integration with Existing States
 
 M0.4 uses the existing `planned -> isolated` edge only after a clean M0.3
-source boundary and detached proposal worktree have been established. A
-surface-valid patch remains `isolated`; it does not claim the M0.6
-`validated` state or the M0.7 human meaning of `approved`. A forbidden, empty
-or explicitly discarded proposal uses the existing `isolated -> rejected`
-edge. Failure before a workspace is established uses `planned -> rejected`;
-operational extraction failures leave the active isolated proposal available
-for an explicit retry or discard.
+source boundary, detached proposal worktree, and durable proposal foundation
+have been established. A failed source, surface, workspace, or authority step
+before that edge leaves the Change `planned`, so the same identity and intent
+can retry isolation without erasing prior audit evidence. A surface-valid
+patch remains `isolated`; it does not claim the M0.6 `validated` state or the
+M0.7 human meaning of `approved`.
 
-The proposal workspace's `active`, `retained`, `rejected` and `cleaned`
-operational labels describe temporary resource handling only. They neither add
-Change states nor bypass aggregate transitions.
+Provider/process failure, empty output, patch extraction failure, and surface
+rejection are operational outcomes while the Change remains `isolated`.
+`failed` marks a workspace that may contain partial provider mutation;
+`rejected` marks one whose extracted patch was empty or failed ApprovedScope.
+Neither workspace may receive another provider attempt. `change implement`
+first proves cleanup and then creates a new workspace from the same exact
+SourceSnapshot and ApprovedScope. Only explicit `change discard` requests
+`isolated -> rejected`; `change close` then proves canonical source unchanged
+before `rejected -> audit-locked`.
+
+The proposal workspace's `active`, `retained`, `rejected`, `failed`,
+`cleanup-failed`, and `cleaned` labels describe temporary resource handling
+only. `cleanup-failed` blocks execution and closure until cleanup is proven.
+These labels neither add Change states nor bypass aggregate transitions.
 
 ==== M1.1 Durable Recovery Boundary
 

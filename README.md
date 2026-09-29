@@ -108,6 +108,18 @@ it is not process, host-filesystem, credential, network, container, VM, or
 hostile-code containment. A surface-valid proposal remains `isolated` until
 `change verify` executes the required checks against the retained proposal.
 
+Provider/process/cancellation failure leaves the Change `isolated` and marks
+the workspace `failed`; no patch or an ApprovedScope violation marks it
+`rejected`. `change implement` is the explicit retry: it proves cleanup of the
+old workspace, creates a fresh workspace from the same SourceSnapshot and
+ApprovedScope, persists its authority, and uses a new execution attempt.
+Canonical drift blocks retry. `change discard` explicitly rejects and cleans
+the proposal; `change close` then proves canonical source unchanged and
+audit-locks an abandoned Change. `status` reports the last operation outcome,
+canonical-source effect, workspace disposition, recovery state, and safe next
+actions. A cleanup failure is `cleanup-failed` and blocks execution until
+cleanup can be proven.
+
 M0.6 discovers explicit `package.json` scripts and Makefile targets, infers
 the baseline Go check from `go.mod`, and retains other bounded manifest,
 tooling, and CI signals for optional AI assistance. That assistance uses the
@@ -144,7 +156,9 @@ Praetor creates no commit, branch, merge, PR, or push. Exact post-application
 diff/path/digest proof and a completion audit precede `approved ->
 audit-locked`. Rejection closure proves canonical source unchanged, never
 invokes application, records closure, and then performs `rejected ->
-audit-locked`. Late failures report whether mutation occurred and never claim
+audit-locked`. This covers both an exact human `REJECT` chain and an explicitly
+discarded proposal whose durable isolation snapshot still matches canonical
+source. Late failures report whether mutation occurred and never claim
 rollback; replay then fails closed against canonical drift. Temporary proposal
 workspaces are cleaned after terminal closure without placing `.praetor` or
 patch files in governed source.

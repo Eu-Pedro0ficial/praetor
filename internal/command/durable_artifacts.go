@@ -48,6 +48,32 @@ func proposalFoundationSpecs(current proposal.Proposal) ([]durableArtifactSpec, 
 	return []durableArtifactSpec{sourceSpec, scopeSpec}, nil
 }
 
+func replacementProposalFoundationSpec(current proposal.Proposal) (durableArtifactSpec, error) {
+	snapshot := current.CanonicalSource()
+	trackedPaths := make([]string, 0, len(snapshot.TrackedPaths()))
+	for _, path := range snapshot.TrackedPaths() {
+		trackedPaths = append(trackedPaths, string(path))
+	}
+	payload, err := artifact.EncodeSourceSnapshotPayload(artifact.SourceSnapshotPayload{
+		RepositoryRoot:    snapshot.RepositoryRoot(),
+		WorkspaceId:       string(current.Workspace().WorkspaceId()),
+		WorkspaceRoot:     current.Workspace().Root(),
+		HeadRevision:      snapshot.HeadRevision(),
+		TrackedPaths:      trackedPaths,
+		SourceStateDigest: string(snapshot.SourceStateDigest()),
+	})
+	if err != nil {
+		return durableArtifactSpec{}, err
+	}
+	return durableArtifactSpec{
+		kind:      artifact.KindSourceSnapshot,
+		role:      "source-snapshot:" + string(current.Workspace().WorkspaceId()),
+		mediaType: "application/json",
+		payload:   payload,
+		createdAt: time.Now(),
+	}, nil
+}
+
 func patchSpec(current proposal.Proposal) (durableArtifactSpec, error) {
 	item, ok := current.PatchArtifact()
 	if !ok {

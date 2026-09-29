@@ -92,11 +92,14 @@ base revision and M0.3 `SourceStateDigest`. `ChangeId` is linkage only and does
 not control filesystem placement.
 
 The small workspace lifecycle is operational rather than a competing Change
-lifecycle: `active` may become `retained`, `rejected` or `cleaned`; a retained
-or rejected workspace may later become `cleaned`. A surface-valid patch is
-retained with the Change still `isolated`. It is neither M0.6 `validated` nor
-M0.7 `approved`. A protected, unexpected, invalid or empty patch is rejected
-as a whole and its owned worktree is discarded.
+lifecycle: `active` may become `retained`, `rejected`, `failed`,
+`cleanup-failed`, or `cleaned`; retained, rejected, and failed workspaces may
+later become `cleanup-failed` or `cleaned`. A surface-valid patch is retained
+with the Change still `isolated`. It is neither M0.6 `validated` nor M0.7
+`approved`. A protected, unexpected, invalid, or empty patch is rejected as a
+whole and retained until explicit discard or retry cleanup. A provider or
+post-provider extraction failure marks the workspace failed because partial
+mutation may exist. Cleanup failure remains explicit and blocks reuse.
 
 `PatchArtifact` retains the proposal linkage, base revision, source-state
 relationship, binary-capable Git patch bytes, sorted changed paths, a compact
@@ -111,7 +114,8 @@ developer's repository.
 
 The executable append-oriented event set is
 `PROPOSAL_WORKSPACE_CREATED`, `PATCH_EXTRACTED`,
-`PATCH_SURFACE_VALIDATED`, `PATCH_REJECTED` and
+`PATCH_SURFACE_VALIDATED`, `PATCH_REJECTED`,
+`PROPOSAL_WORKSPACE_FAILED`, `PROPOSAL_WORKSPACE_CLEANUP_FAILED`, and
 `PROPOSAL_WORKSPACE_DISCARDED`. Events link `ProjectId`, `ChangeId`, random
 workspace identity, base revision, source-state digest, disposition and, when
 present, patch digest, diff summary, changed paths and surface violations.
@@ -156,6 +160,14 @@ state, timestamps, disposition and bounded success/failure metadata. Patch
 events produced by an execution also link the Praetor attempt identity. Raw
 prompts, source bodies, provider output, workspace paths, and credentials are
 not audit metadata.
+
+Each invoked implementation attempt owns a distinct `ExecutionAttemptId`.
+Failure keeps the Change `isolated` and makes workspace disposition explicit.
+A retry removes the prior failed/rejected workspace before creating a new
+random workspace at the original base and source digest. It appends a new
+source-snapshot binding scoped by WorkspaceId while retaining prior artifacts
+and events. Canonical drift blocks replacement creation; no old proposal can
+be applied through retry.
 
 ===== M0.6 Executable Verification Boundary
 

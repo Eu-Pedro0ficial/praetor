@@ -166,10 +166,10 @@ func TestM12IsolateExistingDurableChangeFailsClosedWhenResumeIsIncompatible(t *t
 			wantError:      "intent does not match isolate request",
 		},
 		{
-			name:           "state is not created",
-			createCommand:  `change new change-m12-state "already planned" planned`,
-			isolateCommand: `change isolate change-m12-state "already planned" --expected internal/service/service.go`,
-			wantError:      "must be in CREATED state to isolate",
+			name:           "state is not resumable",
+			createCommand:  `change new change-m12-state "already isolated" planned isolated`,
+			isolateCommand: `change isolate change-m12-state "already isolated" --expected internal/service/service.go`,
+			wantError:      "must be in CREATED or PLANNED state to isolate",
 		},
 	}
 

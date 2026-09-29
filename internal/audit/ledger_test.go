@@ -141,6 +141,8 @@ func TestAppendCannotWriteChangeEventWithoutChangeId(t *testing.T) {
 		EventPatchExtracted,
 		EventPatchSurfaceValidated,
 		EventPatchRejected,
+		EventProposalWorkspaceFailed,
+		EventProposalWorkspaceCleanupFailed,
 		EventProposalWorkspaceDiscarded,
 		EventProviderExecutionStarted,
 		EventProviderExecutionCompleted,

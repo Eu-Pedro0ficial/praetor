@@ -80,8 +80,11 @@ portion of the broader implementation scenario:
   while any protected or unexpected path rejects the whole proposal;
 . surface-valid does not advance the Change beyond `isolated`; M0.6 owns
   deterministic evidence validation and M0.7 owns human approval;
-. `change discard`, a rejected patch, or session shutdown removes only the
-  adapter-owned worktree and records append-oriented provenance.
+. a rejected patch remains owned and inspectable until explicit retry or
+  `change discard`; retry proves cleanup before creating a new workspace;
+. session shutdown removes only the adapter-owned worktree, records
+  append-oriented provenance, and leaves the Change recoverable without
+  manufacturing rejection.
 
 Dirty canonical source and externally detected source drift fail closed.
 Praetor does not stash, reset, clean, repair or overwrite developer source.

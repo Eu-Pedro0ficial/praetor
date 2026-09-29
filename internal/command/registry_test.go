@@ -16,6 +16,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/composition"
+	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 )
 
@@ -433,11 +434,15 @@ func TestRegistryRepositoryWideIsolationAllowsDiscoveryAndPreservesProtection(t 
 		if !strings.Contains(output.String(), "- protected: internal/service/service.go") {
 			t.Fatalf("protected subtree patch output = %q", output.String())
 		}
-		if _, ok := session.CurrentProposal(); ok {
-			t.Fatal("protected repository-wide proposal remained active")
+		rejected, ok := session.CurrentProposal()
+		if !ok || rejected.Workspace().State() != proposal.WorkspaceRejected {
+			t.Fatalf("protected repository-wide proposal disposition = %#v/%t", rejected, ok)
 		}
-		if _, err := os.Stat(workspaceRoot); !os.IsNotExist(err) {
-			t.Fatalf("protected workspace remains: %v", err)
+		if _, err := os.Stat(workspaceRoot); err != nil {
+			t.Fatalf("retained rejected workspace missing: %v", err)
+		}
+		if _, err := registry.Dispatch(session, "change discard", io.Discard); err != nil {
+			t.Fatalf("discard protected workspace: %v", err)
 		}
 		assertGovernedCommandRepositoryClean(t, repositoryRoot)
 	})
@@ -721,21 +726,23 @@ func TestRegistryM04RejectsForbiddenMixedAndEmptyPatches(t *testing.T) {
 			if !strings.Contains(output.String(), test.wantViolation) {
 				t.Fatalf("patch output %q lacks %q", output.String(), test.wantViolation)
 			}
-			if _, ok := session.CurrentProposal(); ok {
-				t.Fatal("rejected proposal retained session context")
+			rejected, ok := session.CurrentProposal()
+			if !ok || rejected.Workspace().State() != proposal.WorkspaceRejected {
+				t.Fatalf("rejected proposal disposition = %#v/%t", rejected, ok)
 			}
-			if _, err := os.Stat(workspaceRoot); !os.IsNotExist(err) {
-				t.Fatalf("rejected workspace remains: %v", err)
+			if _, err := os.Stat(workspaceRoot); err != nil {
+				t.Fatalf("retained rejected workspace missing: %v", err)
 			}
 			currentChange, _ := session.CurrentChange()
-			if currentChange.State() != "rejected" {
-				t.Fatalf("rejected Change state = %q", currentChange.State())
+			if currentChange.State() != change.StateIsolated {
+				t.Fatalf("retryable Change state = %q", currentChange.State())
 			}
 			events := readCommandAudit(t, dataDirectory)
-			if events[len(events)-3].EventType != audit.EventPatchRejected ||
-				events[len(events)-2].EventType != audit.EventChangeTransition ||
-				events[len(events)-1].EventType != audit.EventProposalWorkspaceDiscarded {
-				t.Fatalf("rejection audit tail = %#v", events[len(events)-3:])
+			if events[len(events)-1].EventType != audit.EventPatchRejected {
+				t.Fatalf("rejection audit tail = %#v", events[len(events)-1:])
+			}
+			if _, err := registry.Dispatch(session, "change discard", io.Discard); err != nil {
+				t.Fatalf("discard rejected proposal: %v", err)
 			}
 			assertGovernedCommandRepositoryClean(t, repositoryRoot)
 		})
@@ -829,12 +836,23 @@ func TestRegistryM04DirtyAndExternallyDriftingCanonicalSourceFailClosed(t *testi
 			t.Fatal("dirty source created proposal")
 		}
 		currentChange, ok := session.CurrentChange()
-		if !ok || currentChange.State() != change.StateRejected {
+		if !ok || currentChange.State() != change.StatePlanned {
 			t.Fatalf("dirty proposal Change = %#v, %t", currentChange, ok)
 		}
 		contents, readError := os.ReadFile(filepath.Join(repositoryRoot, "README.md"))
 		if readError != nil || string(contents) != "# Developer edit\n" {
 			t.Fatalf("dirty source was repaired: %q, %v", contents, readError)
+		}
+		writeCommandFile(t, repositoryRoot, "README.md", "# Fixture\n")
+		if _, err := registry.Dispatch(
+			session,
+			`change isolate change-dirty "dirty source" --expected internal/service/service.go`,
+			io.Discard,
+		); err != nil {
+			t.Fatalf("retry planned isolation: %v", err)
+		}
+		if retried, ok := session.CurrentChange(); !ok || retried.State() != change.StateIsolated {
+			t.Fatalf("retried isolation Change = %#v/%t", retried, ok)
 		}
 	})
 

@@ -38,6 +38,7 @@ type LifecycleEvent struct {
 	Response              aiprovider.ProviderResponse
 	HasResponse           bool
 	FailureKind           aiprovider.FailureKind
+	FailureStage          string
 	ExternalExecutionId   string
 	ProviderDiagnostic    string
 	ChangedPaths          []string
@@ -199,8 +200,21 @@ func (service *Service) ImplementWithContext(
 			externalExecutionId = providerError.ExternalExecutionId()
 			providerDiagnostic = providerError.Diagnostic()
 		}
+		var dispositionError error
+		if providerInvoked {
+			result.proposal, dispositionError = service.proposalLifecycle.FailWorkspace(
+				currentProposal,
+				"provider execution failed before a valid proposal was established",
+				string(attemptId),
+			)
+		}
+		failureStage := "pre-invocation-guard"
+		if providerInvoked {
+			failureStage = "provider-or-post-guard"
+		}
 		recordError := service.recorder(LifecycleEvent{
 			EventType:             EventProviderExecutionFailed,
+			FailureStage:          failureStage,
 			Request:               request,
 			Descriptor:            descriptor,
 			FailureKind:           aiprovider.FailureKindOf(mutationError),
@@ -214,7 +228,7 @@ func (service *Service) ImplementWithContext(
 		if recordError != nil {
 			recordError = fmt.Errorf("record provider execution failure: %w", recordError)
 		}
-		return result, errors.Join(mutationError, inspectionError, recordError)
+		return result, errors.Join(mutationError, inspectionError, dispositionError, recordError)
 	}
 
 	result.response = response
@@ -237,6 +251,15 @@ func (service *Service) ImplementWithContext(
 	)
 	result.proposal = classifiedProposal
 	result.validation = validation
+	if extractionError != nil && classifiedProposal.Workspace().State() != proposal.WorkspaceRejected {
+		failedProposal, dispositionError := service.proposalLifecycle.FailWorkspace(
+			classifiedProposal,
+			"provider completed but patch extraction did not establish a valid proposal",
+			string(attemptId),
+		)
+		result.proposal = failedProposal
+		extractionError = errors.Join(extractionError, dispositionError)
+	}
 	return result, extractionError
 }
 

@@ -312,53 +312,109 @@ func TestChangeImplementDirectAndContextualUseProviderPipeline(t *testing.T) {
 	}
 }
 
-func TestChangeImplementFailureRejectsAndCleansPartialWorkspace(t *testing.T) {
+func TestChangeImplementFailureRetainsRecoveryAndRetryUsesFreshWorkspace(t *testing.T) {
+	providerCalls := 0
+	var firstWorkspaceRoot string
+	var secondWorkspaceRoot string
 	provider := newCommandFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		providerCalls++
+		if providerCalls == 1 {
+			firstWorkspaceRoot = request.Workspace().Root()
+			if err := os.WriteFile(
+				filepath.Join(firstWorkspaceRoot, "internal/service/service.go"),
+				[]byte("package service\n\nconst Partial = true\n"),
+				0o600,
+			); err != nil {
+				return aiprovider.ProviderResponse{}, err
+			}
+			return aiprovider.ProviderResponse{}, aiprovider.NewExecutionErrorWithDiagnostic(
+				aiprovider.FailureProcess,
+				"codex-cli",
+				"thread-partial",
+				"exit_code=7 stderr=safe-provider-diagnostic",
+				errors.New("secret-provider-stderr"),
+			)
+		}
+		secondWorkspaceRoot = request.Workspace().Root()
+		if secondWorkspaceRoot == firstWorkspaceRoot {
+			t.Fatal("retry reused the failed workspace")
+		}
 		if err := os.WriteFile(
-			filepath.Join(request.Workspace().Root(), "internal/service/service.go"),
-			[]byte("package service\n\nconst Partial = true\n"),
+			filepath.Join(secondWorkspaceRoot, "internal/service/service.go"),
+			[]byte("package service\n\nfunc Greeting() string { return \"retry\" }\n"),
 			0o600,
 		); err != nil {
 			return aiprovider.ProviderResponse{}, err
 		}
-		return aiprovider.ProviderResponse{}, aiprovider.NewExecutionErrorWithDiagnostic(
-			aiprovider.FailureProcess,
-			"codex-cli",
-			"thread-partial",
-			"exit_code=7 stderr=safe-provider-diagnostic",
-			errors.New("secret-provider-stderr"),
-		)
+		return newCommandProviderResponse(t, request, "thread-retry", "retry completed"), nil
 	})
 	repositoryRoot, dataDirectory, session, registry := prepareM05CommandTest(t, provider)
 	if _, err := registry.Dispatch(
 		session,
-		`change isolate change-partial "Exercise partial failure." --expected internal/service/service.go --protected go.mod`,
+		"change isolate change-partial \"Exercise partial failure.\" --expected internal/service/service.go --protected go.mod",
 		io.Discard,
 	); err != nil {
 		t.Fatalf("change isolate error = %v", err)
 	}
 
-	if _, err := registry.Dispatch(session, "change implement", io.Discard); err == nil ||
+	var failureOutput bytes.Buffer
+	if _, err := registry.Dispatch(session, "change implement", &failureOutput); err == nil ||
 		aiprovider.FailureKindOf(err) != aiprovider.FailureProcess {
 		t.Fatalf("change implement partial failure = %v", err)
 	}
 	currentChange, hasChange := session.CurrentChange()
-	if !hasChange || currentChange.State() != change.StateRejected {
+	if !hasChange || currentChange.State() != change.StateIsolated {
 		t.Fatalf("failed implementation Change = %#v/%t", currentChange, hasChange)
 	}
-	if _, hasProposal := session.CurrentProposal(); hasProposal {
-		t.Fatal("failed implementation retained a process-owned workspace")
+	failedProposal, hasProposal := session.CurrentProposal()
+	if !hasProposal || failedProposal.Workspace().State() != proposal.WorkspaceFailed {
+		t.Fatalf("failed implementation proposal = %#v/%t", failedProposal, hasProposal)
+	}
+	if !strings.Contains(failureOutput.String(), "Recovery: retryable") ||
+		!strings.Contains(failureOutput.String(), "Safe next actions: change implement; change discard; change diagnose") {
+		t.Fatalf("failure recovery output = %q", failureOutput.String())
+	}
+	if _, err := os.Stat(firstWorkspaceRoot); err != nil {
+		t.Fatalf("failed workspace was not retained for controlled cleanup: %v", err)
 	}
 	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
-	assertCommandProviderAudit(t, dataDirectory, false, true, "")
-	var discardReason string
-	for _, event := range readCommandAudit(t, dataDirectory) {
-		if event.EventType == audit.EventProposalWorkspaceDiscarded {
-			discardReason, _ = event.Metadata["reason"].(string)
+
+	if _, err := registry.Dispatch(session, "change implement", io.Discard); err != nil {
+		t.Fatalf("retry implementation error = %v", err)
+	}
+	if providerCalls != 2 {
+		t.Fatalf("provider calls = %d, want 2", providerCalls)
+	}
+	if _, err := os.Stat(firstWorkspaceRoot); !os.IsNotExist(err) {
+		t.Fatalf("failed workspace still exists after retry cleanup: %v", err)
+	}
+	retriedProposal, ok := session.CurrentProposal()
+	if !ok || retriedProposal.Workspace().State() != proposal.WorkspaceRetained ||
+		retriedProposal.Workspace().Root() != secondWorkspaceRoot {
+		t.Fatalf("retried proposal = %#v/%t", retriedProposal, ok)
+	}
+	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
+
+	events := readCommandAudit(t, dataDirectory)
+	var starts, failures, completions, failedDispositions, discards int
+	attempts := map[string]bool{}
+	for _, event := range events {
+		switch event.EventType {
+		case audit.EventProviderExecutionStarted:
+			starts++
+			attempts[fmt.Sprint(event.Metadata["execution_attempt_id"])] = true
+		case audit.EventProviderExecutionFailed:
+			failures++
+		case audit.EventProviderExecutionCompleted:
+			completions++
+		case proposal.EventProposalWorkspaceFailed:
+			failedDispositions++
+		case audit.EventProposalWorkspaceDiscarded:
+			discards++
 		}
 	}
-	if discardReason != "provider execution failed: kind=process-failure" {
-		t.Fatalf("provider failure discard reason = %q", discardReason)
+	if starts != 2 || failures != 1 || completions != 1 || failedDispositions != 1 || discards != 1 || len(attempts) != 2 {
+		t.Fatalf("retry audit counts starts=%d failures=%d completions=%d failed=%d discards=%d attempts=%v", starts, failures, completions, failedDispositions, discards, attempts)
 	}
 }
 
@@ -670,36 +726,26 @@ func TestChangeImplementCompletedProviderWithoutPatchRetainsDiagnosticsThenClean
 		}
 	}
 	currentChange, hasChange := session.CurrentChange()
-	if !hasChange || currentChange.State() != change.StateRejected {
+	if !hasChange || currentChange.State() != change.StateIsolated {
 		t.Fatalf("no-patch Change = %#v/%t", currentChange, hasChange)
 	}
-	if _, hasProposal := session.CurrentProposal(); hasProposal {
-		t.Fatal("no-patch implementation retained a process-owned proposal")
+	rejectedProposal, hasProposal := session.CurrentProposal()
+	if !hasProposal || rejectedProposal.Workspace().State() != proposal.WorkspaceRejected {
+		t.Fatalf("no-patch proposal = %#v/%t", rejectedProposal, hasProposal)
 	}
 	if workspaceRoot == "" {
 		t.Fatal("provider did not receive a workspace")
 	}
-	if _, err := os.Stat(workspaceRoot); !os.IsNotExist(err) {
-		t.Fatalf("discarded workspace still exists: %v", err)
+	if _, err := os.Stat(workspaceRoot); err != nil {
+		t.Fatalf("rejected workspace was not retained: %v", err)
 	}
 	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
 
 	events := readCommandAudit(t, dataDirectory)
 	completedIndex := eventIndex(events, audit.EventProviderExecutionCompleted)
 	rejectedIndex := eventIndex(events, audit.EventPatchRejected)
-	transitionIndex := -1
-	discardedIndex := -1
-	for index := rejectedIndex + 1; index < len(events); index++ {
-		if transitionIndex < 0 && events[index].EventType == audit.EventChangeTransition {
-			transitionIndex = index
-		}
-		if events[index].EventType == audit.EventProposalWorkspaceDiscarded {
-			discardedIndex = index
-			break
-		}
-	}
-	if !(completedIndex >= 0 && completedIndex < rejectedIndex && rejectedIndex < transitionIndex && transitionIndex < discardedIndex) {
-		t.Fatalf("no-patch audit ordering completed=%d rejected=%d transition=%d discarded=%d", completedIndex, rejectedIndex, transitionIndex, discardedIndex)
+	if !(completedIndex >= 0 && completedIndex < rejectedIndex) {
+		t.Fatalf("no-patch audit ordering completed=%d rejected=%d", completedIndex, rejectedIndex)
 	}
 	completed := events[completedIndex]
 	if completed.Metadata["provider_summary"] != retainedExplanation ||
@@ -730,10 +776,26 @@ func TestChangeImplementCompletedProviderWithoutPatchRetainsDiagnosticsThenClean
 		fmt.Sprint(rejected.Metadata["actual_possible_changes"]) != "[]" {
 		t.Fatalf("no-patch scope diagnostics = %#v", rejected.Metadata)
 	}
-	if events[transitionIndex].Metadata["context"] != emptyPatch.Error() ||
-		events[discardedIndex].Metadata["reason"] != emptyPatch.Error() {
-		t.Fatalf("precise cleanup reasons transition=%#v discard=%#v", events[transitionIndex].Metadata, events[discardedIndex].Metadata)
+	var status bytes.Buffer
+	if _, err := registry.Dispatch(session, "status", &status); err != nil {
+		t.Fatalf("status after no-patch: %v", err)
 	}
+	for _, expected := range []string{"Outcome: no valid patch was accepted", "Proposal workspace: retained rejected; cleaned before retry", "Recovery: retryable"} {
+		if !strings.Contains(status.String(), expected) {
+			t.Fatalf("no-patch status %q lacks %q", status.String(), expected)
+		}
+	}
+	if _, err := registry.Dispatch(session, "change discard", io.Discard); err != nil {
+		t.Fatalf("discard no-patch workspace: %v", err)
+	}
+	if _, err := registry.Dispatch(session, "change close", io.Discard); err != nil {
+		t.Fatalf("close discarded no-patch Change: %v", err)
+	}
+	terminal, _ := session.CurrentChange()
+	if terminal.State() != change.StateAuditLocked {
+		t.Fatalf("discarded no-patch Change state = %s", terminal.State())
+	}
+	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
 }
 
 func TestChangeImplementScopeViolationIsDistinctFromNoPatch(t *testing.T) {
@@ -756,25 +818,24 @@ func TestChangeImplementScopeViolationIsDistinctFromNoPatch(t *testing.T) {
 	if strings.Contains(output.String(), "no patch") || strings.Contains(output.String(), "Git-visible changes: 0") {
 		t.Fatalf("scope violation was presented as no-patch: %q", output.String())
 	}
-	if current, ok := session.CurrentChange(); !ok || current.State() != change.StateRejected {
+	if current, ok := session.CurrentChange(); !ok || current.State() != change.StateIsolated {
 		t.Fatalf("scope-violating Change = %#v/%t", current, ok)
 	}
-	if _, ok := session.CurrentProposal(); ok {
-		t.Fatal("scope-violating proposal was not discarded")
+	if current, ok := session.CurrentProposal(); !ok || current.Workspace().State() != proposal.WorkspaceRejected {
+		t.Fatalf("scope-violating proposal disposition = %#v/%t", current, ok)
 	}
 	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
-	wantReason := "provider produced a patch outside ApprovedScope: " + surfaceError.Error()
-	var rejected, discarded audit.Event
+	var rejected audit.Event
 	for _, event := range readCommandAudit(t, dataDirectory) {
-		switch event.EventType {
-		case audit.EventPatchRejected:
+		if event.EventType == audit.EventPatchRejected {
 			rejected = event
-		case audit.EventProposalWorkspaceDiscarded:
-			discarded = event
 		}
 	}
-	if rejected.Metadata["reason"] != surfaceError.Error() || discarded.Metadata["reason"] != wantReason {
-		t.Fatalf("scope rejection reasons rejected=%#v discarded=%#v", rejected.Metadata, discarded.Metadata)
+	if rejected.Metadata["reason"] != surfaceError.Error() {
+		t.Fatalf("scope rejection reason=%#v", rejected.Metadata)
+	}
+	if _, err := registry.Dispatch(session, "change discard", io.Discard); err != nil {
+		t.Fatalf("discard scope-violating workspace: %v", err)
 	}
 }
 
