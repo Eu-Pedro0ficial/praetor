@@ -85,11 +85,21 @@ M0.5 adds a provider-independent AI execution port and the single Core V0
 CLI through non-interactive `codex exec`. After `change isolate`,
 `change implement` runs the explicitly selected provider only in the active
 ProposalWorkspace, then reuses M0.4 Git patch extraction and surface checking.
-`provider list`, `provider show`, `provider select <provider>`, and
+`provider list`, `provider show`, `provider diagnose`, `provider select <provider>`, and
 `provider model <provider-scoped-model>` manage the process-local session
 selection without recompilation. Omitting a model uses the provider default.
 Manual selection is not routing, and M0.5 provides no fallback or
 multi-provider execution.
+
+`provider diagnose` reports the effective provider/model selection and its
+source, compile-time adapter registration, implementation-role capability
+compatibility, executable discovery, and bounded local CLI interface preflight.
+The Codex checks are limited to executable lookup, `codex --version`, and
+`codex exec --help`; they submit no prompt and make no authentication or
+network claim. Root `status` shows only selection provenance and a lightweight
+local-readiness summary. A locally ready result means the executable and
+required CLI surface were observed; remote authentication, model availability,
+and connectivity remain unverified until an explicitly governed execution.
 
 ApprovedScope is write authority, not a request-materialization instruction.
 Repository-wide authorization does not serialize the tracked repository into

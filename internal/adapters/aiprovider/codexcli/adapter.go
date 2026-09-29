@@ -25,6 +25,7 @@ const (
 	Identifier                            = "codex-cli"
 	defaultBinary                         = "codex"
 	defaultExecutionTimeout               = 10 * time.Minute
+	maximumReadinessTimeout               = 15 * time.Second
 	maximumJSONLineBytes                  = 1 << 20
 	maximumSummaryBytes                   = 4 << 10
 	maximumImplementationIntentBytes      = 32 << 10
@@ -45,11 +46,12 @@ type Config struct {
 
 // Adapter invokes Codex CLI behind the provider-independent port.
 type Adapter struct {
-	descriptor aiprovider.ProviderDescriptor
-	binary     string
-	timeout    time.Duration
-	clock      Clock
-	runner     processRunner
+	descriptor     aiprovider.ProviderDescriptor
+	binary         string
+	timeout        time.Duration
+	clock          Clock
+	runner         processRunner
+	findExecutable func(string) (string, error)
 }
 
 // NewDefault constructs the Core V0 codex-cli adapter.
@@ -104,11 +106,12 @@ func newWithRunner(config Config, runner processRunner) (*Adapter, error) {
 		return nil, err
 	}
 	return &Adapter{
-		descriptor: descriptor,
-		binary:     binary,
-		timeout:    timeout,
-		clock:      clock,
-		runner:     runner,
+		descriptor:     descriptor,
+		binary:         binary,
+		timeout:        timeout,
+		clock:          clock,
+		runner:         runner,
+		findExecutable: exec.LookPath,
 	}, nil
 }
 
@@ -118,6 +121,115 @@ func (adapter *Adapter) Descriptor() aiprovider.ProviderDescriptor {
 		return aiprovider.ProviderDescriptor{}
 	}
 	return adapter.descriptor
+}
+
+// InspectReadiness performs only local executable discovery and, when
+// requested, the same bounded version/help probes used by execution. It never
+// submits a prompt, reads credentials, or contacts the provider backend.
+func (adapter *Adapter) InspectReadiness(
+	ctx context.Context,
+	inspection aiprovider.ReadinessInspection,
+) aiprovider.LocalReadiness {
+	if adapter == nil || adapter.findExecutable == nil {
+		return codexLocalReadiness(
+			aiprovider.ReadinessMisconfigured,
+			"",
+			"",
+			"the codex-cli adapter configuration is incomplete",
+			"restart Praetor with a valid codex-cli adapter configuration",
+		)
+	}
+	executable, err := adapter.findExecutable(adapter.binary)
+	if err != nil {
+		return codexLocalReadiness(
+			aiprovider.ReadinessUnavailable,
+			"",
+			"",
+			"the configured Codex CLI executable is not discoverable locally",
+			"install Codex CLI or make the configured executable available on PATH",
+		)
+	}
+	if inspection.Depth() == aiprovider.ReadinessDiscovery {
+		return codexLocalReadiness(
+			aiprovider.ReadinessLocallyAvailable,
+			executable,
+			"",
+			"the Codex CLI executable is discoverable; structural probes were not run",
+			"use provider diagnose for the bounded local interface check",
+		)
+	}
+	if ctx == nil {
+		return codexLocalReadiness(
+			aiprovider.ReadinessMisconfigured,
+			executable,
+			"",
+			"a context is required for the bounded local Codex CLI probes",
+			"retry provider diagnose from an active Praetor session",
+		)
+	}
+	readinessTimeout := adapter.timeout
+	if readinessTimeout > maximumReadinessTimeout {
+		readinessTimeout = maximumReadinessTimeout
+	}
+	probeContext, cancel := context.WithTimeout(ctx, readinessTimeout)
+	defer cancel()
+	version, preflightError := adapter.preflight(probeContext, inspection.WorkingDirectory())
+	if preflightError != nil {
+		if probeContext.Err() != nil {
+			return codexLocalReadiness(
+				aiprovider.ReadinessMisconfigured,
+				executable,
+				"",
+				"the bounded local Codex CLI interface probe did not complete",
+				"check the local Codex CLI process and run provider diagnose again",
+			)
+		}
+		disposition := aiprovider.ReadinessMisconfigured
+		detail := "the bounded local Codex CLI interface probe failed"
+		action := "review the local Codex CLI installation and run provider diagnose again"
+		var executionError *aiprovider.ExecutionError
+		if errors.As(preflightError, &executionError) {
+			switch executionError.Kind() {
+			case aiprovider.FailureUnavailable:
+				disposition = aiprovider.ReadinessUnavailable
+				detail = "the configured Codex CLI executable became unavailable during local inspection"
+				action = "install Codex CLI or make the configured executable available on PATH"
+			case aiprovider.FailureUnsupported:
+				disposition = aiprovider.ReadinessUnsupported
+				detail = "the local Codex CLI does not expose the required non-interactive interface"
+				action = "install a Codex CLI version compatible with Praetor's required exec flags"
+			}
+		}
+		return codexLocalReadiness(disposition, executable, "", detail, action)
+	}
+	return codexLocalReadiness(
+		aiprovider.ReadinessLocallyReady,
+		executable,
+		version,
+		"the executable and required non-interactive Codex CLI interface are available locally",
+		"no local setup action is required; remote authentication and connectivity remain unverified",
+	)
+}
+
+func codexLocalReadiness(
+	disposition aiprovider.ReadinessDisposition,
+	executable string,
+	version string,
+	detail string,
+	action string,
+) aiprovider.LocalReadiness {
+	readiness, err := aiprovider.NewLocalReadiness(
+		disposition,
+		executable,
+		version,
+		detail,
+		action,
+		"not inspected; Codex CLI owns authentication configuration",
+	)
+	if err != nil {
+		return aiprovider.IndeterminateLocalReadiness()
+	}
+	return readiness
 }
 
 // AccountRequest reports bounded metadata for the exact stdin payload that

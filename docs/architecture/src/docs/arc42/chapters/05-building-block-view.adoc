@@ -216,8 +216,12 @@ authoritative.
 
 The composition root explicitly registers exactly one adapter, `codex-cli`,
 and resolves the active provider and optional provider-scoped model by exact
-name. Adapter and `OpenAI` vendor metadata remain distinct. `codex-cli` shapes
-the request, performs bounded local version/capability preflight, invokes
+name. Adapter and `OpenAI` vendor metadata remain distinct. The optional
+provider-independent readiness port separates executable discovery from a
+bounded local interface probe. `codex-cli` implements it through PATH lookup,
+`--version`, and `exec --help` only; it does not submit a prompt, inspect
+credentials, or contact the provider intentionally. `codex-cli` shapes the
+request, repeats bounded local version/capability preflight defensively, invokes
 non-interactive `codex exec` in the ProposalWorkspace, bounds and parses JSONL
 output, and normalizes failures.
 No Codex CLI process types, flags, or event structures cross the port. A

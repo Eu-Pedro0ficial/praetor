@@ -55,7 +55,7 @@ func TestDefaultRegistryHasUniqueCompleteHierarchicalMetadata(t *testing.T) {
 	}
 	for _, commandPath := range []string{
 		"change isolate", "change implement", "change patch", "change verify", "change approve", "change reject", "change apply", "change close", "change discard",
-		"provider list", "provider show", "provider select", "provider model", "configure project",
+		"provider list", "provider show", "provider diagnose", "provider select", "provider model", "configure project",
 		"configure layout show", "configure layout sidebar show", "configure layout sidebar identity",
 		"configure layout sidebar context", "configure layout sidebar provider", "configure layout sidebar status",
 		"configure layout color accent", "configure layout color border", "configure layout color background",

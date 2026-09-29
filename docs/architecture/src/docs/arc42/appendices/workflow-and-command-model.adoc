@@ -206,12 +206,22 @@ selection family:
 change implement
 provider list
 provider show
+provider diagnose
 provider select <provider>
 provider model <provider-scoped-model>
 ----
 
+`provider diagnose` is local, read-only inspection. It shows the effective
+provider/model and provenance, adapter registration, implementation-role
+capability compatibility, executable/interface evidence, conservative
+authentication state, readiness, and next action. It does not mutate Change or
+Proposal state, create a ProposalWorkspace, invoke provider work, or append
+provider execution events.
+
 `change implement` consumes the current active proposal created by
-`change isolate`, or an audit-proven retry foundation after failure or restart. It
+`change isolate`, or an audit-proven retry foundation after failure or restart.
+A locally proven unavailable, misconfigured, or unsupported provider fails
+before execution-attempt allocation and `PROVIDER_EXECUTION_STARTED`. It
 executes the exactly selected adapter in that ProposalWorkspace, then delegates
 to the existing M0.4 patch extraction and surface classification. A failed or
 rejected workspace is never reused: the command must prove its cleanup, create

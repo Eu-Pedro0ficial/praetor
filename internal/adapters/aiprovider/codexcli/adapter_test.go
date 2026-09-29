@@ -1018,3 +1018,109 @@ func TestAdapterNeverCombinesAutomaticApprovalWithExplicitSandbox(t *testing.T) 
 		}
 	}
 }
+
+func TestReadinessDiscoveryUsesExecutableLookupWithoutRunningCodex(t *testing.T) {
+	processRuns := 0
+	adapter, err := newWithRunner(Config{}, runnerFunction(func(context.Context, processInvocation) (processResult, error) {
+		processRuns++
+		return processResult{}, errors.New("process must not run during discovery")
+	}))
+	if err != nil {
+		t.Fatalf("newWithRunner() error = %v", err)
+	}
+	adapter.findExecutable = func(binary string) (string, error) {
+		if binary != defaultBinary {
+			t.Fatalf("lookup binary = %q", binary)
+		}
+		return "/controlled/bin/codex", nil
+	}
+	inspection, err := aiprovider.NewReadinessInspection(aiprovider.ReadinessDiscovery, t.TempDir())
+	if err != nil {
+		t.Fatalf("NewReadinessInspection() error = %v", err)
+	}
+	readiness := adapter.InspectReadiness(context.Background(), inspection)
+	if readiness.Disposition() != aiprovider.ReadinessLocallyAvailable ||
+		readiness.Executable() != "/controlled/bin/codex" || processRuns != 0 {
+		t.Fatalf("discovery readiness/runs = %#v/%d", readiness, processRuns)
+	}
+	if readiness.Authentication() != aiprovider.AuthenticationNotVerified {
+		t.Fatalf("authentication = %q", readiness.Authentication())
+	}
+}
+
+func TestReadinessReportsMissingExecutableWithoutRunningCodex(t *testing.T) {
+	processRuns := 0
+	adapter, err := newWithRunner(Config{}, runnerFunction(func(context.Context, processInvocation) (processResult, error) {
+		processRuns++
+		return processResult{}, errors.New("process must not run when executable is absent")
+	}))
+	if err != nil {
+		t.Fatalf("newWithRunner() error = %v", err)
+	}
+	adapter.findExecutable = func(string) (string, error) { return "", exec.ErrNotFound }
+	inspection, _ := aiprovider.NewReadinessInspection(aiprovider.ReadinessLocalProbe, t.TempDir())
+	readiness := adapter.InspectReadiness(context.Background(), inspection)
+	if readiness.Disposition() != aiprovider.ReadinessUnavailable || processRuns != 0 ||
+		!strings.Contains(readiness.Action(), "install Codex CLI") {
+		t.Fatalf("missing readiness/runs = %#v/%d", readiness, processRuns)
+	}
+}
+
+func TestReadinessLocalProbeUsesOnlyVersionAndHelp(t *testing.T) {
+	var invocations []processInvocation
+	adapter, err := newWithRunner(Config{}, runnerFunction(func(ctx context.Context, invocation processInvocation) (processResult, error) {
+		if _, bounded := ctx.Deadline(); !bounded {
+			t.Fatal("readiness probe context has no deadline")
+		}
+		invocations = append(invocations, invocation)
+		switch strings.Join(invocation.arguments, " ") {
+		case "--version":
+			return processResult{standardOutput: []byte("codex-cli 1.2.3\n")}, nil
+		case "exec --help":
+			return processResult{standardOutput: []byte(strings.Join([]string{
+				"--model", "--sandbox workspace-write read-only", "--cd", "--ephemeral",
+				"--ignore-user-config", "--approve-for-me", "--color", "--json",
+			}, "\n"))}, nil
+		default:
+			t.Fatalf("readiness executed provider work: %#v", invocation)
+			return processResult{}, nil
+		}
+	}))
+	if err != nil {
+		t.Fatalf("newWithRunner() error = %v", err)
+	}
+	adapter.findExecutable = func(string) (string, error) { return "/controlled/bin/codex", nil }
+	workingDirectory := t.TempDir()
+	inspection, _ := aiprovider.NewReadinessInspection(aiprovider.ReadinessLocalProbe, workingDirectory)
+	readiness := adapter.InspectReadiness(context.Background(), inspection)
+	if readiness.Disposition() != aiprovider.ReadinessLocallyReady || readiness.Version() != "codex-cli 1.2.3" {
+		t.Fatalf("local readiness = %#v", readiness)
+	}
+	if len(invocations) != 2 {
+		t.Fatalf("local probe invocations = %#v", invocations)
+	}
+	for _, invocation := range invocations {
+		if invocation.directory != workingDirectory || invocation.standardInput != "" {
+			t.Fatalf("unsafe local probe = %#v", invocation)
+		}
+	}
+}
+
+func TestReadinessRejectsIncompatibleLocalCodexInterface(t *testing.T) {
+	adapter, err := newWithRunner(Config{}, runnerFunction(func(_ context.Context, invocation processInvocation) (processResult, error) {
+		if strings.Join(invocation.arguments, " ") == "--version" {
+			return processResult{standardOutput: []byte("codex-cli 0.1\n")}, nil
+		}
+		return processResult{standardOutput: []byte("--model\n--json\n")}, nil
+	}))
+	if err != nil {
+		t.Fatalf("newWithRunner() error = %v", err)
+	}
+	adapter.findExecutable = func(string) (string, error) { return "/controlled/bin/codex", nil }
+	inspection, _ := aiprovider.NewReadinessInspection(aiprovider.ReadinessLocalProbe, t.TempDir())
+	readiness := adapter.InspectReadiness(context.Background(), inspection)
+	if readiness.Disposition() != aiprovider.ReadinessUnsupported ||
+		!strings.Contains(readiness.Action(), "compatible") {
+		t.Fatalf("unsupported readiness = %#v", readiness)
+	}
+}

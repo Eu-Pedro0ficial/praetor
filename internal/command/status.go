@@ -1,8 +1,10 @@
 package command
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
@@ -12,26 +14,28 @@ import (
 // StatusSnapshot is the single presentation-neutral projection consumed by
 // both the status command and the terminal sidebar.
 type StatusSnapshot struct {
-	Project              string
-	Repository           string
-	GitRepository        string
-	Change               string
-	Proposal             string
-	ProposalBase         string
-	ProviderAdapter      string
-	ProviderVendor       string
-	ProviderModel        string
-	Verification         string
-	VerificationAttempt  string
-	HumanDecision        string
-	HumanActor           string
-	Recovery             string
-	LastOperation        string
-	OperationOutcome     string
-	CanonicalSource      string
-	WorkspaceDisposition string
-	SafeNextActions      string
-	Session              string
+	Project                 string
+	Repository              string
+	GitRepository           string
+	Change                  string
+	Proposal                string
+	ProposalBase            string
+	ProviderAdapter         string
+	ProviderVendor          string
+	ProviderModel           string
+	ProviderSelectionSource string
+	ProviderReadiness       string
+	Verification            string
+	VerificationAttempt     string
+	HumanDecision           string
+	HumanActor              string
+	Recovery                string
+	LastOperation           string
+	OperationOutcome        string
+	CanonicalSource         string
+	WorkspaceDisposition    string
+	SafeNextActions         string
+	Session                 string
 }
 
 // StatusSnapshot returns one coherent view of retained session state.
@@ -71,6 +75,21 @@ func (session *Session) StatusSnapshot() StatusSnapshot {
 	}
 	if model, ok := selection.ModelIdentifier(); ok {
 		snapshot.ProviderModel = string(model)
+	}
+	provenance := session.ProviderSelectionProvenance()
+	snapshot.ProviderSelectionSource = fmt.Sprintf(
+		"provider=%s; model=%s",
+		provenance.ProviderSource(),
+		provenance.ModelSource(),
+	)
+	_, readiness, readinessError := session.InspectProviderReadiness(
+		context.Background(),
+		aiprovider.ReadinessDiscovery,
+	)
+	if readinessError != nil {
+		snapshot.ProviderReadiness = "indeterminate"
+	} else {
+		snapshot.ProviderReadiness = string(readiness.Disposition())
 	}
 	if result, ok := session.LastVerification(); ok {
 		snapshot.VerificationAttempt = string(result.AttemptId())

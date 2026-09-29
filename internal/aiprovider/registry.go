@@ -1,6 +1,7 @@
 package aiprovider
 
 import (
+	"context"
 	"fmt"
 	"sort"
 )
@@ -44,7 +45,7 @@ func (registry *Registry) Select(providerValue string, modelValue string) (Selec
 		return Selection{}, err
 	}
 	if _, exists := registry.providers[selection.ProviderIdentifier()]; !exists {
-		return Selection{}, fmt.Errorf("AI provider %q is not registered", selection.ProviderIdentifier())
+		return Selection{}, fmt.Errorf("AI provider %q is not registered; use provider list to inspect available adapters", selection.ProviderIdentifier())
 	}
 	return selection, nil
 }
@@ -59,6 +60,52 @@ func (registry *Registry) Resolve(selection Selection) (Provider, error) {
 		return nil, fmt.Errorf("AI provider %q is not registered", selection.ProviderIdentifier())
 	}
 	return provider, nil
+}
+
+// InspectReadiness resolves the exact selected adapter, proves role
+// compatibility, and requests local-only readiness evidence when supported.
+// It never routes, invokes provider work, or creates execution history.
+func (registry *Registry) InspectReadiness(
+	ctx context.Context,
+	selection Selection,
+	contract ProviderRoleContract,
+	inspection ReadinessInspection,
+) (ProviderDescriptor, LocalReadiness, error) {
+	provider, err := registry.Resolve(selection)
+	if err != nil {
+		return ProviderDescriptor{}, LocalReadiness{}, err
+	}
+	descriptor := provider.Descriptor()
+	if err := ValidateRole(descriptor, contract); err != nil {
+		readiness, readinessError := NewLocalReadiness(
+			ReadinessUnsupported,
+			"",
+			"",
+			"the selected adapter lacks a capability required by the requested role",
+			"select a compatible registered provider",
+			"not inspected",
+		)
+		if readinessError != nil {
+			return ProviderDescriptor{}, LocalReadiness{}, readinessError
+		}
+		return descriptor, readiness, nil
+	}
+	inspector, supported := provider.(ReadinessInspector)
+	if !supported {
+		return descriptor, IndeterminateLocalReadiness(), nil
+	}
+	readiness := inspector.InspectReadiness(ctx, inspection)
+	if err := readiness.validate(); err != nil {
+		readiness, _ = NewLocalReadiness(
+			ReadinessMisconfigured,
+			"",
+			"",
+			"the selected adapter returned invalid local readiness evidence",
+			"review the adapter configuration and run provider diagnose again",
+			"not retained",
+		)
+	}
+	return descriptor, readiness, nil
 }
 
 // Descriptors returns deterministic provider-independent discovery metadata.

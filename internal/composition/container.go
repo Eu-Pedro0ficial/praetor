@@ -92,6 +92,8 @@ type Container struct {
 	AIProviders                  []aiprovider.Provider
 	ConfiguredProvider           string
 	ConfiguredModel              string
+	ConfiguredProviderSource     aiprovider.SelectionSource
+	ConfiguredModelSource        aiprovider.SelectionSource
 	ExecutionAttemptIds          execution.AttemptIdGenerator
 	ExecutionClock               execution.Clock
 	VerificationRunner           verification.StepRunner
@@ -108,9 +110,16 @@ type Container struct {
 // New creates the explicit composition root for the current runtime boundary.
 func New() Container {
 	gitProposalAdapter := gitproposal.NewDefault()
-	configuredProvider := os.Getenv("PRAETOR_AI_PROVIDER")
-	if configuredProvider == "" {
+	configuredProvider, providerConfigured := os.LookupEnv("PRAETOR_AI_PROVIDER")
+	providerSource := aiprovider.SelectionSourceEnvironment
+	if !providerConfigured || configuredProvider == "" {
 		configuredProvider = codexcli.Identifier
+		providerSource = aiprovider.SelectionSourceBuiltIn
+	}
+	configuredModel, modelConfigured := os.LookupEnv("PRAETOR_AI_MODEL")
+	modelSource := aiprovider.SelectionSourceEnvironment
+	if !modelConfigured || configuredModel == "" {
+		modelSource = aiprovider.SelectionSourceProviderDefault
 	}
 	return Container{
 		RepositoryDiscovery:       repository.Discover,
@@ -137,10 +146,12 @@ func New() Container {
 		ProposalClock: func() time.Time {
 			return time.Now().UTC()
 		},
-		AIProviders:         []aiprovider.Provider{codexcli.NewDefault()},
-		ConfiguredProvider:  configuredProvider,
-		ConfiguredModel:     os.Getenv("PRAETOR_AI_MODEL"),
-		ExecutionAttemptIds: aiprovider.GenerateExecutionAttemptId,
+		AIProviders:              []aiprovider.Provider{codexcli.NewDefault()},
+		ConfiguredProvider:       configuredProvider,
+		ConfiguredModel:          configuredModel,
+		ConfiguredProviderSource: providerSource,
+		ConfiguredModelSource:    modelSource,
+		ExecutionAttemptIds:      aiprovider.GenerateExecutionAttemptId,
 		ExecutionClock: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -311,6 +322,22 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	if err != nil {
 		return nil, err
 	}
+	providerSource := runtime.ConfiguredProviderSource
+	if providerSource == "" {
+		providerSource = aiprovider.SelectionSourceComposition
+	}
+	modelSource := runtime.ConfiguredModelSource
+	if modelSource == "" {
+		if runtime.ConfiguredModel == "" {
+			modelSource = aiprovider.SelectionSourceProviderDefault
+		} else {
+			modelSource = aiprovider.SelectionSourceComposition
+		}
+	}
+	providerProvenance, err := aiprovider.NewSelectionProvenance(providerSource, modelSource)
+	if err != nil {
+		return nil, err
+	}
 	providerExecution, err := runtime.NewProviderExecutionService(
 		registration,
 		proposalLifecycle,
@@ -357,6 +384,7 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		presentationPreferences,
 		providerRegistry,
 		providerSelection,
+		providerProvenance,
 		durableInspection,
 		openedAuthority,
 		canonicalRecovery,

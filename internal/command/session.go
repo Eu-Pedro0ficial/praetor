@@ -4,6 +4,7 @@
 package command
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -45,6 +46,7 @@ type Session struct {
 	presentationPreferences   *preferences.Service
 	providerRegistry          *aiprovider.Registry
 	providerSelection         aiprovider.Selection
+	providerSelectionSource   aiprovider.SelectionProvenance
 	durableInspection         *inspection.Service
 	durableAuthority          authority.Store
 	currentChange             change.Change
@@ -81,6 +83,7 @@ func NewSession(
 	presentationPreferences *preferences.Service,
 	providerRegistry *aiprovider.Registry,
 	providerSelection aiprovider.Selection,
+	providerSelectionSource aiprovider.SelectionProvenance,
 	durableInspection *inspection.Service,
 	durableAuthority authority.Store,
 	canonicalRecovery integration.RecoveryPort,
@@ -127,6 +130,12 @@ func NewSession(
 	if _, err := providerRegistry.Resolve(providerSelection); err != nil {
 		return nil, fmt.Errorf("initial AI provider selection: %w", err)
 	}
+	if _, err := aiprovider.NewSelectionProvenance(
+		providerSelectionSource.ProviderSource(),
+		providerSelectionSource.ModelSource(),
+	); err != nil {
+		return nil, fmt.Errorf("initial AI provider selection provenance: %w", err)
+	}
 	return &Session{
 		registration:            registration,
 		changeWorkflow:          changeWorkflow,
@@ -142,6 +151,7 @@ func NewSession(
 		presentationPreferences: presentationPreferences,
 		providerRegistry:        providerRegistry,
 		providerSelection:       providerSelection,
+		providerSelectionSource: providerSelectionSource,
 		durableInspection:       durableInspection,
 		durableAuthority:        durableAuthority,
 		canonicalRecovery:       canonicalRecovery,
@@ -181,6 +191,36 @@ func (session *Session) ProviderSelection() aiprovider.Selection {
 	return session.providerSelection
 }
 
+// ProviderSelectionProvenance reports the process-local effective sources.
+func (session *Session) ProviderSelectionProvenance() aiprovider.SelectionProvenance {
+	if session == nil {
+		return aiprovider.SelectionProvenance{}
+	}
+	return session.providerSelectionSource
+}
+
+// InspectProviderReadiness performs local-only inspection for the exact active
+// selection and implementation role. It never creates provider execution
+// history or mutates Change/Proposal state.
+func (session *Session) InspectProviderReadiness(
+	ctx context.Context,
+	depth aiprovider.ReadinessInspectionDepth,
+) (aiprovider.ProviderDescriptor, aiprovider.LocalReadiness, error) {
+	if session == nil || session.providerRegistry == nil {
+		return aiprovider.ProviderDescriptor{}, aiprovider.LocalReadiness{}, fmt.Errorf("AI provider registry is not configured")
+	}
+	inspection, err := aiprovider.NewReadinessInspection(depth, session.registration.RepositoryRoot)
+	if err != nil {
+		return aiprovider.ProviderDescriptor{}, aiprovider.LocalReadiness{}, err
+	}
+	return session.providerRegistry.InspectReadiness(
+		ctx,
+		session.providerSelection,
+		aiprovider.ImplementationRoleContract(),
+		inspection,
+	)
+}
+
 // ProviderDescriptors returns the explicitly registered adapter metadata.
 func (session *Session) ProviderDescriptors() []aiprovider.ProviderDescriptor {
 	if session == nil || session.providerRegistry == nil {
@@ -213,6 +253,14 @@ func (session *Session) SelectProvider(providerValue string) error {
 		return err
 	}
 	session.providerSelection = selection
+	provenance, provenanceError := aiprovider.NewSelectionProvenance(
+		aiprovider.SelectionSourceSessionCommand,
+		aiprovider.SelectionSourceProviderDefault,
+	)
+	if provenanceError != nil {
+		return provenanceError
+	}
+	session.providerSelectionSource = provenance
 	return nil
 }
 
@@ -230,6 +278,14 @@ func (session *Session) SelectProviderModel(modelValue string) error {
 		return err
 	}
 	session.providerSelection = selection
+	provenance, provenanceError := aiprovider.NewSelectionProvenance(
+		session.providerSelectionSource.ProviderSource(),
+		aiprovider.SelectionSourceSessionCommand,
+	)
+	if provenanceError != nil {
+		return provenanceError
+	}
+	session.providerSelectionSource = provenance
 	return nil
 }
 

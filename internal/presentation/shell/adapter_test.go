@@ -143,7 +143,7 @@ func TestReadlineEditorEnablesLiveRegistryCompletion(t *testing.T) {
 		{input: "analysis ", wantValues: []string{"model", "impact", "report", "inspect"}},
 		{input: "change ", wantValues: []string{"list", "show", "select", "artifacts", "history", "diagnose", "recover", "content", "new", "isolate", "implement", "patch", "verify", "approve", "reject", "apply", "close", "discard"}},
 		{input: "policy ", wantValues: []string{"show", "list", "evaluate", "exception"}},
-		{input: "provider ", wantValues: []string{"list", "show", "select", "model"}},
+		{input: "provider ", wantValues: []string{"list", "show", "diagnose", "select", "model"}},
 		{input: "provider select ", wantValues: []string{"codex-cli"}},
 	}
 	for _, test := range tests {

@@ -26,9 +26,11 @@ import (
 const commandExecutionAttemptId aiprovider.ExecutionAttemptId = "attempt-abcdef0123456789abcdef0123456789"
 
 type commandFakeProvider struct {
-	descriptor aiprovider.ProviderDescriptor
-	account    func(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error)
-	execute    func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error)
+	descriptor      aiprovider.ProviderDescriptor
+	account         func(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error)
+	execute         func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error)
+	readiness       aiprovider.LocalReadiness
+	readinessChecks int
 }
 
 func newCommandFakeProvider(
@@ -51,7 +53,18 @@ func newCommandFakeProvider(
 	if err != nil {
 		t.Fatalf("NewProviderDescriptor() error = %v", err)
 	}
-	return &commandFakeProvider{descriptor: descriptor, execute: execute}
+	readiness, readinessError := aiprovider.NewLocalReadiness(
+		aiprovider.ReadinessLocallyReady,
+		"/test/bin/provider",
+		"test-provider 1.0",
+		"the fake provider is locally ready",
+		"no local setup action is required",
+		"test configuration present",
+	)
+	if readinessError != nil {
+		t.Fatalf("NewLocalReadiness() error = %v", readinessError)
+	}
+	return &commandFakeProvider{descriptor: descriptor, execute: execute, readiness: readiness}
 }
 
 func (provider *commandFakeProvider) Descriptor() aiprovider.ProviderDescriptor {
@@ -69,6 +82,14 @@ func (provider *commandFakeProvider) Execute(
 	request aiprovider.ExecutionRequest,
 ) (aiprovider.ProviderResponse, error) {
 	return provider.execute(ctx, request)
+}
+
+func (provider *commandFakeProvider) InspectReadiness(
+	_ context.Context,
+	_ aiprovider.ReadinessInspection,
+) aiprovider.LocalReadiness {
+	provider.readinessChecks++
+	return provider.readiness
 }
 
 func TestProviderCommandsMaintainExplicitSessionSelection(t *testing.T) {
@@ -125,14 +146,14 @@ func TestProviderCommandsMaintainExplicitSessionSelection(t *testing.T) {
 	if session.CurrentMode().Identity != command.ModeProvider {
 		t.Fatalf("provider mode = %#v", session.CurrentMode())
 	}
-	assertMetadataNames(t, registry.ContextCommands(session), []string{"list", "show", "select", "model", "help", "?", "end"})
-	assertSuggestions(t, registry.ContextualHelp(session, ""), []string{"list", "show", "select", "model", "help", "?", "end"})
+	assertMetadataNames(t, registry.ContextCommands(session), []string{"list", "show", "diagnose", "select", "model", "help", "?", "end"})
+	assertSuggestions(t, registry.ContextualHelp(session, ""), []string{"list", "show", "diagnose", "select", "model", "help", "?", "end"})
 	assertSuggestions(t, registry.ContextualHelp(session, "select "), []string{"codex-cli"})
 	output.Reset()
 	if _, err := registry.Dispatch(session, "?", &output); err != nil {
 		t.Fatalf("provider ? error = %v", err)
 	}
-	for _, commandName := range []string{"list", "show", "select", "model", "end", "help"} {
+	for _, commandName := range []string{"list", "show", "diagnose", "select", "model", "end", "help"} {
 		if !strings.Contains(output.String(), commandName) {
 			t.Fatalf("provider ? output %q lacks %q", output.String(), commandName)
 		}
@@ -211,6 +232,14 @@ func TestProviderModelSelectionIsSessionLocal(t *testing.T) {
 	_, secondSelected := secondSession.ProviderSelection().ModelIdentifier()
 	if !firstSelected || firstModel != "first-session-model" || secondSelected {
 		t.Fatalf("session-local selections = %#v / %#v", firstSession.ProviderSelection(), secondSession.ProviderSelection())
+	}
+	if firstSession.ProviderSelectionProvenance().ModelSource() != aiprovider.SelectionSourceSessionCommand ||
+		secondSession.ProviderSelectionProvenance().ModelSource() != aiprovider.SelectionSourceProviderDefault {
+		t.Fatalf(
+			"session-local provenance = %#v / %#v",
+			firstSession.ProviderSelectionProvenance(),
+			secondSession.ProviderSelectionProvenance(),
+		)
 	}
 }
 
@@ -472,6 +501,8 @@ func prepareProviderCommandTestWithContainer(
 	container.AIProviders = []aiprovider.Provider{provider}
 	container.ConfiguredProvider = "codex-cli"
 	container.ConfiguredModel = ""
+	container.ConfiguredProviderSource = aiprovider.SelectionSourceComposition
+	container.ConfiguredModelSource = aiprovider.SelectionSourceProviderDefault
 	executionAttemptIndex := 0
 	container.ExecutionAttemptIds = func() (aiprovider.ExecutionAttemptId, error) {
 		identities := []aiprovider.ExecutionAttemptId{

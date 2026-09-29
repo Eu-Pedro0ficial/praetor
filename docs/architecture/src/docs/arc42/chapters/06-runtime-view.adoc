@@ -103,8 +103,12 @@ The M0.5 implementation extends the retained M0.4 proposal flow:
 . the composition root has exactly one compile-time registered adapter,
   `codex-cli`, and the session holds an explicit provider plus optional
   provider-scoped model selection;
-. `change implement` creates a Praetor-owned execution-attempt identity and a
-  provider-independent request linked to the Change, ApprovedScope, workspace,
+. before creating an execution attempt, the exact selected adapter is resolved,
+  its implementation-role capabilities are validated, and its bounded local
+  readiness preflight must not prove an unavailable, misconfigured, or
+  unsupported setup;
+. `change implement` then creates a Praetor-owned execution-attempt identity and
+  a provider-independent request linked to the Change, ApprovedScope, workspace,
   base revision, and source-state digest;
 . the selected adapter serializes and accounts the exact provider request by
   fixed logical component before any provider lifecycle event or process
@@ -140,10 +144,16 @@ truncation are explicit. Authorization and governance are never silently
 truncated. Repository-wide scope sends the root authority marker and protected
 paths, not the repository inventory or source bodies.
 
-`provider list`, `provider show`, `provider select`, and `provider model`
-expose only explicit session selection. There is no automatic provider
-selection, fallback, capability/trust/data routing, ranking, load balancing,
-or multi-provider execution in this scenario.
+`provider list`, `provider show`, `provider select`, `provider model`, and
+`provider diagnose` expose explicit session selection and local readiness.
+`provider diagnose` performs no provider request: it resolves the registered
+adapter, validates the implementation role, discovers the executable, and for
+`codex-cli` runs only bounded local version/help probes. It reports remote
+authentication, model availability, and connectivity as unverified. Root
+`status` performs executable discovery only and keeps detailed evidence in the
+provider command. Neither inspection surface creates provider lifecycle audit.
+There is no automatic provider selection, fallback, capability/trust/data
+routing, ranking, load balancing, or multi-provider execution in this scenario.
 
 ==== M0.6 Executable Verification Subset
 

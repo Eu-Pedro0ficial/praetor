@@ -247,7 +247,7 @@ func DefaultRegistry() (Registry, error) {
 		{
 			Name:        "provider",
 			Description: "Enter explicit AI provider and model selection mode",
-			Usage:       "provider [list|show|select|model ...]",
+			Usage:       "provider [list|show|diagnose|select|model ...]",
 			Mode:        ModeProvider,
 			Children: []Definition{
 				{
@@ -261,6 +261,12 @@ func DefaultRegistry() (Registry, error) {
 					Description: "Show the active session provider and model selection",
 					Usage:       "show",
 					Handler:     handleProviderShow,
+				},
+				{
+					Name:        "diagnose",
+					Description: "Inspect local provider readiness without provider execution",
+					Usage:       "diagnose",
+					Handler:     handleProviderDiagnose,
 				},
 				{
 					Name:                "select",

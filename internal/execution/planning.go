@@ -43,6 +43,20 @@ func (service *Service) PlanVerification(
 	if err := aiprovider.ValidateRole(descriptor, roleContract); err != nil {
 		return result, err
 	}
+	inspection, err := aiprovider.NewReadinessInspection(
+		aiprovider.ReadinessLocalProbe,
+		currentProposal.Workspace().Root(),
+	)
+	if err != nil {
+		return result, err
+	}
+	_, readiness, err := service.registry.InspectReadiness(ctx, selection, roleContract, inspection)
+	if err != nil {
+		return result, err
+	}
+	if readiness.BlocksExecution() {
+		return result, aiprovider.NewReadinessError(selection.ProviderIdentifier(), readiness)
+	}
 	attemptId, err := service.attemptIds()
 	if err != nil {
 		return result, err

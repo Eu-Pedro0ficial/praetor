@@ -150,8 +150,18 @@ The first adapter is `codex-cli` under ADR-030, with structured vendor metadata
 `OpenAI`. Adapter, vendor, model, `implementation` role, and attempt identity
 remain distinct. Provider and optional provider-scoped model selection are
 session/runtime metadata and are not part of Change identity or the port's
-hard-coded defaults. `ExecutionAttemptId` is Praetor-owned; a Codex thread
-identifier is optional external provenance.
+hard-coded defaults. Process-local `SelectionProvenance` distinguishes the
+built-in default, environment, composition configuration, session command, and
+provider default without introducing persistent provider configuration.
+
+`LocalReadiness` is provider-independent, bounded evidence with a disposition
+of `locally-available`, `locally-ready`, `unavailable`, `misconfigured`,
+`unsupported`, or `indeterminate`. It describes local setup only.
+Authentication remains `not-verified`; executable discovery does not prove
+credentials, network reachability, or model availability. A proven blocking
+readiness disposition returns a typed pre-invocation error before an
+`ExecutionAttemptId` or provider lifecycle event exists. `ExecutionAttemptId`
+is Praetor-owned; a Codex thread identifier is optional external provenance.
 
 The append-oriented M0.5 event set is `PROVIDER_EXECUTION_STARTED`,
 `PROVIDER_EXECUTION_COMPLETED`, and `PROVIDER_EXECUTION_FAILED`. Events link

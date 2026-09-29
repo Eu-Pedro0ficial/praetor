@@ -29,7 +29,9 @@ func TestNewExplicitlyRegistersOnlyCodexCLIWithRuntimeSelectionMetadata(t *testi
 	t.Setenv("PRAETOR_AI_MODEL", "provider-scoped-model")
 	container := New()
 	if container.ConfiguredProvider != codexcli.Identifier ||
-		container.ConfiguredModel != "provider-scoped-model" {
+		container.ConfiguredModel != "provider-scoped-model" ||
+		container.ConfiguredProviderSource != aiprovider.SelectionSourceEnvironment ||
+		container.ConfiguredModelSource != aiprovider.SelectionSourceEnvironment {
 		t.Fatalf(
 			"runtime provider configuration = %q/%q",
 			container.ConfiguredProvider,
@@ -605,5 +607,22 @@ func TestProviderRequestContextAuditMetadataIsBoundedAndContentFree(t *testing.T
 	metadataComponents, ok := metadata["components"].([]map[string]any)
 	if !ok || len(metadataComponents) != aiprovider.MaximumRequestContextComponents {
 		t.Fatalf("request accounting components = %#v", metadata["components"])
+	}
+}
+
+func TestNewProviderSelectionSourcesDistinguishBuiltInAndProviderDefaults(t *testing.T) {
+	t.Setenv("PRAETOR_AI_PROVIDER", "")
+	t.Setenv("PRAETOR_AI_MODEL", "")
+	container := New()
+	if container.ConfiguredProvider != codexcli.Identifier || container.ConfiguredModel != "" ||
+		container.ConfiguredProviderSource != aiprovider.SelectionSourceBuiltIn ||
+		container.ConfiguredModelSource != aiprovider.SelectionSourceProviderDefault {
+		t.Fatalf(
+			"default provider configuration/source = %q/%q %q/%q",
+			container.ConfiguredProvider,
+			container.ConfiguredModel,
+			container.ConfiguredProviderSource,
+			container.ConfiguredModelSource,
+		)
 	}
 }

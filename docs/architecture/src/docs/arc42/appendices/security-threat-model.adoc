@@ -108,7 +108,11 @@ and Git patch/surface validation enforce Praetor's source boundary.
 
 Codex CLI owns authentication through its normal local mechanism. Praetor does
 not inspect or persist tokens, API keys, authorization data, or credential
-files. Audit deliberately excludes raw prompts, provider stdout/stderr,
+files. Readiness inspection checks executable discovery and bounded local
+version/help output only. It always reports remote authentication and
+connectivity as unverified and never performs login, credential mutation, a
+prompt submission, or a remote health probe. Audit deliberately excludes raw
+prompts, provider stdout/stderr,
 textual summaries, full source, patch bodies, and workspace paths. Normalized
 failures do not expose raw provider output.
 

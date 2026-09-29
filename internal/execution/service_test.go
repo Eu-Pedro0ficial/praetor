@@ -30,6 +30,7 @@ type fakeProvider struct {
 	descriptor aiprovider.ProviderDescriptor
 	account    func(aiprovider.ExecutionRequest) (aiprovider.RequestContextAccounting, error)
 	execute    func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error)
+	readiness  aiprovider.LocalReadiness
 }
 
 func newFakeProvider(t *testing.T, execute func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error)) *fakeProvider {
@@ -49,7 +50,18 @@ func newFakeProvider(t *testing.T, execute func(context.Context, aiprovider.Exec
 	if err != nil {
 		t.Fatalf("NewProviderDescriptor() error = %v", err)
 	}
-	return &fakeProvider{descriptor: descriptor, execute: execute}
+	readiness, readinessError := aiprovider.NewLocalReadiness(
+		aiprovider.ReadinessLocallyReady,
+		"/test/bin/provider",
+		"test-provider 1.0",
+		"the fake provider is locally ready",
+		"no local setup action is required",
+		"test configuration present",
+	)
+	if readinessError != nil {
+		t.Fatalf("NewLocalReadiness() error = %v", readinessError)
+	}
+	return &fakeProvider{descriptor: descriptor, execute: execute, readiness: readiness}
 }
 
 func (provider *fakeProvider) Descriptor() aiprovider.ProviderDescriptor { return provider.descriptor }
@@ -61,6 +73,12 @@ func (provider *fakeProvider) AccountRequest(request aiprovider.ExecutionRequest
 }
 func (provider *fakeProvider) Execute(ctx context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
 	return provider.execute(ctx, request)
+}
+func (provider *fakeProvider) InspectReadiness(
+	_ context.Context,
+	_ aiprovider.ReadinessInspection,
+) aiprovider.LocalReadiness {
+	return provider.readiness
 }
 
 type executionFixture struct {
@@ -876,4 +894,79 @@ func runExecutionGit(t *testing.T, repositoryRoot string, arguments ...string) [
 		t.Fatalf("git %v: %v: %s", arguments, err, output)
 	}
 	return output
+}
+
+func TestProviderReadinessFailurePreventsAttemptAuditAndInvocation(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	providerInvoked := false
+	provider := newFakeProvider(t, func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		providerInvoked = true
+		return aiprovider.ProviderResponse{}, errors.New("provider must not run")
+	})
+	readiness, readinessError := aiprovider.NewLocalReadiness(
+		aiprovider.ReadinessUnavailable,
+		"",
+		"",
+		"the provider executable is missing",
+		"install the provider executable",
+		"not inspected",
+	)
+	if readinessError != nil {
+		t.Fatalf("NewLocalReadiness() error = %v", readinessError)
+	}
+	provider.readiness = readiness
+	service, lifecycleEvents := prepareExecutionService(t, fixture.proposalService, provider)
+	selection, _ := aiprovider.NewSelection("test-provider", "")
+
+	result, err := service.Implement(context.Background(), fixture.currentChange, fixture.currentProposal, selection)
+	var setupError *aiprovider.ReadinessError
+	if !errors.As(err, &setupError) || setupError.Readiness().Disposition() != aiprovider.ReadinessUnavailable {
+		t.Fatalf("Implement() readiness error = %T %v", err, err)
+	}
+	if providerInvoked {
+		t.Fatal("provider executed after readiness failure")
+	}
+	if len(*lifecycleEvents) != 0 {
+		t.Fatalf("readiness failure created provider attempt audit: %#v", *lifecycleEvents)
+	}
+	if result.Proposal().Workspace().State() != proposal.WorkspaceActive {
+		t.Fatalf("readiness failure proposal state = %q", result.Proposal().Workspace().State())
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
+}
+
+func TestUnsupportedImplementationCapabilityFailsBeforeAttemptAndInvocation(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	providerInvoked := false
+	provider := newFakeProvider(t, func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		providerInvoked = true
+		return aiprovider.ProviderResponse{}, errors.New("provider must not run")
+	})
+	descriptor, err := aiprovider.NewProviderDescriptor(
+		"test-provider",
+		"Test Vendor",
+		"Read Only Test Provider",
+		[]aiprovider.ProviderCapability{
+			aiprovider.CapabilityWorkspaceReadOnly,
+			aiprovider.CapabilityContextCancellation,
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewProviderDescriptor() error = %v", err)
+	}
+	provider.descriptor = descriptor
+	service, lifecycleEvents := prepareExecutionService(t, fixture.proposalService, provider)
+	selection, _ := aiprovider.NewSelection("test-provider", "")
+
+	result, err := service.Implement(context.Background(), fixture.currentChange, fixture.currentProposal, selection)
+	if err == nil || !strings.Contains(err.Error(), "lacks required capability") {
+		t.Fatalf("Implement() capability error = %v", err)
+	}
+	if providerInvoked || len(*lifecycleEvents) != 0 {
+		t.Fatalf("unsupported provider invoked/audited = %t/%#v", providerInvoked, *lifecycleEvents)
+	}
+	if result.Proposal().Workspace().State() != proposal.WorkspaceActive {
+		t.Fatalf("unsupported provider proposal state = %q", result.Proposal().Workspace().State())
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
 }

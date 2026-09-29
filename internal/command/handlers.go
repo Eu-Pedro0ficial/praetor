@@ -12,6 +12,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
 	"github.com/Eu-Pedro0ficial/praetor/internal/artifact"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
@@ -38,6 +39,8 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 	fmt.Fprintf(output, "AI provider adapter: %s\n", snapshot.ProviderAdapter)
 	fmt.Fprintf(output, "AI provider vendor: %s\n", snapshot.ProviderVendor)
 	fmt.Fprintf(output, "AI model: %s\n", snapshot.ProviderModel)
+	fmt.Fprintf(output, "AI selection source: %s\n", snapshot.ProviderSelectionSource)
+	fmt.Fprintf(output, "AI provider readiness: %s\n", snapshot.ProviderReadiness)
 	fmt.Fprintf(output, "Current change: %s\n", snapshot.Change)
 	fmt.Fprintf(output, "Current proposal: %s\n", snapshot.Proposal)
 	if snapshot.ProposalBase != "" {
@@ -162,6 +165,66 @@ func handleProviderShow(session *Session, invocation Invocation, output io.Write
 		return Result{}, errInvalidArguments
 	}
 	writeProviderSelection(output, session)
+	return Result{}, nil
+}
+
+func handleProviderDiagnose(session *Session, invocation Invocation, output io.Writer) (Result, error) {
+	if len(invocation.Arguments) != 0 {
+		return Result{}, errInvalidArguments
+	}
+	ctx := invocation.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	descriptor, readiness, err := session.InspectProviderReadiness(ctx, aiprovider.ReadinessLocalProbe)
+	if err != nil {
+		return Result{}, fmt.Errorf("inspect selected AI provider readiness: %w", err)
+	}
+	selection := session.ProviderSelection()
+	provenance := session.ProviderSelectionProvenance()
+	fmt.Fprintf(output, "Provider: %s (%s)\n", descriptor.Identifier(), descriptor.DisplayName())
+	if model, selected := selection.ModelIdentifier(); selected {
+		fmt.Fprintf(output, "Model: %s (explicit; remote availability not verified)\n", model)
+	} else {
+		fmt.Fprintln(output, "Model: provider default (resolved by provider during execution)")
+	}
+	fmt.Fprintf(
+		output,
+		"Selection source: provider=%s; model=%s\n",
+		provenance.ProviderSource(),
+		provenance.ModelSource(),
+	)
+	fmt.Fprintln(output, "Adapter: registered")
+	if readiness.Executable() == "" {
+		fmt.Fprintf(output, "Local availability: %s\n", readiness.Disposition())
+	} else {
+		fmt.Fprintf(output, "Local availability: %s (%s)\n", readiness.Disposition(), boundedSingleLine(readiness.Executable(), 4096))
+	}
+	if readiness.Version() != "" {
+		fmt.Fprintf(output, "Local version: %s\n", boundedSingleLine(readiness.Version(), 256))
+	}
+	implementationCapability := "compatible"
+	if validationError := aiprovider.ValidateRole(descriptor, aiprovider.ImplementationRoleContract()); validationError != nil {
+		implementationCapability = "unsupported"
+	}
+	planningCapability := "compatible"
+	if validationError := aiprovider.ValidateRole(descriptor, aiprovider.VerificationPlanningRoleContract()); validationError != nil {
+		planningCapability = "unsupported"
+	}
+	fmt.Fprintf(
+		output,
+		"Capability compatibility: implementation=%s; verification-planning=%s\n",
+		implementationCapability,
+		planningCapability,
+	)
+	fmt.Fprintf(
+		output,
+		"Authentication: %s; remote authentication and connectivity were not probed\n",
+		readiness.Authentication(),
+	)
+	fmt.Fprintf(output, "Local configuration evidence: %s\n", boundedSingleLine(readiness.ConfigurationEvidence(), 256))
+	fmt.Fprintf(output, "Readiness: %s — %s\n", readiness.Disposition(), boundedSingleLine(readiness.Detail(), 512))
+	fmt.Fprintf(output, "Action: %s\n", boundedSingleLine(readiness.Action(), 512))
 	return Result{}, nil
 }
 

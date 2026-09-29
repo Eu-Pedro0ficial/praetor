@@ -113,6 +113,13 @@ func implementationCleanupReason(implementationError error) string {
 	if errors.As(implementationError, &surfaceError) {
 		return boundedDiagnosticReason("provider produced a patch outside ApprovedScope: " + surfaceError.Error())
 	}
+	var readinessError *aiprovider.ReadinessError
+	if errors.As(implementationError, &readinessError) {
+		return boundedDiagnosticReason(fmt.Sprintf(
+			"provider setup is not ready: %s",
+			readinessError.Readiness().Disposition(),
+		))
+	}
 	var providerError *aiprovider.ExecutionError
 	if errors.As(implementationError, &providerError) {
 		return boundedDiagnosticReason(fmt.Sprintf("provider execution failed: kind=%s", providerError.Kind()))
