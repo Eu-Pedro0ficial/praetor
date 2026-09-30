@@ -860,8 +860,21 @@ func (s *Store) ListIncompleteOperations() ([]authority.Operation, error) {
 	return result, normalize(rows.Err())
 }
 func (s *Store) CompleteOperation(id authority.OperationId, requestDigest string, result []byte, events []audit.Event) (authority.Operation, error) {
+	return s.finishOperation(id, requestDigest, authority.OperationCompleted, result, events)
+}
+
+// FailOperation records a terminal compensated or absent outcome for a
+// reserved external effect. It never rewrites a completed operation.
+func (s *Store) FailOperation(id authority.OperationId, requestDigest string, result []byte, events []audit.Event) (authority.Operation, error) {
+	return s.finishOperation(id, requestDigest, authority.OperationFailed, result, events)
+}
+
+func (s *Store) finishOperation(id authority.OperationId, requestDigest string, terminal authority.OperationState, result []byte, events []audit.Event) (authority.Operation, error) {
 	if err := audit.ValidateRetiredLegacy(s.dataDirectory); err != nil {
 		return authority.Operation{}, fmt.Errorf("validate legacy audit evidence: %w", err)
+	}
+	if terminal != authority.OperationCompleted && terminal != authority.OperationFailed {
+		return authority.Operation{}, fmt.Errorf("unsupported terminal operation state %q", terminal)
 	}
 	if len(result) > 64<<10 {
 		return authority.Operation{}, fmt.Errorf("operation result exceeds bounded limit")
@@ -886,14 +899,17 @@ func (s *Store) CompleteOperation(id authority.OperationId, requestDigest string
 			return authority.Operation{}, err
 		}
 	}
-	if current.State == authority.OperationCompleted {
-		if !sameCompletedResult(current.Kind, current.Result, result) {
+	if current.State == terminal {
+		if !sameTerminalResult(current.Kind, current.Result, result) {
 			return authority.Operation{}, authority.ErrOperationConflict
 		}
 		return current, nil
 	}
+	if current.State != authority.OperationReserved {
+		return authority.Operation{}, authority.ErrOperationConflict
+	}
 	now := time.Now().UTC()
-	updated, err := tx.Exec(`UPDATE operations SET state=?,result=?,updated_at=? WHERE operation_id=? AND state=?`, authority.OperationCompleted, result, timestamp(now), id, authority.OperationReserved)
+	updated, err := tx.Exec("UPDATE operations SET state=?,result=?,updated_at=? WHERE operation_id=? AND state=?", terminal, result, timestamp(now), id, authority.OperationReserved)
 	if err != nil {
 		return authority.Operation{}, normalize(err)
 	}
@@ -912,7 +928,7 @@ func (s *Store) CompleteOperation(id authority.OperationId, requestDigest string
 	if err := tx.Commit(); err != nil {
 		return authority.Operation{}, normalize(err)
 	}
-	current.State = authority.OperationCompleted
+	current.State = terminal
 	current.Result = append([]byte(nil), result...)
 	current.UpdatedAt = now
 	return current, nil
@@ -1200,7 +1216,13 @@ func insertOrCompleteOperation(tx *sql.Tx, value authority.Operation) error {
 			return authority.ErrOperationConflict
 		}
 		if existing.State == authority.OperationCompleted {
-			if value.State == authority.OperationCompleted && sameCompletedResult(existing.Kind, existing.Result, value.Result) {
+			if value.State == authority.OperationCompleted && sameTerminalResult(existing.Kind, existing.Result, value.Result) {
+				return nil
+			}
+			return authority.ErrOperationConflict
+		}
+		if existing.State == authority.OperationFailed {
+			if value.State == authority.OperationFailed && bytes.Equal(existing.Result, value.Result) {
 				return nil
 			}
 			return authority.ErrOperationConflict
@@ -1267,7 +1289,7 @@ func sameOperationRequest(left, right authority.Operation) bool {
 	return left.Id == right.Id && left.ProjectId == right.ProjectId && left.ChangeId == right.ChangeId && left.Kind == right.Kind && left.RequestDigest == right.RequestDigest && left.ExpectedRevision == right.ExpectedRevision
 }
 
-func sameCompletedResult(kind string, persisted, candidate []byte) bool {
+func sameTerminalResult(kind string, persisted, candidate []byte) bool {
 	if kind != "canonical-git-apply" {
 		return bytes.Equal(persisted, candidate)
 	}

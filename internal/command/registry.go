@@ -170,7 +170,7 @@ func DefaultRegistry() (Registry, error) {
 				{Name: "artifacts", Description: "List durable artifact metadata and current bindings", Usage: "artifacts [<change-id>]", Handler: handleChangeArtifacts},
 				{Name: "history", Description: "Show durable append-oriented Change audit history", Usage: "history [<change-id>]", Handler: handleChangeHistory},
 				{Name: "diagnose", Description: "Diagnose Change recovery blockers without mutation", Usage: "diagnose [<change-id>]", Handler: handleChangeDiagnose},
-				{Name: "recover", Description: "Explicitly classify and finalize a supported canonical operation", Usage: "recover <operation-id>", Handler: handleChangeRecover},
+				{Name: "recover", Description: "Explicitly reconcile a supported durable external operation", Usage: "recover <operation-id>", Handler: handleChangeRecover},
 				{Name: "content", Description: "Inspect explicitly requested bounded artifact content", Usage: "content <artifact-id> [<change-id>]", Handler: handleChangeContent},
 				{
 					Name:        "new",

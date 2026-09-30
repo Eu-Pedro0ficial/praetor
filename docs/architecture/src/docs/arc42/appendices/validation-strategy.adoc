@@ -263,10 +263,16 @@ completed-operation reconciliation, and drift/corruption reporting. Completed-
 Result mismatch and malformed-Result fixtures fail closed without
 reapplication, operation-result replacement, ApplicationResult publication, or
 Change terminalization; the atomic commit independently rejects conflicting
-completed-operation authority. Injected
-authority-commit failures prove that verification, human disposition, and
-canonical completion cannot publish their resulting Change state without the
-required artifacts/bindings/audit. Project attach and inspection remain
+completed-operation authority. Workspace fault injection proves that an
+external worktree created before foundation persistence is compensated and
+terminally recorded, a reserved orphan is explicitly removed after restart,
+an exact persisted foundation is preserved when only operation completion
+fails, and unknown directories remain untouched. Provider audit failures before
+execution prevent invocation; failures after execution retain an incomplete
+outcome blocker and cannot silently authorize retry. Injected authority-commit
+failures prove that verification, human disposition, and canonical completion
+cannot publish their resulting Change state without the required
+artifacts/bindings/audit. Project attach and inspection remain
 read-only, bounded, and non-eager while surfacing incomplete and completed-but-
 nonterminal recovery blockers; legacy migration is explicit. Governed
 repositories remain free of runtime metadata. Executable evidence is

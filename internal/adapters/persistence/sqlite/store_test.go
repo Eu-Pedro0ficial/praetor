@@ -137,6 +137,42 @@ func TestOperationIdempotencyAndConflict(t *testing.T) {
 	}
 }
 
+func TestFailedOperationIsTerminalIdempotentAndAudited(t *testing.T) {
+	data, registration := fixture(t)
+	store := open(t, data, registration)
+	defer store.Close()
+	created := create(t, store, registration.ProjectId, "failed-operation")
+	id, _ := authority.GenerateOperationId()
+	now := time.Now().UTC()
+	requestDigest := digest("workspace-request")
+	operation := authority.Operation{Id: id, ProjectId: registration.ProjectId, ChangeId: created.ChangeId(), Kind: "proposal-workspace-create", RequestDigest: requestDigest, ExpectedRevision: created.Revision(), State: authority.OperationReserved, CreatedAt: now, UpdatedAt: now}
+	if _, _, err := store.ReserveOperation(operation); err != nil {
+		t.Fatal(err)
+	}
+	event, err := audit.NewEvent(audit.EventOperationRecovered, string(registration.ProjectId), string(created.ChangeId()), registration.RepositoryRoot, map[string]any{"outcome": "compensated"}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := []byte(`{"outcome":"compensated"}`)
+	failed, err := store.FailOperation(id, requestDigest, result, []audit.Event{event})
+	if err != nil || failed.State != authority.OperationFailed {
+		t.Fatalf("FailOperation() = %#v, %v", failed, err)
+	}
+	if incomplete, err := store.ListIncompleteOperations(); err != nil || len(incomplete) != 0 {
+		t.Fatalf("incomplete after failure = %#v, %v", incomplete, err)
+	}
+	if replay, err := store.FailOperation(id, requestDigest, result, nil); err != nil || replay.State != authority.OperationFailed {
+		t.Fatalf("idempotent FailOperation() = %#v, %v", replay, err)
+	}
+	if _, err := store.CompleteOperation(id, requestDigest, []byte(`{"outcome":"created"}`), nil); !errors.Is(err, authority.ErrOperationConflict) {
+		t.Fatalf("failed operation became completed: %v", err)
+	}
+	history, err := store.AuditHistory(created.ChangeId())
+	if err != nil || history[len(history)-1].EventType != audit.EventOperationRecovered {
+		t.Fatalf("recovery audit = %#v, %v", history, err)
+	}
+}
+
 func TestConcurrentExpectedRevisionHasOneWinner(t *testing.T) {
 	data, registration := fixture(t)
 	initial := open(t, data, registration)

@@ -12,16 +12,21 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Eu-Pedro0ficial/praetor/internal/adapters/gitproposal"
 	sqliteadapter "github.com/Eu-Pedro0ficial/praetor/internal/adapters/persistence/sqlite"
 	"github.com/Eu-Pedro0ficial/praetor/internal/aiprovider"
 	"github.com/Eu-Pedro0ficial/praetor/internal/approval"
+	"github.com/Eu-Pedro0ficial/praetor/internal/artifact"
 	"github.com/Eu-Pedro0ficial/praetor/internal/audit"
 	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/composition"
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
+	"github.com/Eu-Pedro0ficial/praetor/internal/proposal"
+	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 )
 
 type injectedCommitFailureStore struct {
@@ -51,7 +56,62 @@ func wrapAuthorityCommits(target **injectedCommitFailureStore) func(*composition
 	}
 }
 
+type injectedOperationCompletionFailureStore struct {
+	authority.Store
+	fail bool
+}
+
+func (store *injectedOperationCompletionFailureStore) CompleteOperation(id authority.OperationId, digest string, result []byte, events []audit.Event) (authority.Operation, error) {
+	if store.fail {
+		return authority.Operation{}, errors.New("injected operation completion failure")
+	}
+	return store.Store.CompleteOperation(id, digest, result, events)
+}
+
+func wrapOperationCompletion(target **injectedOperationCompletionFailureStore) func(*composition.Container) {
+	return func(container *composition.Container) {
+		base := container.DurableStoreFactory
+		container.DurableStoreFactory = func(dataDirectory string, registration project.Registration) (authority.Store, error) {
+			store, err := base(dataDirectory, registration)
+			if err != nil {
+				return nil, err
+			}
+			wrapped := &injectedOperationCompletionFailureStore{Store: store}
+			*target = wrapped
+			return wrapped, nil
+		}
+	}
+}
+
 func TestM11NormalLifecycleAuthorityCommitFailuresLeaveNoPartialAuthority(t *testing.T) {
+
+	t.Run("proposal workspace foundation", func(t *testing.T) {
+		var store *injectedCommitFailureStore
+		repositoryRoot, _, session, registry := prepareProviderCommandTestWithContainer(t, decisionCommandProvider(t, new(int)), &commandVerificationRunner{}, wrapAuthorityCommits(&store))
+		store.fail = true
+		_, isolateError := registry.Dispatch(session, `change isolate atomic-workspace "atomic workspace" --expected internal/service/service.go --protected go.mod`, io.Discard)
+		if isolateError == nil || !strings.Contains(isolateError.Error(), "injected authority commit failure") {
+			t.Fatalf("workspace foundation error=%v", isolateError)
+		}
+		current, ok := session.CurrentChange()
+		if !ok || current.State() != change.StatePlanned {
+			t.Fatalf("failed workspace foundation Change=%#v available=%t", current, ok)
+		}
+		operations, err := store.ListOperations(current.ChangeId())
+		if err != nil || len(operations) != 1 || operations[0].Kind != "proposal-workspace-create" || operations[0].State != authority.OperationFailed {
+			t.Fatalf("workspace creation operations=%#v err=%v", operations, err)
+		}
+		worktrees := string(runCommandGitOutput(t, repositoryRoot, "worktree", "list", "--porcelain"))
+		if strings.Count(worktrees, "worktree ") != 1 {
+			t.Fatalf("failed foundation left an external worktree: %s", worktrees)
+		}
+		events := mustAuditHistory(t, store, current.ChangeId())
+		if events[len(events)-1].EventType != audit.EventOperationRecovered {
+			t.Fatalf("workspace compensation audit tail=%#v", events)
+		}
+		store.fail = false
+	})
+
 	t.Run("verification", func(t *testing.T) {
 		var store *injectedCommitFailureStore
 		provider := decisionCommandProvider(t, new(int))
@@ -122,6 +182,215 @@ func TestM11NormalLifecycleAuthorityCommitFailuresLeaveNoPartialAuthority(t *tes
 			t.Fatalf("recovered terminal=%#v err=%v", terminal, err)
 		}
 	})
+}
+
+func TestM11ReservedWorkspaceCreationRecoversAfterProcessEquivalentInterruption(t *testing.T) {
+	var store *injectedCommitFailureStore
+	var workspaceAdapter *gitproposal.Adapter
+	repositoryRoot, _, first, registry := prepareProviderCommandTestWithContainer(
+		t,
+		decisionCommandProvider(t, new(int)),
+		&commandVerificationRunner{},
+		func(container *composition.Container) {
+			workspaceAdapter = container.ProposalWorkspaces.(*gitproposal.Adapter)
+			wrapAuthorityCommits(&store)(container)
+		},
+	)
+	if _, err := registry.Dispatch(first, "change new orphan-workspace \"recover reserved worktree\" planned", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := first.CurrentChange()
+	operationId, err := authority.GenerateOperationId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	operation := authority.Operation{
+		Id:               operationId,
+		ProjectId:        current.ProjectId(),
+		ChangeId:         current.ChangeId(),
+		Kind:             proposal.OperationProposalWorkspaceCreate,
+		RequestDigest:    "sha256:" + strings.Repeat("a", 64),
+		ExpectedRevision: current.Revision(),
+		State:            authority.OperationReserved,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	if _, _, err := store.ReserveOperation(operation); err != nil {
+		t.Fatal(err)
+	}
+	workspaceId := proposal.WorkspaceId("proposal-" + strings.TrimPrefix(string(operationId), "op-"))
+	baseRevision := strings.TrimSpace(string(runCommandGitOutput(t, repositoryRoot, "rev-parse", "HEAD")))
+	workspace, err := workspaceAdapter.Create(proposal.WorkspaceRequest{
+		WorkspaceId:       workspaceId,
+		ProjectId:         current.ProjectId(),
+		ChangeId:          current.ChangeId(),
+		CanonicalRoot:     repositoryRoot,
+		BaseRevision:      baseRevision,
+		SourceStateDigest: source.SourceStateDigest("sha256:" + strings.Repeat("b", 64)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(workspace.Root()); err != nil {
+		t.Fatal(err)
+	}
+
+	restarted, err := composition.New().NewInteractiveSession(repositoryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = restarted.Close() })
+	restartedRegistry, err := command.DefaultRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if _, err := restartedRegistry.Dispatch(restarted, "change recover "+string(operationId), &output); err != nil {
+		t.Fatalf("recover reserved workspace: %v", err)
+	}
+	if !strings.Contains(output.String(), "workspace cleanup proven") {
+		t.Fatalf("recovery output=%q", output.String())
+	}
+	if _, err := os.Stat(workspace.Root()); !os.IsNotExist(err) {
+		t.Fatalf("orphan workspace remains after explicit recovery: %v", err)
+	}
+	recovered, err := store.GetOperation(operationId)
+	if err != nil || recovered.State != authority.OperationFailed {
+		t.Fatalf("recovered operation=%#v err=%v", recovered, err)
+	}
+	if incomplete, err := store.ListIncompleteOperations(); err != nil || len(incomplete) != 0 {
+		t.Fatalf("incomplete operations after recovery=%#v err=%v", incomplete, err)
+	}
+	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
+}
+
+func TestM11WorkspaceRecoveryPreservesPersistedFoundationAfterCompletionFailure(t *testing.T) {
+	var store *injectedOperationCompletionFailureStore
+	repositoryRoot, _, first, registry := prepareProviderCommandTestWithContainer(
+		t,
+		decisionCommandProvider(t, new(int)),
+		&commandVerificationRunner{},
+		wrapOperationCompletion(&store),
+	)
+	store.fail = true
+	_, isolateError := registry.Dispatch(first, "change isolate recover-foundation \"recover durable foundation\" --expected internal/service/service.go --protected go.mod", io.Discard)
+	if isolateError == nil || !strings.Contains(isolateError.Error(), "injected operation completion failure") {
+		t.Fatalf("workspace completion error=%v", isolateError)
+	}
+	current, _, err := store.GetChange(change.ChangeId("recover-foundation"))
+	if err != nil || current.State() != change.StateIsolated {
+		t.Fatalf("durable Change=%#v err=%v", current, err)
+	}
+	operations, err := store.ListIncompleteOperations()
+	if err != nil || len(operations) != 1 || operations[0].Kind != proposal.OperationProposalWorkspaceCreate {
+		t.Fatalf("incomplete workspace operation=%#v err=%v", operations, err)
+	}
+	bindings, err := store.ListBindings(current.ChangeId())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workspaceRoot string
+	for _, binding := range bindings {
+		if binding.Role != "source-snapshot" {
+			continue
+		}
+		item, loadError := store.GetArtifact(current.ChangeId(), binding.ArtifactId, true)
+		if loadError != nil {
+			t.Fatal(loadError)
+		}
+		payload, decodeError := artifact.DecodeSourceSnapshotPayload(item.Payload())
+		if decodeError != nil {
+			t.Fatal(decodeError)
+		}
+		workspaceRoot = payload.WorkspaceRoot
+	}
+	if workspaceRoot == "" {
+		t.Fatal("durable source foundation missing")
+	}
+	store.fail = false
+
+	restarted, err := composition.New().NewInteractiveSession(repositoryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = restarted.Close() })
+	restartedRegistry, err := command.DefaultRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if _, err := restartedRegistry.Dispatch(restarted, "change recover "+string(operations[0].Id), &output); err != nil {
+		t.Fatalf("recover persisted workspace foundation: %v", err)
+	}
+	if !strings.Contains(output.String(), "workspace preserved") {
+		t.Fatalf("recovery output=%q", output.String())
+	}
+	if _, err := os.Stat(workspaceRoot); err != nil {
+		t.Fatalf("legitimate workspace was removed: %v", err)
+	}
+	recovered, err := store.GetOperation(operations[0].Id)
+	if err != nil || recovered.State != authority.OperationCompleted {
+		t.Fatalf("recovered operation=%#v err=%v", recovered, err)
+	}
+	if _, err := restartedRegistry.Dispatch(restarted, "change select recover-foundation", io.Discard); err != nil {
+		t.Fatalf("hydrate recovered workspace: %v", err)
+	}
+	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
+}
+
+func TestM11RestartFailsClosedWhenDurableWorkspaceIsExternallyAbsent(t *testing.T) {
+	var workspaceAdapter *gitproposal.Adapter
+	repositoryRoot, _, first, registry := prepareProviderCommandTestWithContainer(
+		t,
+		decisionCommandProvider(t, new(int)),
+		&commandVerificationRunner{},
+		func(container *composition.Container) {
+			workspaceAdapter = container.ProposalWorkspaces.(*gitproposal.Adapter)
+		},
+	)
+	const changeId = "missing-durable-workspace"
+	if _, err := registry.Dispatch(first, `change isolate `+changeId+` "prove absent workspace fail closed" --expected internal/service/service.go`, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	currentProposal, ok := first.CurrentProposal()
+	if !ok {
+		t.Fatal("isolated proposal is missing")
+	}
+	workspace := currentProposal.Workspace()
+	if err := workspaceAdapter.RemoveReservedWorkspace(workspace.WorkspaceId(), repositoryRoot); err != nil {
+		t.Fatalf("simulate completed cleanup before evidence: %v", err)
+	}
+	if _, err := os.Stat(workspace.Root()); !os.IsNotExist(err) {
+		t.Fatalf("workspace still exists after simulated cleanup: %v", err)
+	}
+
+	restarted, err := composition.New().NewInteractiveSession(repositoryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = restarted.Close() })
+	restartedRegistry, err := command.DefaultRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restartedRegistry.Dispatch(restarted, "change select "+changeId, io.Discard); err == nil || !strings.Contains(err.Error(), "rehydrate durable ProposalWorkspace") {
+		t.Fatalf("missing external workspace selection error = %v", err)
+	}
+	if _, ok := restarted.CurrentProposal(); ok {
+		t.Fatal("absent external workspace was promoted into live proposal authority")
+	}
+	if _, err := workspaceAdapter.Create(proposal.WorkspaceRequest{
+		WorkspaceId:       workspace.WorkspaceId(),
+		ProjectId:         workspace.ProjectId(),
+		ChangeId:          workspace.ChangeId(),
+		CanonicalRoot:     workspace.CanonicalRoot(),
+		BaseRevision:      workspace.BaseRevision(),
+		SourceStateDigest: workspace.SourceStateDigest(),
+	}); err != nil {
+		t.Fatalf("restore test-owned workspace for fixture cleanup: %v", err)
+	}
+	assertCommandCanonicalSourceUnchanged(t, repositoryRoot)
 }
 
 func assertDurableStateAndAbsentRoles(t *testing.T, store authority.Store, before change.Change, absentRoles ...string) {

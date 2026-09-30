@@ -108,6 +108,7 @@ type OperationStore interface {
 	ListOperations(change.ChangeId) ([]Operation, error)
 	ListIncompleteOperations() ([]Operation, error)
 	CompleteOperation(OperationId, string, []byte, []audit.Event) (Operation, error)
+	FailOperation(OperationId, string, []byte, []audit.Event) (Operation, error)
 }
 
 type Store interface {

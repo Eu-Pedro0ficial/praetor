@@ -95,9 +95,9 @@ func (s *Service) Diagnose(id change.ChangeId) ([]authority.Diagnosis, error) {
 		switch {
 		case operation.State == authority.OperationReserved:
 			result = append(result, authority.Diagnosis{Condition: authority.RecoveryIncomplete, Operation: &copyOperation, Detail: "reserved operation has no durable outcome"})
-		case operation.State == authority.OperationCompleted && current.State() != change.StateAuditLocked:
+		case operation.Kind == "canonical-git-apply" && operation.State == authority.OperationCompleted && current.State() != change.StateAuditLocked:
 			result = append(result, authority.Diagnosis{Condition: authority.RecoveryExternalUncertain, Operation: &copyOperation, Detail: "completed canonical operation requires terminal Change authority reconciliation"})
-		case operation.State == authority.OperationCompleted && current.State() == change.StateAuditLocked:
+		case operation.Kind == "canonical-git-apply" && operation.State == authority.OperationCompleted && current.State() == change.StateAuditLocked:
 			bindings, bindingError := s.store.ListBindings(id)
 			if bindingError != nil {
 				return nil, bindingError

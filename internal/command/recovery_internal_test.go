@@ -189,6 +189,14 @@ func TestActiveWorkspaceAuditBlockerFailsClosedForIncompleteProviderOutcome(t *t
 			want:   "provider attempt has no durable outcome",
 		},
 		{
+			name: "workspace failure without provider outcome",
+			events: []audit.Event{
+				event(audit.EventProviderExecutionStarted, nil),
+				event(audit.EventProposalWorkspaceFailed, nil),
+			},
+			want: "provider attempt has no durable outcome",
+		},
+		{
 			name:   "completed without patch outcome",
 			events: []audit.Event{event(audit.EventProviderExecutionCompleted, nil)},
 			want:   "provider completion has no durable patch outcome",

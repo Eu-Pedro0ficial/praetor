@@ -866,6 +866,22 @@ func (container Container) NewProposalService(registration project.Registration)
 		)
 		return recordError
 	}
+	if container.DurableAuthority != nil {
+		stateDirectory, stateError := project.ResolveStateDir()
+		if stateError != nil {
+			return nil, stateError
+		}
+		return proposal.NewDurable(
+			container.ProposalWorkspaces,
+			container.PatchExtraction,
+			proposal.RepositoryInspector(container.RepositoryInspection),
+			recorder,
+			container.ProposalClock,
+			container.DurableAuthority,
+			stateDirectory,
+			registration.RepositoryRoot,
+		)
+	}
 	return proposal.New(
 		container.ProposalWorkspaces,
 		container.PatchExtraction,

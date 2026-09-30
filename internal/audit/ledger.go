@@ -33,6 +33,7 @@ const (
 	EventChangeSurfaceEstablished         = "CHANGE_SURFACE_ESTABLISHED"
 	EventChangeSurfaceValidated           = "CHANGE_SURFACE_VALIDATED"
 	EventChangeSurfaceViolation           = "CHANGE_SURFACE_VIOLATION"
+	EventProposalWorkspaceCreationStarted = "PROPOSAL_WORKSPACE_CREATION_STARTED"
 	EventProposalWorkspaceCreated         = "PROPOSAL_WORKSPACE_CREATED"
 	EventPatchExtracted                   = "PATCH_EXTRACTED"
 	EventPatchSurfaceValidated            = "PATCH_SURFACE_VALIDATED"
@@ -514,6 +515,7 @@ func eventRequiresChangeId(eventType string) bool {
 		EventChangeSurfaceEstablished,
 		EventChangeSurfaceValidated,
 		EventChangeSurfaceViolation,
+		EventProposalWorkspaceCreationStarted,
 		EventProposalWorkspaceCreated,
 		EventPatchExtracted,
 		EventPatchSurfaceValidated,

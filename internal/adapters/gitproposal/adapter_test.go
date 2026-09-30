@@ -71,6 +71,84 @@ func TestAdapterCreatesDetachedOwnedWorktreeWithoutCanonicalMutation(t *testing.
 	assertCleanCanonical(t, repositoryRoot, baseRevision)
 }
 
+func TestReservedWorkspaceUsesDeterministicOwnedPathAndRestartCleanup(t *testing.T) {
+	repositoryRoot, baseRevision := prepareGitRepository(t)
+	temporaryRoot := t.TempDir()
+	workspaceId := proposal.WorkspaceId("proposal-00112233445566778899aabbccddeeff")
+	adapter, err := gitproposal.New(temporaryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspace, err := adapter.Create(proposal.WorkspaceRequest{
+		WorkspaceId:       workspaceId,
+		ProjectId:         testProjectId,
+		ChangeId:          change.ChangeId("reserved-workspace"),
+		CanonicalRoot:     repositoryRoot,
+		BaseRevision:      baseRevision,
+		SourceStateDigest: testSourceDigest(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRoot := filepath.Join(temporaryRoot, "praetor-proposal-00112233445566778899aabbccddeeff", "workspace")
+	if workspace.Root() != wantRoot {
+		t.Fatalf("reserved workspace root = %q, want %q", workspace.Root(), wantRoot)
+	}
+	restarted, err := gitproposal.New(temporaryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root, err := restarted.ReservedWorkspaceRoot(workspaceId); err != nil || root != wantRoot {
+		t.Fatalf("ReservedWorkspaceRoot() = %q, %v", root, err)
+	}
+	if condition, err := restarted.ClassifyReservedWorkspace(workspaceId, repositoryRoot); err != nil || condition != proposal.WorkspaceReservationPresent {
+		t.Fatalf("present classification = %s, %v", condition, err)
+	}
+	if err := restarted.VerifyReservedWorkspace(workspaceId, repositoryRoot, baseRevision); err != nil {
+		t.Fatalf("VerifyReservedWorkspace() error = %v", err)
+	}
+	if err := restarted.VerifyReservedWorkspace(workspaceId, repositoryRoot, strings.Repeat("f", 40)); err == nil {
+		t.Fatal("wrong reserved base revision was accepted")
+	}
+	if err := restarted.RemoveReservedWorkspace(workspaceId, repositoryRoot); err != nil {
+		t.Fatal(err)
+	}
+	if condition, err := restarted.ClassifyReservedWorkspace(workspaceId, repositoryRoot); err != nil || condition != proposal.WorkspaceReservationAbsent {
+		t.Fatalf("absent classification = %s, %v", condition, err)
+	}
+	assertCleanCanonical(t, repositoryRoot, baseRevision)
+}
+
+func TestReservedWorkspaceRecoveryPreservesUnknownExternalDirectory(t *testing.T) {
+	repositoryRoot, _ := prepareGitRepository(t)
+	temporaryRoot := t.TempDir()
+	workspaceId := proposal.WorkspaceId("proposal-ffeeddccbbaa99887766554433221100")
+	adapter, err := gitproposal.New(temporaryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := adapter.ReservedWorkspaceRoot(workspaceId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(root, "owner-unknown")
+	if err := os.WriteFile(marker, []byte("preserve"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if condition, err := adapter.ClassifyReservedWorkspace(workspaceId, repositoryRoot); err != nil || condition != proposal.WorkspaceReservationAmbiguous {
+		t.Fatalf("unknown directory classification = %s, %v", condition, err)
+	}
+	if err := adapter.RemoveReservedWorkspace(workspaceId, repositoryRoot); err == nil {
+		t.Fatal("ambiguous directory was accepted for cleanup")
+	}
+	if contents, err := os.ReadFile(marker); err != nil || string(contents) != "preserve" {
+		t.Fatalf("unknown directory was modified: %q, %v", contents, err)
+	}
+}
+
 func TestAdapterExtractsDeterministicGitPatches(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -702,6 +702,16 @@ func prepareExecutionService(
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
+	return prepareExecutionServiceWithRecorder(t, proposalService, registry, nil)
+}
+
+func prepareExecutionServiceWithRecorder(
+	t *testing.T,
+	proposalService *proposal.Service,
+	registry *aiprovider.Registry,
+	injected execution.LifecycleRecorder,
+) (*execution.Service, *[]execution.LifecycleEvent) {
+	t.Helper()
 	events := new([]execution.LifecycleEvent)
 	clockValue := time.Date(2026, time.September, 1, 12, 0, 0, 0, time.UTC)
 	service, err := execution.New(
@@ -709,6 +719,9 @@ func prepareExecutionService(
 		proposalService,
 		func(event execution.LifecycleEvent) error {
 			*events = append(*events, event)
+			if injected != nil {
+				return injected(event)
+			}
 			return nil
 		},
 		func() (aiprovider.ExecutionAttemptId, error) { return executionTestAttemptId, nil },
@@ -894,6 +907,113 @@ func runExecutionGit(t *testing.T, repositoryRoot string, arguments ...string) [
 		t.Fatalf("git %v: %v: %s", arguments, err, output)
 	}
 	return output
+}
+
+func TestProviderAuditFailureBeforeExecutionPreventsInvocation(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	providerInvoked := false
+	provider := newFakeProvider(t, func(context.Context, aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		providerInvoked = true
+		return aiprovider.ProviderResponse{}, errors.New("provider must not run")
+	})
+	registry, err := aiprovider.NewRegistry(provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditFailure := errors.New("injected execution audit failure")
+	service, events := prepareExecutionServiceWithRecorder(t, fixture.proposalService, registry, func(event execution.LifecycleEvent) error {
+		if event.EventType == execution.EventProviderExecutionStarted {
+			return auditFailure
+		}
+		return nil
+	})
+	selection, _ := aiprovider.NewSelection("test-provider", "")
+	result, err := service.Implement(context.Background(), fixture.currentChange, fixture.currentProposal, selection)
+	if !errors.Is(err, auditFailure) || providerInvoked {
+		t.Fatalf("start audit failure error/invoked = %v/%t", err, providerInvoked)
+	}
+	if len(*events) != 1 || (*events)[0].EventType != execution.EventProviderExecutionStarted {
+		t.Fatalf("attempted lifecycle events = %#v", *events)
+	}
+	if result.Proposal().Workspace().State() != proposal.WorkspaceActive {
+		t.Fatalf("pre-execution audit failure workspace state = %s", result.Proposal().Workspace().State())
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
+}
+
+func TestProviderAuditFailureAfterExecutionRemainsAmbiguousWithoutFalseSuccess(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	provider := newFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		if err := os.WriteFile(filepath.Join(request.Workspace().Root(), "service.go"), []byte("package service\n\nconst Mutated = true\n"), 0o600); err != nil {
+			return aiprovider.ProviderResponse{}, err
+		}
+		return successfulProviderResponse(t, request, "thread-audit-failure"), nil
+	})
+	registry, err := aiprovider.NewRegistry(provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditFailure := errors.New("injected completion audit failure")
+	service, events := prepareExecutionServiceWithRecorder(t, fixture.proposalService, registry, func(event execution.LifecycleEvent) error {
+		if event.EventType == execution.EventProviderExecutionCompleted {
+			return auditFailure
+		}
+		return nil
+	})
+	selection, _ := aiprovider.NewSelection("test-provider", "")
+	result, err := service.Implement(context.Background(), fixture.currentChange, fixture.currentProposal, selection)
+	if !errors.Is(err, auditFailure) {
+		t.Fatalf("completion audit error = %v", err)
+	}
+	if _, completed := result.Response(); !completed {
+		t.Fatal("provider process completion evidence was lost from the immediate result")
+	}
+	if result.Proposal().Workspace().State() != proposal.WorkspaceActive {
+		t.Fatalf("completion audit failure workspace state = %s", result.Proposal().Workspace().State())
+	}
+	if len(*events) != 2 || (*events)[0].EventType != execution.EventProviderExecutionStarted || (*events)[1].EventType != execution.EventProviderExecutionCompleted {
+		t.Fatalf("attempted lifecycle events = %#v", *events)
+	}
+	changed, inspectError := fixture.proposalService.InspectChangedPaths(result.Proposal())
+	if inspectError != nil || !reflect.DeepEqual(changed, []string{"service.go"}) {
+		t.Fatalf("external workspace effect = %#v, %v", changed, inspectError)
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
+}
+
+func TestProviderFailureAuditFailureCannotBecomeDurableOutcome(t *testing.T) {
+	fixture := prepareExecutionFixture(t)
+	provider := newFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {
+		if err := os.WriteFile(filepath.Join(request.Workspace().Root(), "service.go"), []byte("package service\n\nconst Partial = true\n"), 0o600); err != nil {
+			return aiprovider.ProviderResponse{}, err
+		}
+		return aiprovider.ProviderResponse{}, errors.New("provider failed after mutation")
+	})
+	registry, err := aiprovider.NewRegistry(provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditFailure := errors.New("injected failure audit failure")
+	service, events := prepareExecutionServiceWithRecorder(t, fixture.proposalService, registry, func(event execution.LifecycleEvent) error {
+		if event.EventType == execution.EventProviderExecutionFailed {
+			return auditFailure
+		}
+		return nil
+	})
+	selection, _ := aiprovider.NewSelection("test-provider", "")
+	result, err := service.Implement(context.Background(), fixture.currentChange, fixture.currentProposal, selection)
+	if !errors.Is(err, auditFailure) || result.Proposal().Workspace().State() != proposal.WorkspaceFailed {
+		t.Fatalf("failure audit result state/error = %s/%v", result.Proposal().Workspace().State(), err)
+	}
+	if len(*events) != 2 || (*events)[0].EventType != execution.EventProviderExecutionStarted || (*events)[1].EventType != execution.EventProviderExecutionFailed {
+		t.Fatalf("attempted lifecycle events = %#v", *events)
+	}
+	for _, event := range *events {
+		if event.EventType == execution.EventProviderExecutionCompleted {
+			t.Fatal("failed execution produced completion")
+		}
+	}
+	assertExecutionCanonicalUnchanged(t, fixture)
 }
 
 func TestProviderReadinessFailurePreventsAttemptAuditAndInvocation(t *testing.T) {

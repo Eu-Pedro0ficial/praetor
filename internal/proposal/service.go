@@ -13,18 +13,20 @@ import (
 )
 
 const (
-	EventProposalWorkspaceCreated       = "PROPOSAL_WORKSPACE_CREATED"
-	EventPatchExtracted                 = "PATCH_EXTRACTED"
-	EventPatchSurfaceValidated          = "PATCH_SURFACE_VALIDATED"
-	EventPatchRejected                  = "PATCH_REJECTED"
-	EventProposalWorkspaceFailed        = "PROPOSAL_WORKSPACE_FAILED"
-	EventProposalWorkspaceCleanupFailed = "PROPOSAL_WORKSPACE_CLEANUP_FAILED"
-	EventProposalWorkspaceDiscarded     = "PROPOSAL_WORKSPACE_DISCARDED"
+	EventProposalWorkspaceCreationStarted = "PROPOSAL_WORKSPACE_CREATION_STARTED"
+	EventProposalWorkspaceCreated         = "PROPOSAL_WORKSPACE_CREATED"
+	EventPatchExtracted                   = "PATCH_EXTRACTED"
+	EventPatchSurfaceValidated            = "PATCH_SURFACE_VALIDATED"
+	EventPatchRejected                    = "PATCH_REJECTED"
+	EventProposalWorkspaceFailed          = "PROPOSAL_WORKSPACE_FAILED"
+	EventProposalWorkspaceCleanupFailed   = "PROPOSAL_WORKSPACE_CLEANUP_FAILED"
+	EventProposalWorkspaceDiscarded       = "PROPOSAL_WORKSPACE_DISCARDED"
 )
 
 // WorkspaceRequest is the application-owned request for Git worktree source
 // isolation. ChangeId is linkage only and must not control filesystem paths.
 type WorkspaceRequest struct {
+	WorkspaceId       WorkspaceId
 	ProjectId         project.ProjectId
 	ChangeId          change.ChangeId
 	CanonicalRoot     string
@@ -44,6 +46,30 @@ type ExtractedPatch struct {
 type WorkspacePort interface {
 	Create(WorkspaceRequest) (ProposalWorkspace, error)
 	Remove(ProposalWorkspace) error
+}
+
+type WorkspaceReservationCondition string
+
+const (
+	WorkspaceReservationAbsent    WorkspaceReservationCondition = "ABSENT"
+	WorkspaceReservationPresent   WorkspaceReservationCondition = "PRESENT"
+	WorkspaceReservationAmbiguous WorkspaceReservationCondition = "AMBIGUOUS"
+)
+
+// WorkspaceReservationPort proves and compensates only the deterministic
+// workspace path derived from a durable creation reservation.
+type WorkspaceReservationPort interface {
+	ReservedWorkspaceRoot(WorkspaceId) (string, error)
+	VerifyReservedWorkspace(WorkspaceId, string, string) error
+	ClassifyReservedWorkspace(WorkspaceId, string) (WorkspaceReservationCondition, error)
+	RemoveReservedWorkspace(WorkspaceId, string) error
+}
+
+type WorkspacePersistence func(Proposal) error
+
+type WorkspaceRecoveryResult struct {
+	Condition WorkspaceReservationCondition
+	Outcome   string
 }
 
 // WorkspaceReattacher is the optional restart capability implemented by a
@@ -135,11 +161,12 @@ func (guard *CanonicalSourceGuard) Verify() error {
 // Service coordinates the process-local M0.4 workspace and patch lifecycle
 // through explicit source/workspace, patch, audit, and inspection ports.
 type Service struct {
-	workspaces WorkspacePort
-	patches    PatchPort
-	inspector  RepositoryInspector
-	recorder   LifecycleRecorder
-	clock      Clock
+	workspaces  WorkspacePort
+	patches     PatchPort
+	inspector   RepositoryInspector
+	recorder    LifecycleRecorder
+	clock       Clock
+	coordinator *workspaceCoordinator
 }
 
 // Reattach re-establishes adapter ownership for a durable workspace after a
@@ -187,6 +214,30 @@ func New(
 	}, nil
 }
 
+// NewDurable adds the reservation, exclusion, and explicit recovery boundary
+// required around external ProposalWorkspace creation.
+func NewDurable(
+	workspaces WorkspacePort,
+	patches PatchPort,
+	inspector RepositoryInspector,
+	recorder LifecycleRecorder,
+	clock Clock,
+	store workspaceAuthority,
+	stateDirectory string,
+	repositoryRoot string,
+) (*Service, error) {
+	service, err := New(workspaces, patches, inspector, recorder, clock)
+	if err != nil {
+		return nil, err
+	}
+	coordinator, err := newWorkspaceCoordinator(workspaces, store, stateDirectory, repositoryRoot)
+	if err != nil {
+		return nil, err
+	}
+	service.coordinator = coordinator
+	return service, nil
+}
+
 // CreateWorkspace establishes a worktree from the exact clean source snapshot
 // and proves the canonical source did not change during creation.
 func (service *Service) CreateWorkspace(
@@ -194,7 +245,16 @@ func (service *Service) CreateWorkspace(
 	canonicalSource source.SourceSnapshot,
 	approvedScope source.ApprovedScope,
 ) (Proposal, error) {
-	return service.createWorkspace(currentChange, canonicalSource, approvedScope, change.StatePlanned)
+	return service.createWorkspace(currentChange, canonicalSource, approvedScope, change.StatePlanned, nil)
+}
+
+func (service *Service) CreateWorkspacePersisted(
+	currentChange change.Change,
+	canonicalSource source.SourceSnapshot,
+	approvedScope source.ApprovedScope,
+	persist WorkspacePersistence,
+) (Proposal, error) {
+	return service.createWorkspace(currentChange, canonicalSource, approvedScope, change.StatePlanned, persist)
 }
 
 func (service *Service) CreateReplacementWorkspace(
@@ -202,7 +262,16 @@ func (service *Service) CreateReplacementWorkspace(
 	canonicalSource source.SourceSnapshot,
 	approvedScope source.ApprovedScope,
 ) (Proposal, error) {
-	return service.createWorkspace(currentChange, canonicalSource, approvedScope, change.StateIsolated)
+	return service.createWorkspace(currentChange, canonicalSource, approvedScope, change.StateIsolated, nil)
+}
+
+func (service *Service) CreateReplacementWorkspacePersisted(
+	currentChange change.Change,
+	canonicalSource source.SourceSnapshot,
+	approvedScope source.ApprovedScope,
+	persist WorkspacePersistence,
+) (Proposal, error) {
+	return service.createWorkspace(currentChange, canonicalSource, approvedScope, change.StateIsolated, persist)
 }
 
 func (service *Service) createWorkspace(
@@ -210,6 +279,7 @@ func (service *Service) createWorkspace(
 	canonicalSource source.SourceSnapshot,
 	approvedScope source.ApprovedScope,
 	requiredState change.ChangeState,
+	persist WorkspacePersistence,
 ) (Proposal, error) {
 	if currentChange.State() != requiredState {
 		return Proposal{}, fmt.Errorf("Change %q must be %s before proposal workspace creation", currentChange.ChangeId(), requiredState)
@@ -231,13 +301,19 @@ func (service *Service) createWorkspace(
 		return Proposal{}, err
 	}
 
-	workspace, err := service.workspaces.Create(WorkspaceRequest{
+	request := WorkspaceRequest{
 		ProjectId:         currentChange.ProjectId(),
 		ChangeId:          currentChange.ChangeId(),
 		CanonicalRoot:     canonicalSource.RepositoryRoot(),
 		BaseRevision:      canonicalSource.HeadRevision(),
 		SourceStateDigest: canonicalSource.SourceStateDigest(),
-	})
+	}
+	if service.coordinator != nil && persist != nil {
+		return service.coordinator.create(currentChange, request, func(workspace ProposalWorkspace) (Proposal, error) {
+			return service.establishWorkspaceAuthority(workspace, canonicalSource, approvedScope, guard, persist)
+		})
+	}
+	workspace, err := service.workspaces.Create(request)
 	if err != nil {
 		return Proposal{}, fmt.Errorf("create proposal workspace: %w", err)
 	}
@@ -252,21 +328,49 @@ func (service *Service) createWorkspace(
 		return Proposal{}, cleanupOnFailure(err)
 	}
 
-	currentProposal, err := newProposal(workspace, canonicalSource, approvedScope)
+	currentProposal, err := service.establishWorkspaceAuthority(workspace, canonicalSource, approvedScope, guard, persist)
 	if err != nil {
 		return Proposal{}, cleanupOnFailure(err)
+	}
+	return currentProposal, nil
+}
+
+func (service *Service) establishWorkspaceAuthority(
+	workspace ProposalWorkspace,
+	canonicalSource source.SourceSnapshot,
+	approvedScope source.ApprovedScope,
+	guard *CanonicalSourceGuard,
+	persist WorkspacePersistence,
+) (Proposal, error) {
+	currentProposal, err := newProposal(workspace, canonicalSource, approvedScope)
+	if err != nil {
+		return Proposal{}, err
 	}
 	if err := service.recorder(LifecycleEvent{
 		EventType:   EventProposalWorkspaceCreated,
 		Workspace:   workspace,
 		Disposition: string(WorkspaceActive),
 	}); err != nil {
-		return Proposal{}, cleanupOnFailure(fmt.Errorf("record proposal workspace creation: %w", err))
+		return Proposal{}, fmt.Errorf("record proposal workspace creation: %w", err)
 	}
 	if err := guard.Verify(); err != nil {
-		return Proposal{}, cleanupOnFailure(err)
+		return Proposal{}, err
+	}
+	if persist != nil {
+		if err := persist(currentProposal); err != nil {
+			return Proposal{}, err
+		}
 	}
 	return currentProposal, nil
+}
+
+// RecoverWorkspaceCreation explicitly reconciles one durable workspace-creation
+// operation without replaying creation or trusting an ambiguous path.
+func (service *Service) RecoverWorkspaceCreation(operationId string) (WorkspaceRecoveryResult, error) {
+	if service == nil || service.coordinator == nil {
+		return WorkspaceRecoveryResult{}, fmt.Errorf("durable proposal workspace recovery is not configured")
+	}
+	return service.coordinator.recover(operationId)
 }
 
 // FailWorkspace marks a workspace unsafe for another provider attempt while

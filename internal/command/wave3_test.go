@@ -41,6 +41,25 @@ func (adapter *cleanupFailingWorkspaceAdapter) Reattach(workspace proposal.Propo
 	return adapter.delegate.Reattach(workspace)
 }
 
+func (adapter *cleanupFailingWorkspaceAdapter) ReservedWorkspaceRoot(workspaceId proposal.WorkspaceId) (string, error) {
+	return adapter.delegate.ReservedWorkspaceRoot(workspaceId)
+}
+
+func (adapter *cleanupFailingWorkspaceAdapter) VerifyReservedWorkspace(workspaceId proposal.WorkspaceId, canonicalRoot, baseRevision string) error {
+	return adapter.delegate.VerifyReservedWorkspace(workspaceId, canonicalRoot, baseRevision)
+}
+
+func (adapter *cleanupFailingWorkspaceAdapter) ClassifyReservedWorkspace(workspaceId proposal.WorkspaceId, canonicalRoot string) (proposal.WorkspaceReservationCondition, error) {
+	return adapter.delegate.ClassifyReservedWorkspace(workspaceId, canonicalRoot)
+}
+
+func (adapter *cleanupFailingWorkspaceAdapter) RemoveReservedWorkspace(workspaceId proposal.WorkspaceId, canonicalRoot string) error {
+	if adapter.failRemove {
+		return errors.New("injected workspace cleanup failure")
+	}
+	return adapter.delegate.RemoveReservedWorkspace(workspaceId, canonicalRoot)
+}
+
 func TestWave3CleanupFailureBlocksImplementationRetryAndStatusIsTruthful(t *testing.T) {
 	providerCalls := 0
 	provider := newCommandFakeProvider(t, func(_ context.Context, request aiprovider.ExecutionRequest) (aiprovider.ProviderResponse, error) {

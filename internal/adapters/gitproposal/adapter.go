@@ -108,11 +108,20 @@ func (adapter *Adapter) Create(request proposal.WorkspaceRequest) (proposal.Prop
 	}
 	adapter.temporaryRoot = temporaryRoot
 
-	workspaceId, err := adapter.newWorkspaceId()
-	if err != nil {
-		return proposal.ProposalWorkspace{}, err
+	workspaceId := request.WorkspaceId
+	var ownerRoot string
+	if workspaceId == "" {
+		workspaceId, err = adapter.newWorkspaceId()
+		if err != nil {
+			return proposal.ProposalWorkspace{}, err
+		}
+		ownerRoot, err = os.MkdirTemp(adapter.temporaryRoot, "praetor-proposal-")
+	} else {
+		ownerRoot, err = adapter.reservedOwnerRoot(workspaceId)
+		if err == nil {
+			err = os.Mkdir(ownerRoot, 0o700)
+		}
 	}
-	ownerRoot, err := os.MkdirTemp(adapter.temporaryRoot, "praetor-proposal-")
 	if err != nil {
 		return proposal.ProposalWorkspace{}, fmt.Errorf("create proposal owner directory: %w", err)
 	}
@@ -125,6 +134,7 @@ func (adapter *Adapter) Create(request proposal.WorkspaceRequest) (proposal.Prop
 		request.CanonicalRoot,
 		"worktree", "add", "--detach", "--", workspaceRoot, request.BaseRevision,
 	); err != nil {
+		_, _ = runGit(request.CanonicalRoot, "worktree", "remove", "--force", "--", workspaceRoot)
 		cleanupOwner()
 		return proposal.ProposalWorkspace{}, fmt.Errorf("add Git proposal worktree: %w", err)
 	}
@@ -212,6 +222,150 @@ func worktreeListContains(output []byte, root string) bool {
 		}
 	}
 	return false
+}
+
+// ReservedWorkspaceRoot returns the exact adapter-controlled path derived from
+// durable identity without creating or inspecting the workspace.
+func (adapter *Adapter) ReservedWorkspaceRoot(workspaceId proposal.WorkspaceId) (string, error) {
+	if adapter == nil {
+		return "", fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	temporaryRoot, err := resolveExistingDirectory(adapter.temporaryRoot, "proposal temporary root")
+	if err != nil {
+		return "", err
+	}
+	adapter.temporaryRoot = temporaryRoot
+	ownerRoot, err := adapter.reservedOwnerRoot(workspaceId)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(ownerRoot, "workspace"), nil
+}
+
+// VerifyReservedWorkspace requires the reserved worktree to remain on the
+// expected base before recovery can preserve it as active authority.
+func (adapter *Adapter) VerifyReservedWorkspace(workspaceId proposal.WorkspaceId, canonicalRoot, baseRevision string) error {
+	if adapter == nil {
+		return fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	condition, err := adapter.classifyReservedWorkspace(workspaceId, canonicalRoot)
+	if err != nil {
+		return err
+	}
+	if condition != proposal.WorkspaceReservationPresent {
+		return fmt.Errorf("proposal workspace reservation is %s", condition)
+	}
+	ownerRoot, err := adapter.reservedOwnerRoot(workspaceId)
+	if err != nil {
+		return err
+	}
+	head, err := runGit(filepath.Join(ownerRoot, "workspace"), "rev-parse", "--verify", "HEAD")
+	if err != nil || strings.TrimSpace(string(head)) != strings.TrimSpace(baseRevision) {
+		return fmt.Errorf("reserved proposal workspace base revision changed")
+	}
+	return nil
+}
+
+// ClassifyReservedWorkspace proves only the deterministic path derived from a
+// durable workspace-creation reservation. It never scans temporary directories.
+func (adapter *Adapter) ClassifyReservedWorkspace(workspaceId proposal.WorkspaceId, canonicalRoot string) (proposal.WorkspaceReservationCondition, error) {
+	if adapter == nil {
+		return proposal.WorkspaceReservationAmbiguous, fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	return adapter.classifyReservedWorkspace(workspaceId, canonicalRoot)
+}
+
+func (adapter *Adapter) classifyReservedWorkspace(workspaceId proposal.WorkspaceId, canonicalRoot string) (proposal.WorkspaceReservationCondition, error) {
+	temporaryRoot, err := resolveExistingDirectory(adapter.temporaryRoot, "proposal temporary root")
+	if err != nil {
+		return proposal.WorkspaceReservationAmbiguous, err
+	}
+	adapter.temporaryRoot = temporaryRoot
+	canonical, err := resolveExistingDirectory(canonicalRoot, "canonical repository root")
+	if err != nil {
+		return proposal.WorkspaceReservationAmbiguous, err
+	}
+	ownerRoot, err := adapter.reservedOwnerRoot(workspaceId)
+	if err != nil {
+		return proposal.WorkspaceReservationAmbiguous, err
+	}
+	workspaceRoot := filepath.Join(ownerRoot, "workspace")
+	worktrees, err := runGit(canonical, "worktree", "list", "--porcelain")
+	if err != nil {
+		return proposal.WorkspaceReservationAmbiguous, err
+	}
+	registered := worktreeListContains(worktrees, workspaceRoot)
+	info, statError := os.Lstat(ownerRoot)
+	if os.IsNotExist(statError) {
+		if registered {
+			return proposal.WorkspaceReservationAmbiguous, nil
+		}
+		return proposal.WorkspaceReservationAbsent, nil
+	}
+	if statError != nil {
+		return proposal.WorkspaceReservationAmbiguous, statError
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() || filepath.Dir(ownerRoot) != temporaryRoot {
+		return proposal.WorkspaceReservationAmbiguous, nil
+	}
+	resolvedWorkspace, err := resolveExistingDirectory(workspaceRoot, "reserved proposal workspace root")
+	if err != nil || resolvedWorkspace != workspaceRoot || !registered {
+		return proposal.WorkspaceReservationAmbiguous, nil
+	}
+	topLevel, err := runGit(workspaceRoot, "rev-parse", "--show-toplevel")
+	if err != nil || filepath.Clean(strings.TrimSpace(string(topLevel))) != workspaceRoot {
+		return proposal.WorkspaceReservationAmbiguous, nil
+	}
+	return proposal.WorkspaceReservationPresent, nil
+}
+
+// RemoveReservedWorkspace compensates only an exact PRESENT reservation.
+func (adapter *Adapter) RemoveReservedWorkspace(workspaceId proposal.WorkspaceId, canonicalRoot string) error {
+	if adapter == nil {
+		return fmt.Errorf("Git proposal adapter is required")
+	}
+	adapter.mutex.Lock()
+	defer adapter.mutex.Unlock()
+	condition, err := adapter.classifyReservedWorkspace(workspaceId, canonicalRoot)
+	if err != nil {
+		return err
+	}
+	if condition == proposal.WorkspaceReservationAbsent {
+		return nil
+	}
+	if condition != proposal.WorkspaceReservationPresent {
+		return fmt.Errorf("proposal workspace reservation is %s", condition)
+	}
+	ownerRoot, err := adapter.reservedOwnerRoot(workspaceId)
+	if err != nil {
+		return err
+	}
+	workspaceRoot := filepath.Join(ownerRoot, "workspace")
+	if _, err := runGit(canonicalRoot, "worktree", "remove", "--force", "--", workspaceRoot); err != nil {
+		return fmt.Errorf("remove reserved Git proposal worktree: %w", err)
+	}
+	if err := os.RemoveAll(ownerRoot); err != nil {
+		return fmt.Errorf("remove reserved proposal owner directory: %w", err)
+	}
+	delete(adapter.owned, workspaceId)
+	return nil
+}
+
+func (adapter *Adapter) reservedOwnerRoot(workspaceId proposal.WorkspaceId) (string, error) {
+	value := string(workspaceId)
+	if !strings.HasPrefix(value, "proposal-") || len(strings.TrimPrefix(value, "proposal-")) != 32 {
+		return "", fmt.Errorf("invalid reserved WorkspaceId %q", workspaceId)
+	}
+	if _, err := hex.DecodeString(strings.TrimPrefix(value, "proposal-")); err != nil {
+		return "", fmt.Errorf("invalid reserved WorkspaceId %q", workspaceId)
+	}
+	return filepath.Join(adapter.temporaryRoot, "praetor-proposal-"+strings.TrimPrefix(value, "proposal-")), nil
 }
 
 // Extract returns a Git-native binary-capable patch and a NUL-delimited,

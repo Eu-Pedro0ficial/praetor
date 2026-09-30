@@ -328,15 +328,29 @@ Policy evaluation performs no Change transition and no source mutation.
   proposal/evidence/policy/human-decision projection and reattaches only the
   exact retained Git worktree under the controlled temporary-workspace layout.
 . A consequential external operation commits its durable reservation before
-  the effect. Canonical Git mutation then takes a short Project lock under XDG
-  STATE, revalidates PRE, applies once, validates POST, and records completion
-  while exclusion remains held.
+  the effect. ProposalWorkspace creation derives an exact adapter-owned path
+  from that reservation and holds a short Project workspace lock through Git
+  creation and durable foundation persistence. Canonical Git mutation uses its
+  own short Project lock under XDG STATE, revalidates PRE, applies once,
+  validates POST, and records completion while exclusion remains held.
 . After interruption, explicit recovery classifies PRE, POST, AMBIGUOUS,
-  divergence, corruption, or incompatibility. It never automatically repeats
-  an unknown external effect or invents a successful Change transition. For an
-  already completed operation, its immutable structured Result must match the
-  independently proven exact POST before terminal Change/ApplicationResult
-  authority can be published.
+  divergence, corruption, or incompatibility. A reserved workspace creation
+  without durable foundation removes only the exact reservation-derived path
+  after Git proves repository membership; an exact durable foundation preserves
+  the worktree and finalizes the reservation. Unknown directories and
+  contradictory ownership evidence are retained and block. Recovery never
+  automatically repeats an unknown effect or invents a successful Change
+  transition. For an already completed canonical operation, its immutable
+  structured Result must match the independently proven exact POST before
+  terminal Change/ApplicationResult authority can be published.
+. Provider execution requires persisted `PROVIDER_EXECUTION_STARTED` evidence
+  before launch. If the provider may have run but its terminal audit outcome
+  cannot be persisted, retry remains blocked; workspace diff is not treated as
+  proof of provider success.
+. Workspace removal and its append-only discard event cannot be one atomic
+  transaction. Interruption after proven removal but before that event leaves
+  durable authority for an absent workspace. Restart reattachment fails closed
+  and does not infer cleanup, authorize retry, or fabricate discard evidence.
 
 These semantics are implemented under ADR-033 through ADR-038. Later workflow,
 review, repository-intelligence, and memory capabilities remain outside M1.1.

@@ -269,9 +269,12 @@ workflow migration.
 
 `ExpectedRevision` guards each durable Change successor. Consequential work
 uses a Project-unique opaque OperationId bound to immutable RequestDigest and,
-for Change operations, ChangeId. Orthogonal recovery conditions describe
-incomplete/uncertain effects, source divergence, corruption, or incompatibility
-without altering ChangeState. The one per-Project SQLite adapter supplies
+for Change operations, ChangeId. ProposalWorkspace creation uses that identity
+to derive one exact adapter-owned worktree path; a terminal failed operation
+records proven absence or completed compensation, while a completed operation
+records the bounded created-workspace result. Orthogonal recovery conditions
+describe incomplete/uncertain effects, source divergence, corruption, or
+incompatibility without altering ChangeState. The one per-Project SQLite adapter supplies
 logical ChangeStore, ArtifactStore, and AuditLedger responsibilities plus a
 typed all-or-none authority commit.
 
