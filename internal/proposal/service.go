@@ -72,6 +72,24 @@ type WorkspaceRecoveryResult struct {
 	Outcome   string
 }
 
+type WorkspaceAuthorityCondition string
+
+const (
+	WorkspaceAuthorityMissing       WorkspaceAuthorityCondition = "missing"
+	WorkspaceAuthorityExact         WorkspaceAuthorityCondition = "exact"
+	WorkspaceAuthorityContradictory WorkspaceAuthorityCondition = "contradictory"
+)
+
+// WorkspaceCreationInspection is a read-only projection of durable creation
+// authority and the exact reservation-derived external path. It cannot
+// authorize or perform recovery.
+type WorkspaceCreationInspection struct {
+	WorkspaceId       WorkspaceId
+	Authority         WorkspaceAuthorityCondition
+	ExternalCondition WorkspaceReservationCondition
+	BaseVerified      bool
+}
+
 // WorkspaceReattacher is the optional restart capability implemented by a
 // workspace adapter that can safely reclaim its own durable local workspace.
 type WorkspaceReattacher interface {
@@ -366,6 +384,16 @@ func (service *Service) establishWorkspaceAuthority(
 
 // RecoverWorkspaceCreation explicitly reconciles one durable workspace-creation
 // operation without replaying creation or trusting an ambiguous path.
+// InspectWorkspaceCreation reads durable and external evidence for one
+// workspace-creation operation without acquiring a mutation lock or changing
+// either source of state.
+func (service *Service) InspectWorkspaceCreation(operationId string) (WorkspaceCreationInspection, error) {
+	if service == nil || service.coordinator == nil {
+		return WorkspaceCreationInspection{}, fmt.Errorf("durable proposal workspace inspection is not configured")
+	}
+	return service.coordinator.inspect(operationId)
+}
+
 func (service *Service) RecoverWorkspaceCreation(operationId string) (WorkspaceRecoveryResult, error) {
 	if service == nil || service.coordinator == nil {
 		return WorkspaceRecoveryResult{}, fmt.Errorf("durable proposal workspace recovery is not configured")

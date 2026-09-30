@@ -263,9 +263,68 @@ func (coordinator *workspaceCoordinator) recover(operationIdText string) (Worksp
 	return WorkspaceRecoveryResult{Condition: condition, Outcome: "workspace cleanup proven and operation failed terminally"}, nil
 }
 
+func (coordinator *workspaceCoordinator) inspect(operationIdText string) (WorkspaceCreationInspection, error) {
+	operationId := authority.OperationId(strings.TrimSpace(operationIdText))
+	operation, err := coordinator.store.GetOperation(operationId)
+	if err != nil {
+		return WorkspaceCreationInspection{}, err
+	}
+	if operation.Kind != OperationProposalWorkspaceCreate {
+		return WorkspaceCreationInspection{}, fmt.Errorf("operation %q is not a proposal workspace creation", operationId)
+	}
+	workspaceId, err := workspaceIdFromOperation(operationId)
+	if err != nil {
+		return WorkspaceCreationInspection{}, err
+	}
+	var exactFoundation, contradictoryFoundation bool
+	var foundation workspaceCreationResult
+	if operation.State == authority.OperationReserved {
+		exactFoundation, contradictoryFoundation, foundation, err = coordinator.findWorkspaceFoundation(operation, workspaceId)
+	} else {
+		exactFoundation, contradictoryFoundation, foundation, err = coordinator.inspectWorkspaceFoundation(operation, workspaceId)
+	}
+	if err != nil {
+		return WorkspaceCreationInspection{}, err
+	}
+	result := WorkspaceCreationInspection{WorkspaceId: workspaceId, Authority: WorkspaceAuthorityMissing}
+	switch {
+	case contradictoryFoundation:
+		result.Authority = WorkspaceAuthorityContradictory
+	case exactFoundation:
+		result.Authority = WorkspaceAuthorityExact
+	}
+	result.ExternalCondition, err = coordinator.recovery.ClassifyReservedWorkspace(workspaceId, coordinator.repositoryRoot)
+	if err != nil {
+		return WorkspaceCreationInspection{}, err
+	}
+	if exactFoundation && result.ExternalCondition == WorkspaceReservationPresent {
+		if err := coordinator.recovery.VerifyReservedWorkspace(workspaceId, coordinator.repositoryRoot, foundation.BaseRevision); err == nil {
+			result.BaseVerified = true
+		} else {
+			result.ExternalCondition = WorkspaceReservationAmbiguous
+		}
+	}
+	return result, nil
+}
+
 func (coordinator *workspaceCoordinator) findWorkspaceFoundation(
 	operation authority.Operation,
 	workspaceId WorkspaceId,
+) (bool, bool, workspaceCreationResult, error) {
+	return coordinator.workspaceFoundation(operation, workspaceId, true)
+}
+
+func (coordinator *workspaceCoordinator) inspectWorkspaceFoundation(
+	operation authority.Operation,
+	workspaceId WorkspaceId,
+) (bool, bool, workspaceCreationResult, error) {
+	return coordinator.workspaceFoundation(operation, workspaceId, false)
+}
+
+func (coordinator *workspaceCoordinator) workspaceFoundation(
+	operation authority.Operation,
+	workspaceId WorkspaceId,
+	requireIsolated bool,
 ) (bool, bool, workspaceCreationResult, error) {
 	current, _, err := coordinator.store.GetChange(operation.ChangeId)
 	if err != nil {
@@ -312,7 +371,7 @@ func (coordinator *workspaceCoordinator) findWorkspaceFoundation(
 			BaseRevision:      payload.HeadRevision,
 			SourceStateDigest: sourceDigest(payload.SourceStateDigest),
 		}
-		exact := current.State() == change.StateIsolated &&
+		exact := (!requireIsolated || current.State() == change.StateIsolated) &&
 			payload.RepositoryRoot == coordinator.repositoryRoot &&
 			payload.WorkspaceRoot == expectedRoot &&
 			workspaceCreationRequestDigest(request, operation.ExpectedRevision) == operation.RequestDigest

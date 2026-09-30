@@ -19,6 +19,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/authority"
 	"github.com/Eu-Pedro0ficial/praetor/internal/change"
 	"github.com/Eu-Pedro0ficial/praetor/internal/impact"
+	"github.com/Eu-Pedro0ficial/praetor/internal/inspection"
 	"github.com/Eu-Pedro0ficial/praetor/internal/integration"
 	"github.com/Eu-Pedro0ficial/praetor/internal/policy"
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/preferences"
@@ -57,6 +58,8 @@ func handleStatus(session *Session, invocation Invocation, output io.Writer) (Re
 		fmt.Fprintln(output, "Last human decision: none")
 	}
 	fmt.Fprintf(output, "Recovery: %s\n", snapshot.Recovery)
+	fmt.Fprintf(output, "Recovery classification: %s\n", snapshot.RecoveryClassification)
+	fmt.Fprintf(output, "Recovery reason: %s\n", snapshot.RecoveryReason)
 	fmt.Fprintf(output, "Last operation: %s\n", snapshot.LastOperation)
 	fmt.Fprintf(output, "Outcome: %s\n", snapshot.OperationOutcome)
 	fmt.Fprintf(output, "Canonical source: %s\n", snapshot.CanonicalSource)
@@ -461,7 +464,7 @@ func handleChangeDiagnose(session *Session, invocation Invocation, output io.Wri
 	}
 	if len(invocation.Arguments) == 0 {
 		if _, selected := session.CurrentChange(); !selected {
-			fmt.Fprintln(output, "No Change selected; specify a ChangeId to diagnose durable recovery authority.")
+			fmt.Fprintln(output, "No Change selected. Recovery diagnosis is read-only; use change list, then change diagnose <change-id>.")
 			return Result{}, nil
 		}
 	}
@@ -473,6 +476,12 @@ func handleChangeDiagnose(session *Session, invocation Invocation, output io.Wri
 	if err != nil {
 		return Result{}, err
 	}
+	recovery, err := session.durableInspection.Recovery(id)
+	if err != nil {
+		return Result{}, fmt.Errorf("inspect recovery evidence for Change %q: %w", id, err)
+	}
+	writeRecoveryReport(output, session, recovery)
+	fmt.Fprintln(output, "Authority details:")
 	for _, diagnosis := range detail.Diagnoses {
 		fmt.Fprintf(output, "%s: %s", diagnosis.Condition, boundedSingleLine(diagnosis.Detail, 1024))
 		if diagnosis.Operation != nil {
@@ -500,7 +509,25 @@ func handleChangeRecover(session *Session, invocation Invocation, output io.Writ
 	operationId := authority.OperationId(invocation.Arguments[0])
 	operation, err := session.durableAuthority.GetOperation(operationId)
 	if err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("operation %q is not available in the active Project: %w", operationId, err)
+	}
+	if operation.Kind != proposal.OperationProposalWorkspaceCreate && operation.Kind != "canonical-git-apply" {
+		return Result{}, fmt.Errorf("operation %q kind %q does not support explicit recovery", operationId, operation.Kind)
+	}
+	if session.durableInspection != nil {
+		recovery, inspectionError := session.durableInspection.RecoveryForOperation(operationId)
+		if inspectionError != nil {
+			return Result{}, fmt.Errorf("inspect operation %q before recovery: %w", operationId, inspectionError)
+		}
+		writeRecoveryReport(output, session, recovery)
+		if operation.State == authority.OperationFailed || (operation.Kind == proposal.OperationProposalWorkspaceCreate && operation.State == authority.OperationCompleted) {
+			if recovery.Classification == inspection.RecoveryAmbiguous || recovery.Classification == inspection.RecoveryCorrupt {
+				fmt.Fprintf(output, "Recovery action: none; operation is already %s and its evidence requires manual investigation.\n", operation.State)
+			} else {
+				fmt.Fprintf(output, "Recovery action: none; operation is already %s.\n", operation.State)
+			}
+			return Result{}, nil
+		}
 	}
 	if operation.Kind == proposal.OperationProposalWorkspaceCreate {
 		result, recoveryError := session.proposalLifecycle.RecoverWorkspaceCreation(string(operationId))
@@ -538,6 +565,89 @@ func handleChangeRecover(session *Session, invocation Invocation, output io.Writ
 		fmt.Fprintf(output, "Change state: %s revision=%d\n", terminal.State(), terminal.Revision())
 	}
 	return Result{}, nil
+}
+
+func writeRecoveryReport(output io.Writer, session *Session, report inspection.RecoveryReport) {
+	fmt.Fprintln(output, "Recovery diagnosis:")
+	fmt.Fprintf(output, "  Change: %s\n", report.ChangeId)
+	fmt.Fprintf(output, "  State: %s\n", report.ChangeState)
+	fmt.Fprintf(output, "  Classification: %s\n", report.Classification)
+	fmt.Fprintf(output, "  Actionability: %s\n", report.Actionability)
+	fmt.Fprintf(output, "  Reason: %s\n", boundedSingleLine(report.Reason, 1024))
+	if report.OperationId != "" {
+		fmt.Fprintf(output, "  Operation: %s (%s, %s)\n", report.OperationId, boundedSingleLine(report.OperationKind, 128), report.OperationState)
+	}
+	if report.WorkspaceId != "" {
+		fmt.Fprintf(output, "  Workspace: %s\n", report.WorkspaceId)
+	}
+	if report.WorkspaceAuthority != "" {
+		fmt.Fprintf(output, "  Workspace authority: %s\n", report.WorkspaceAuthority)
+	}
+	if report.ExternalState != "" {
+		fmt.Fprintf(output, "  External state: %s\n", report.ExternalState)
+	}
+	if report.ProviderAttemptId != "" || report.ProviderOutcome != "" {
+		attempt := report.ProviderAttemptId
+		if attempt == "" {
+			attempt = "unknown"
+		}
+		fmt.Fprintf(output, "  Provider attempt: %s (%s)\n", attempt, report.ProviderOutcome)
+	}
+	if report.Classification != inspection.RecoverySafe || report.ProviderOutcome != "" || report.WorkspaceId != "" {
+		fmt.Fprintf(output, "  Automatic retry: %s\n", allowedOrBlocked(report.AutomaticRetry))
+		fmt.Fprintf(output, "  Workspace reuse: %s\n", allowedOrBlocked(report.WorkspaceReuse))
+	}
+	if report.ProviderOutcome == "started-without-terminal-outcome" {
+		fmt.Fprintln(output, "  Provider replay: blocked; partial workspace mutations are possible and Git diff is not execution authority.")
+	}
+	fmt.Fprintln(output, "  Safe next actions:")
+	for _, action := range report.NextActions {
+		fmt.Fprintf(output, "    %s\n", recoveryActionCommand(session, report.ChangeId, action))
+	}
+}
+
+func allowedOrBlocked(allowed bool) string {
+	if allowed {
+		return "allowed"
+	}
+	return "blocked"
+}
+
+func recoveryActionCommand(session *Session, reportChangeId change.ChangeId, action inspection.RecoveryAction) string {
+	switch action.Kind {
+	case inspection.RecoveryActionShow:
+		return "change show " + string(action.ChangeId)
+	case inspection.RecoveryActionHistory:
+		return "change history " + string(action.ChangeId)
+	case inspection.RecoveryActionArtifacts:
+		return "change artifacts " + string(action.ChangeId)
+	case inspection.RecoveryActionIsolate:
+		return "change isolate " + string(action.ChangeId) + " <intent>"
+	case inspection.RecoveryActionRecover:
+		return "change recover " + string(action.OperationId)
+	}
+	prefix := ""
+	if current, selected := session.CurrentChange(); !selected || current.ChangeId() != reportChangeId {
+		prefix = "change select " + string(reportChangeId) + "; then "
+	}
+	switch action.Kind {
+	case inspection.RecoveryActionImplement:
+		return prefix + "change implement"
+	case inspection.RecoveryActionVerify:
+		return prefix + "change verify"
+	case inspection.RecoveryActionApprove:
+		return prefix + "change approve"
+	case inspection.RecoveryActionReject:
+		return prefix + "change reject"
+	case inspection.RecoveryActionApply:
+		return prefix + "change apply"
+	case inspection.RecoveryActionClose:
+		return prefix + "change close"
+	case inspection.RecoveryActionDiscard:
+		return prefix + "change discard"
+	default:
+		return "change diagnose " + string(reportChangeId)
+	}
 }
 
 func handleChangeContent(session *Session, invocation Invocation, output io.Writer) (Result, error) {

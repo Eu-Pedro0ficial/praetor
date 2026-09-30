@@ -261,3 +261,8 @@ M1.1 additionally distinguishes stale revision, bounded busy/conflict,
 incomplete operation, uncertain external effect, source divergence, artifact
 corruption/missing data, and incompatible store. Attach and inspection diagnose
 these conditions but never repair or advance authority implicitly.
+The operator projection renders those sources as `SAFE`, `RECOVERABLE`,
+`AMBIGUOUS`, or `CORRUPT`, with only commands supported by the current
+authoritative state. This classification is derived, read only, and never
+substitutes for ChangeState, operation state, audit, artifact, or exact external
+ownership evidence.

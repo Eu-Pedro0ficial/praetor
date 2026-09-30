@@ -210,6 +210,7 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	}()
 	var durableInspection *inspection.Service
 	var canonicalRecovery integration.RecoveryPort
+	var canonicalInspector integration.RecoveryInspector
 	useDurableAuthority := container.DurableStoreFactory != nil &&
 		sameFunction(container.AuditLogger, AuditLoggerFunc(legacyAuditLogger)) &&
 		sameFunction(container.ChangeAuditLogger, ChangeAuditLoggerFunc(legacyChangeAuditLogger))
@@ -253,11 +254,6 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 				return event, nil
 			}
 		}
-		durableInspection, err = inspection.New(store)
-		if err != nil {
-			store.Close()
-			return nil, err
-		}
 		probe, supported := runtime.CanonicalSource.(integration.RecoveryProbe)
 		if !supported {
 			return nil, fmt.Errorf("canonical source adapter does not support M1.1 recovery classification")
@@ -272,6 +268,7 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 		}
 		runtime.CanonicalSource = coordinated
 		canonicalRecovery = coordinated
+		canonicalInspector = coordinated
 	}
 	changeWorkflow, err := runtime.NewChangeWorkflow(registration)
 	if err != nil {
@@ -310,6 +307,12 @@ func (container Container) NewInteractiveSession(path string) (*command.Session,
 	proposalLifecycle, err := runtime.NewProposalService(registration)
 	if err != nil {
 		return nil, err
+	}
+	if openedAuthority != nil {
+		durableInspection, err = inspection.NewWithRecoveryInspection(openedAuthority, proposalLifecycle, canonicalInspector)
+		if err != nil {
+			return nil, err
+		}
 	}
 	providerRegistry, err := runtime.NewProviderRegistry()
 	if err != nil {

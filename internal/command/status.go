@@ -30,6 +30,8 @@ type StatusSnapshot struct {
 	HumanDecision           string
 	HumanActor              string
 	Recovery                string
+	RecoveryClassification  string
+	RecoveryReason          string
 	LastOperation           string
 	OperationOutcome        string
 	CanonicalSource         string
@@ -188,6 +190,13 @@ func (session *Session) StatusSnapshot() StatusSnapshot {
 		if detail, err := session.durableInspection.InspectChange(current.ChangeId()); err == nil {
 			applyLifecycleAuditRecovery(&snapshot, current, detail.Audit)
 		}
+		if recovery, err := session.durableInspection.Recovery(current.ChangeId()); err == nil {
+			snapshot.RecoveryClassification = string(recovery.Classification)
+			snapshot.RecoveryReason = recovery.Reason
+		} else {
+			snapshot.RecoveryClassification = "UNAVAILABLE"
+			snapshot.RecoveryReason = "recovery evidence could not be inspected safely"
+		}
 	}
 	if session.durableAuthority != nil {
 		operations, err := session.durableAuthority.ListIncompleteOperations()
@@ -242,6 +251,10 @@ func (session *Session) StatusSnapshot() StatusSnapshot {
 	}
 	if snapshot.SafeNextActions == "" {
 		snapshot.SafeNextActions = "none"
+	}
+	if snapshot.RecoveryClassification == "" {
+		snapshot.RecoveryClassification = "SAFE"
+		snapshot.RecoveryReason = "no active Change recovery blocker"
 	}
 	return snapshot
 }

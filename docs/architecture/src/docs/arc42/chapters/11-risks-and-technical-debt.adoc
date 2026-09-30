@@ -43,7 +43,7 @@
 |R-038 |M1.2 history context becomes premature regression prediction |Opaque or misleading DiffRisk authority |Bound history to provenance/ownership/co-change context; retain regression prediction and learned outcomes in M4.2
 |R-039 |Provider context grows invisibly or repository-wide authority is mistaken for eager materialization |Unexpected provider cost, latency, or irrelevant context |Account exact serialized components before invocation, bound each materialized source, audit omissions, and let the provider inspect the isolated ProposalWorkspace
 |R-040 |Process interruption leaves an isolated worktree without recoverable ownership evidence |Orphaned external state or unsafe heuristic cleanup |Reserve creation before Git, derive one exact path from OperationId, hold Project exclusion through foundation persistence, and require explicit fail-closed reconciliation
-|R-041 |Workspace removal completes before append-only discard evidence persists |Durable authority references an absent resource and the Change cannot resume automatically |Reattachment fails closed, retry remains unauthorized, absence is never rewritten into fabricated cleanup evidence, and operators retain durable history for diagnosis
+|R-041 |Workspace removal completes before append-only discard evidence persists |Durable authority references an absent resource and the Change cannot resume automatically |Reattachment fails closed, retry remains unauthorized, absence is never rewritten into fabricated cleanup evidence, and read-only operator diagnosis identifies the ambiguous evidence gap and preserves detailed history
 |===
 
 === Known Architectural Debt at Baseline

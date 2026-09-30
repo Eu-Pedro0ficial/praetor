@@ -25,7 +25,11 @@ type ChangeDetail struct {
 	Operations    []authority.Operation
 }
 
-type Service struct{ store authority.Store }
+type Service struct {
+	store              authority.Store
+	workspaceInspector workspaceCreationInspector
+	canonicalInspector canonicalRecoveryInspector
+}
 
 func New(store authority.Store) (*Service, error) {
 	if store == nil {

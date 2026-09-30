@@ -355,6 +355,47 @@ Policy evaluation performs no Change transition and no source mutation.
 These semantics are implemented under ADR-033 through ADR-038. Later workflow,
 review, repository-intelligence, and memory capabilities remain outside M1.1.
 
+==== Operator Recovery Diagnostics
+
+`status` presents a concise recovery classification and reason for the selected
+Change. `change diagnose [<change-id>]` is the detailed, read-only path: it
+derives one bounded report from current Change authority, operations,
+append-oriented audit, durable artifact bindings, and exact adapter-owned
+external-state classification. The report is not persisted and cannot
+authorize mutation.
+
+The presentation classifications have the following operational meaning:
+
+* `SAFE`: no incomplete or contradictory recovery authority was found for the
+  reported path;
+* `RECOVERABLE`: existing exact evidence supports a listed retry or explicit
+  operation recovery;
+* `AMBIGUOUS`: an external effect or cleanup history cannot be proven, so
+  replay and workspace reuse remain blocked;
+* `CORRUPT`: durable authority contradicts independently inspected evidence and
+  requires manual investigation.
+
+Recommendations are typed application actions rendered as existing commands.
+They distinguish information, safe retry, `change recover <operation-id>`,
+explicit workspace discard, and manual investigation. When a provider start
+has no terminal outcome, diagnosis states that provider execution may have
+occurred, partial workspace mutations may exist, Git diff is not execution
+authority, and provider replay/workspace reuse are blocked. Diagnosis never
+invokes a provider, deletes a workspace, repairs audit, or transitions a
+Change.
+
+`change recover` first displays the target Change, operation, classification,
+reason, and verified external condition. It then delegates only to the existing
+exact ownership-based recovery coordinator. Terminal workspace operations and
+failed operations are reported idempotently without mutation; a completed
+canonical operation may still publish missing terminal Change authority only
+after its immutable Result matches independently proven exact POST.
+
+Startup and Change attachment remain read only. In particular, durable
+workspace authority plus an absent worktree and no durable discard event is
+reported as an ambiguous cleanup evidence gap. Absence does not fabricate
+historical cleanup intent, authorize retry, or create a discard event.
+
 ==== M1.2 Implemented Repository and Impact Analysis
 
 [plantuml, "{plantUMLDir}dynamic-impact-analysis", png]

@@ -35,6 +35,12 @@ type RecoveryPort interface {
 	RecoverPersisted(authority.OperationId, RecoveryFinalizer) (ExternalCondition, CanonicalProof, error)
 }
 
+// RecoveryInspector classifies durable canonical-operation evidence without
+// acquiring a mutation lock or changing durable or external state.
+type RecoveryInspector interface {
+	InspectPersisted(authority.OperationId) (ExternalCondition, error)
+}
+
 // RecoveryFinalizer commits terminal durable authority while the Project
 // source-exclusion lock is still held.
 type RecoveryFinalizer func(authority.Operation, CanonicalProof) error
@@ -243,6 +249,41 @@ func (c *CoordinatedCanonical) RecoverPersisted(operationId authority.OperationI
 	default:
 		return condition, CanonicalProof{}, fmt.Errorf("canonical operation %s is AMBIGUOUS and requires human remediation", operationId)
 	}
+}
+
+// InspectPersisted validates durable canonical authority and classifies the
+// exact external Git state without authorizing recovery.
+func (c *CoordinatedCanonical) InspectPersisted(operationId authority.OperationId) (ExternalCondition, error) {
+	if c.durableProbe == nil {
+		return ConditionAmbiguous, fmt.Errorf("canonical adapter does not support durable recovery inspection")
+	}
+	operation, err := c.store.GetOperation(operationId)
+	if err != nil {
+		return ConditionAmbiguous, err
+	}
+	request, err := c.recoveryRequest(operation.ChangeId)
+	if err != nil {
+		return ConditionAmbiguous, err
+	}
+	requestDigest := canonicalRecoveryRequestDigest(request)
+	if operation.ProjectId != c.projectId || operation.ChangeId != request.ChangeId || operation.RequestDigest != requestDigest {
+		return ConditionAmbiguous, authority.ErrOperationConflict
+	}
+	condition, err := c.durableProbe.ClassifyDurable(request)
+	if err != nil {
+		return ConditionAmbiguous, err
+	}
+	if operation.State == authority.OperationCompleted {
+		if condition != ConditionPOST {
+			return condition, fmt.Errorf("%w: completed operation classified %s instead of exact POST", authority.ErrCorrupt, condition)
+		}
+		proof, err := c.durableProbe.PostProofDurable(request)
+		if err == nil {
+			err = verifyCompletedResult(operation, proof)
+		}
+		return condition, err
+	}
+	return condition, nil
 }
 
 // Recover retains the narrow live-proposal seam used by adapter unit tests;
