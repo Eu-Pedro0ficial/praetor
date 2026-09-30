@@ -58,7 +58,7 @@ func TestAdapterRetainsProjectContextAndContinuesAfterCommandErrors(t *testing.T
 		"GOVERNED AI ENGINEERING",
 		"Project ID: " + string(registration.ProjectId) + "\n",
 		"Repository root: " + repositoryRoot + "\n",
-		"110101010101011",
+		"⢰⠶⣿⠿⠿⠉⠙⠿⠿⢿⣷⡆",
 		"praetor: unknown command",
 		"Change ID: change-shell\n",
 		"praetor: usage: status",

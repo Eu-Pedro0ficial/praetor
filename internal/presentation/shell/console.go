@@ -19,16 +19,16 @@ const (
 	maximumSidebarSize  = 34
 )
 
-var binaryShield = []string{
-	"    101010101     ",
-	"  1101010101011   ",
-	" 110101010101011  ",
-	" 101010101010101  ",
-	"  1101010101011   ",
-	"   10101010101    ",
-	"    101010101     ",
-	"      10101       ",
-	"        1         ",
+var praetorShield = []string{
+	"⢀⡤⣤⠦⣤⣀",
+	"⢰⠶⣿⠿⠿⠉⠙⠿⠿⢿⣷⡆",
+	"⢸⠟    ⠧⡤ ⠈⣽⡇",
+	"⢸⣿   ⢠⠟⣿  ⡽⠇",
+	"⠈⢩⡃  ⠌⣿⡽⠁⢠⢿⠅",
+	"⢩⣽   ⠩⡯ ⣼⡿⠁",
+	"⢫⣥⡄ ⠁⠁⣼⡿⠁",
+	"⠙⠿⢧⢤⣿⠟",
+	"⠈⠻⡿⠋",
 }
 
 type terminalDimensions struct {
@@ -489,7 +489,7 @@ func sidebarRows(layout preferences.Layout, status command.StatusSnapshot) []sid
 		}
 	}
 	if layout.Sidebar.Identity {
-		for _, line := range binaryShield {
+		for _, line := range praetorShield {
 			rows = append(rows, sidebarRow{text: line, color: layout.Colors.Accent, centered: true})
 		}
 		rows = append(rows,

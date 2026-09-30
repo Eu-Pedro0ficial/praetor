@@ -15,7 +15,7 @@ func TestConsoleWideNarrowResizeAndSidebarPreference(t *testing.T) {
 
 	wide := renderer.Render()
 	for _, expected := range []string{
-		"P R A E T O R", "GOVERNED AI ENGINEERING", "110101010101011", "CONTEXT", "PROVIDER", "STATUS",
+		"P R A E T O R", "GOVERNED AI ENGINEERING", "⢰⠶⣿⠿⠿⠉⠙⠿⠿⢿⣷⡆", "CONTEXT", "PROVIDER", "STATUS",
 	} {
 		if !strings.Contains(wide, expected) {
 			t.Fatalf("wide console lacks %q:\n%s", expected, wide)
@@ -41,7 +41,7 @@ func TestConsoleWideNarrowResizeAndSidebarPreference(t *testing.T) {
 
 	dimensions.Width = minimumSidebarWidth - 5
 	narrow := renderer.Render()
-	if strings.Contains(narrow, "110101010101011") || strings.Contains(narrow, "CONTEXT") {
+	if strings.Contains(narrow, "⢰⠶⣿⠿⠿⠉⠙⠿⠿⢿⣷⡆") || strings.Contains(narrow, "CONTEXT") {
 		t.Fatalf("narrow console retained sidebar:\n%s", narrow)
 	}
 	assertRenderedWidth(t, narrow, dimensions.Width)
@@ -53,13 +53,13 @@ func TestConsoleWideNarrowResizeAndSidebarPreference(t *testing.T) {
 	}
 
 	dimensions.Width = 120
-	if !strings.Contains(renderer.Render(), "110101010101011") {
+	if !strings.Contains(renderer.Render(), "⢰⠶⣿⠿⠿⠉⠙⠿⠿⢿⣷⡆") {
 		t.Fatal("widening did not restore configured sidebar")
 	}
 	if _, err := registry.Dispatch(session, "configure layout sidebar show off", io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(renderer.Render(), "110101010101011") {
+	if strings.Contains(renderer.Render(), "⢰⠶⣿⠿⠿⠉⠙⠿⠿⢿⣷⡆") {
 		t.Fatal("explicit sidebar off still rendered sidebar")
 	}
 }
@@ -83,22 +83,22 @@ func TestConsoleIndividualSectionsStatusSourceAndDeterministicIdentity(t *testin
 			t.Fatalf("sidebar projection lacks status snapshot value %q", value)
 		}
 	}
-	first := strings.Join(binaryShield, "\n")
+	first := strings.Join(praetorShield, "\n")
 	secondRows := sidebarRows(layout, snapshot)
 	var secondIdentity []string
-	for _, row := range secondRows[:len(binaryShield)] {
+	for _, row := range secondRows[:len(praetorShield)] {
 		secondIdentity = append(secondIdentity, row.text)
 	}
 	second := strings.Join(secondIdentity, "\n")
-	if first != second || len(binaryShield) != 9 {
-		t.Fatalf("binary identity is not deterministic: %q", first)
+	if first != second || len(praetorShield) != 9 {
+		t.Fatalf("Praetor identity is not deterministic: %q", first)
 	}
-	if strings.Contains(first, "1111110000") {
-		t.Fatalf("legacy digit rows remain in binary shield: %q", first)
+	if strings.ContainsAny(first, "01") {
+		t.Fatalf("legacy binary digits remain in Praetor shield: %q", first)
 	}
 
 	tests := []struct{ command, absent string }{
-		{"configure layout sidebar identity off", "110101010101011"},
+		{"configure layout sidebar identity off", "⢰⠶⣿⠿⠿⠉⠙⠿⠿⢿⣷⡆"},
 		{"configure layout sidebar context off", "CONTEXT"},
 		{"configure layout sidebar provider off", "PROVIDER"},
 		{"configure layout sidebar status off", "STATUS"},
