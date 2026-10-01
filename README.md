@@ -259,3 +259,11 @@ Pull requests should follow the repository template and preserve the project's c
 Praetor is released under the [MIT License](LICENSE).
 
 Copyright © 2026 Pedro Cardoso.
+
+---
+
+## Community
+
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
