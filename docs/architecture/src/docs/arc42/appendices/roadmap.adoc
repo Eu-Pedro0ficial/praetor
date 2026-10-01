@@ -16,21 +16,23 @@ closure, and terminal presentation.
 
 No completed milestone changes meaning under Roadmap V2.
 
-==== Phase 1 — Governed Engineering Runtime — M1.0–M1.1 COMPLETE; M1.2 IMPLEMENTED/AUDIT PENDING; M1.3–M1.5 TARGET
+==== Phase 1 — Governed Engineering Runtime — M1.0–M1.2 COMPLETE; M1.3–M1.5 TARGET
 
 * M1.0 — Mature Policy Engine — `COMPLETE`;
 * M1.1 — Durable Change + Artifact Foundation — `COMPLETE`, independently
   closure-audited and published at `630f919cd9731113658fb6abc78a6843b210b6a8`;
-* M1.2 — Repository Intelligence + Impact + Risk — `IMPLEMENTED`, independent
-  closure audit pending;
+* M1.2 — Repository Intelligence + Impact + Risk — `COMPLETE`, independently
+  closure re-audited and published at
+  `6026b30003ff0b5679fa1014f8f15f64a0541d86`;
 * M1.3 — Specification + Change Plan Governance;
 * M1.4 — Review Engine + Maker-Checker Authority;
 * M1.5 — Quality + Security Verification Foundation.
 
 M1.0's accepted local Manifest V1 Policy Engine scope remains unchanged. M1.1
 implements the ADR-033 through ADR-038 durable authority foundation. M1.2 is
-implemented under human-approved ADR-039 and ADR-040 and awaits independent
-closure audit. M1.3 onward have not begun.
+implemented under human-approved ADR-039 and ADR-040, passed independent closure
+re-audit with no remaining blockers or SHOULD FIX items, and is formally closed.
+M1.3 onward have not begun.
 
 M1.3 prepares versioned Specification Packs and
 requirement -> spec -> change -> evidence -> policy traceability.
@@ -73,8 +75,8 @@ remain decision-gated.
 
 ==== Explicit Anti-Roadmap
 
-Do not treat implemented M1.2 behavior as milestone closure before independent
-audit, or begin by
-implementing every provider, every language, a GUI, vector database,
-distributed control plane, or custom DSL.
+M1.2 implementation was not treated as milestone closure before its independent
+audit; the subsequent closure re-audit passed and the milestone is now formally
+closed. Do not begin by implementing every provider, every language, a GUI,
+vector database, distributed control plane, or custom DSL.
 Roadmap prose does not silently close an ADR, benchmark, spike, or human gate.

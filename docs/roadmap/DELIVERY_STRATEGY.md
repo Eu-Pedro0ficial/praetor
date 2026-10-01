@@ -19,8 +19,8 @@ This rule is part of the delivery gate, not an optional policy note.
 Current implementation status: M0.0 through M1.1 are complete. M1.1 is
 independently closure-audited and published. The Core V0
 release gate has passed, and the bounded post-V0 presentation milestone is
-complete. The local M1.0 Policy Engine is complete. M1.2 is implemented and
-awaits independent closure audit; M1.3 has not started.
+complete. The local M1.0 Policy Engine is complete. M1.2 passed independent
+closure re-audit, is published, and is formally closed; M1.3 has not started.
 
 ## Revised delivery order
 
@@ -131,8 +131,9 @@ confidence, gap, and staleness models. Heuristic knowledge remains distinct
 from deterministic facts and cannot silently expand approved scope.
 
 The architecture gate is human approved under ADR-039 and ADR-040. Production
-implementation, tests, and truthful lifecycle promotion are complete; an
-independent closure audit remains before milestone completion.
+implementation, tests, and truthful lifecycle promotion are complete. The
+independent closure re-audit passed with no remaining blockers or SHOULD FIX
+items, the implementation is published, and M1.2 is formally closed.
 
 ### Step 14 — M1.3 specification and change-plan governance
 

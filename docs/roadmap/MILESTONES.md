@@ -2,10 +2,12 @@
 
 ## Authority and lifecycle
 
-Roadmap V2 replaces only the future delivery plan. M0.0 through M1.1 remain
-completed historical facts; M1.1 passed independent closure audit and is
-published at `630f919cd9731113658fb6abc78a6843b210b6a8`. Their scope is not
-renumbered or expanded retroactively.
+Roadmap V2 replaces only the future delivery plan. M0.0 through M1.2 remain
+completed historical facts. M1.1 passed independent closure audit and is
+published at `630f919cd9731113658fb6abc78a6843b210b6a8`. M1.2 passed independent
+closure re-audit and is published at
+`6026b30003ff0b5679fa1014f8f15f64a0541d86`. Their scope is not renumbered or
+expanded retroactively.
 Their complete accepted contracts are preserved in
 `archive/MILESTONES_V1.md`; the former future entries in that file are
 `SUPERSEDED` planning history.
@@ -140,8 +142,8 @@ heterogeneous repository and incremental rebuild spike. ADR-039 governs the
 model, composite fingerprint, provenance/gaps, analyzers, and XDG CACHE
 projection. ADR-040 governs explainable impact, durable ImpactReport, advisory
 RiskProfile, and separation from ApprovedScope. Production implementation and
-validation are complete; independent closure audit remains required before
-marking M1.2 complete.
+validation are complete, the independent closure re-audit passed with no
+remaining blockers or SHOULD FIX items, and M1.2 is formally closed.
 
 **Downstream capabilities:** M1.3, M4.1, and M4.2.
 

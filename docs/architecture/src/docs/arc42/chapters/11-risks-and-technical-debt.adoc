@@ -50,7 +50,8 @@
 
 With production implementation complete through M1.2, the principal remaining
 debt is **future-gate and implementation debt**, not an unimplemented V0 loop.
-M1.2 awaits independent closure audit.
+M1.2 passed independent closure re-audit, is published, and is formally closed.
+M1.3 has not started.
 Canonical application
 is deliberately local and working-tree-only. Its adapter lock coordinates one
 process; concurrent external Git writers are detected by repeated preflight or

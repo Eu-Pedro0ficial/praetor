@@ -45,8 +45,11 @@ See:
 
 Core V0 complete.
 
-M0.0 through M1.1 are complete. M1.1 passed independent closure audit and its
+M0.0 through M1.2 are complete. M1.1 passed independent closure audit and its
 implementation is published at commit `630f919cd9731113658fb6abc78a6843b210b6a8`.
+M1.2 passed independent closure re-audit with no remaining blockers or
+SHOULD FIX items; its implementation is published at commit
+`6026b30003ff0b5679fa1014f8f15f64a0541d86`. M1.3 has not started.
 The local governed-change loop now connects
 Project identity, bounded source scope, isolated proposal production,
 deterministic verification, explicit local-human disposition, canonical
@@ -267,7 +270,8 @@ an uncertain external effect.
 Approved Phase 1 includes the completed M1.0 Policy Engine and completed,
 independently audited, published M1.1 durable Change/artifact foundation.
 M1.2 repository intelligence, impact, and advisory risk are implemented under
-ADR-039 and ADR-040 and await independent closure audit. `analysis model`
+ADR-039 and ADR-040. The independent closure re-audit passed, the implementation
+is published, and M1.2 is formally closed. `analysis model`
 builds or reuses the exact current Project-scoped model; `analysis report`
 persists a Change-owned ImpactReport; and `analysis inspect` reads durable
 historical evidence while reporting CURRENT, STALE, or UNKNOWN freshness.

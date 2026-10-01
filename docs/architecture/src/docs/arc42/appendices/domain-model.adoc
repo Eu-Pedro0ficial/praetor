@@ -315,7 +315,8 @@ The production implementation is in `internal/repositorymodel`,
 `internal/repository`, `internal/adapters/repositoryanalysis`,
 `internal/adapters/persistence/modelcache`, and `internal/impact`. It uses the
 existing M1.1 artifact authority for durable reports and is exposed through the
-existing hierarchical command registry. M1.2 awaits independent closure audit.
+existing hierarchical command registry. The independent closure re-audit passed,
+the implementation is published, and M1.2 is formally closed.
 
 Potential value objects/entities:
 

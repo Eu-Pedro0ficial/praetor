@@ -248,8 +248,12 @@ one run built the full 2,135-node/2,668-edge model in 1.197 s with about 86 MB
 of cumulative allocation and rebuilt it in 522 ms after one edit while reusing
 533 file-local results and reanalyzing one. A representative five-item impact
 traversal over seven nodes and six edges took 599 microseconds. These are
-observations rather than invented acceptance thresholds; independent closure
-audit remains required for milestone completion.
+observations rather than invented acceptance thresholds. The subsequent
+independent closure re-audit passed with no remaining blockers or SHOULD FIX
+items and confirmed the focused/full tests, focused/full race tests, vet, list,
+build, traceability, repository confinement, digest/analyzer-byte,
+protected-risk dominance, bounded impact, and incremental/full equivalence
+evidence. M1.2 is formally closed.
 
 ## M1.5 quality/security verification foundation
 

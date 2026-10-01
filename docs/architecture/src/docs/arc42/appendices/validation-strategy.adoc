@@ -323,11 +323,16 @@ Production evidence is implemented in `internal/repository`,
 then rebuilt after one edit in 522 ms with 533 file-local results reused and
 one reanalyzed. A representative five-item impact traversal over seven nodes
 and six edges took 599 microseconds. No acceptance threshold is inferred from
-these observations. Independent closure audit remains pending.
+these observations. The subsequent independent closure re-audit passed with no
+remaining blockers or SHOULD FIX items and confirmed repository confinement,
+same-read digest/analyzer-byte integrity, protected-risk dominance, bounded
+impact/truncation semantics, incremental/full equivalence, focused/full test and
+race suites, vet, list, build, and traceability validation.
 
 The approved disposable 534-file heterogeneous spike and full/incremental
-digest equivalence are decision evidence only. Production tests, implementation
-references, and lifecycle promotion remain required for milestone closure.
+digest equivalence remain decision evidence. Production tests, implementation
+references, and lifecycle promotion supplied the separate closure evidence;
+M1.2 is formally closed.
 
 ==== M1.5 Quality and Security Verification Foundation
 

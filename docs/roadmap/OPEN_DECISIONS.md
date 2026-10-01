@@ -175,8 +175,12 @@ DiffRisk. `INDETERMINATE` is epistemic and outside `LOW < MODERATE < HIGH`.
 Reopen only under ADR-039/040 triggers such as canonical/shared model storage,
 executable or network analyzers, untracked-content analysis, impact-driven
 scope authority, policy-authoritative/probabilistic risk, mutable reports, or
-M4.2 behavior. Production implementation and validation now satisfy the
-approved gate; the milestone awaits independent closure audit.
+M4.2 behavior. At the time this gate record was established, production
+implementation and validation satisfied the approved gate while the milestone
+still awaited independent closure audit. The subsequent independent closure
+re-audit passed with no remaining blockers or SHOULD FIX items; implementation
+commit `6026b30003ff0b5679fa1014f8f15f64a0541d86` is published and M1.2 is
+formally closed.
 
 ### OPEN-M1.3-SPEC-PLAN — Specification and ChangePlan governance
 

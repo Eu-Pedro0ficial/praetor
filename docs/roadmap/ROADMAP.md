@@ -10,9 +10,11 @@ The normative V0 target is:
 
 "Praetor V0 is complete when a developer can submit a real change request to a local Git repository, authorize an AI executor through a provider-independent port to produce an isolated patch constrained to an approved change surface, obtain deterministic verification evidence, and explicitly accept or reject that patch before any modification reaches canonical source, with the entire lifecycle represented in append-only audit history."
 
-Current implementation status: M0.0 through M1.1 are complete. M1.1 passed
+Current implementation status: M0.0 through M1.2 are complete. M1.1 passed
 independent closure audit and is published at
-`630f919cd9731113658fb6abc78a6843b210b6a8`. M0.8 preserves
+`630f919cd9731113658fb6abc78a6843b210b6a8`. M1.2 passed independent closure
+re-audit and its implementation is published at
+`6026b30003ff0b5679fa1014f8f15f64a0541d86`. M1.3 has not started. M0.8 preserves
 M0.7's authorization-only decision step, then requires separate explicit
 canonical application or rejection closure before the applicable disposition
 can reach `audit-locked`. The Core V0 release gate has passed. M0.9 adds
@@ -172,8 +174,9 @@ unchanged.
 - Dependencies: M1.1.
 - Decision gates: closed by human approval and ADR-039/ADR-040 after the
   heterogeneous model/impact/freshness/cache spike. Production runtime and
-  validation evidence now exist; independent closure audit remains required
-  before the milestone can be declared complete.
+  validation evidence are published at
+  `6026b30003ff0b5679fa1014f8f15f64a0541d86`; the independent closure re-audit
+  passed with no remaining blockers or SHOULD FIX items, and M1.2 is complete.
 - Boundary: deterministic and heuristic knowledge remain distinct; semantic
   embeddings are not required; bounded history supplies repository context
   only and does not implement M4.2 regression analysis or DiffRisk.
@@ -512,7 +515,8 @@ closed by ADR-033 through ADR-038 and human approval after the required spike.
 The decision closure preceded and constrained the implemented M1.1 runtime,
 which passed independent closure audit and is published. The M1.2 architecture
 gate is closed by ADR-039 and ADR-040; its production implementation and
-validation are complete and await independent closure audit.
+validation passed independent closure re-audit and are published. M1.2 is
+formally closed.
 
 Later mandatory gates include the Project Memory serialization benchmark,
 semantic conflict evidence before semantic authority, quality assurance/tool
@@ -522,8 +526,8 @@ audit claims.
 
 ## Implementation sequence status
 
-M0.0 through M1.1 are implemented and complete. M1.2 is implemented and ready
-for independent closure audit. M1.3 has not started.
+M0.0 through M1.2 are implemented, independently closure-audited, published,
+and complete. M1.3 has not started.
 
 ## Key decisions preserved
 

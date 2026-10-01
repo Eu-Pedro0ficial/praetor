@@ -5,8 +5,9 @@ dependency graph, delivery and validation strategies, research backlog, and
 explicitly open and historically closed architecture gates. Phase 0 is
 complete; Phase 1 begins with the completed M1.0 Policy Engine. M1.1 is
 implemented, independently closure-audited, committed, and published. M1.2 is
-implemented under human-approved ADR-039 and ADR-040 and awaits independent
-closure audit; M1.3 through M1.5 remain future production delivery. Superseded
+implemented under human-approved ADR-039 and ADR-040, passed independent closure
+re-audit, and is formally closed and published. M1.3 through M1.5 remain future
+production delivery; M1.3 has not started. Superseded
 planning is retained under `archive/` and is not current authority.
 
 The canonical inverse ownership and lifecycle record is
