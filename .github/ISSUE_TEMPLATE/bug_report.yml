@@ -1,0 +1,60 @@
+name: Bug report
+description: Report reproducible behavior that appears incorrect.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Praetor. Please provide enough evidence to reproduce and investigate the problem.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and why it appears incorrect.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include the smallest reproducible sequence you can provide.
+      placeholder: |
+        1. Run ...
+        2. Execute ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Praetor version / commit
+      placeholder: commit SHA, tag, or branch
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, Go version, Git version, provider/adapter if relevant
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, errors, screenshots, test output or other bounded evidence. Remove secrets and sensitive data.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context

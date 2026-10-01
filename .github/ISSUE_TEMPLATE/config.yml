@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Praetor documentation
+    url: https://github.com/Eu-Pedro0ficial/praetor/tree/master/docs
+    about: Read the architecture, product thesis and roadmap before opening a new issue.

@@ -1,284 +1,261 @@
+<div align="center">
+  <img src="assets/praetor-shield-transparent-8x.png" alt="Praetor" width="150" />
+
 # Praetor
 
-> Governed AI Software Engineering Runtime
+**Governed AI Software Engineering Runtime**
 
-Praetor is a developer-governed software engineering orchestration
-runtime designed to use AI agents as constrained executors inside
-deterministic, spec-driven and policy-enforced workflows.
+> **AI proposes. System validates. Human governs.**
 
-Its primary focus is safe software development and maintenance,
-especially for existing and legacy systems.
+[![Go](https://img.shields.io/badge/Go-1.25.1-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-early%20public%20development-orange)](#project-status)
 
-## Core principle
+</div>
 
-> AI proposes. System validates. Human governs.
+Praetor is a developer-governed software engineering orchestration runtime that uses AI agents as **constrained executors** inside deterministic, spec-driven and policy-enforced engineering workflows.
 
-## Maintenance principle
+It is designed around a simple idea:
 
-> Make the smallest safe change possible — with evidence.
+> **Make the smallest safe change possible — with evidence.**
 
-## Architecture
+Rather than treating model output as trusted engineering work, Praetor treats AI output as a proposal that must pass through explicit scope, verification, policy and human-governance boundaries before it can affect canonical source.
 
-Praetor is being designed around:
+---
 
-- Go;
-- Layered Architecture;
-- Ports & Adapters;
-- provider-independent AI integration;
-- workflow orchestration;
-- specification-driven development;
-- policy-as-code;
-- deterministic verification;
-- bounded change surfaces;
-- institutional engineering memory;
-- software change provenance;
-- auditability;
-- human approval gates.
+## Why Praetor?
 
-See:
+AI coding tools can generate changes faster than engineering teams can reliably answer questions such as:
 
-- `docs/architecture/`
-- `docs/product/`
-- `docs/roadmap/`
+- Was the change limited to the intended scope?
+- Did it preserve existing behavior?
+- Which tests, checks and evidence support it?
+- Was the architecture respected?
+- Can the decision be audited later?
+- Who or what was actually authorized to advance the change?
 
-## Status
+Praetor explores a different model for AI-assisted engineering: **the model is a capability, not the authority**.
 
-Core V0 complete.
+The developer governs. The system validates. AI proposes and executes bounded work.
 
-M0.0 through M1.2 are complete. M1.1 passed independent closure audit and its
-implementation is published at commit `630f919cd9731113658fb6abc78a6843b210b6a8`.
-M1.2 passed independent closure re-audit with no remaining blockers or
-SHOULD FIX items; its implementation is published at commit
-`6026b30003ff0b5679fa1014f8f15f64a0541d86`. M1.3 has not started.
-The local governed-change loop now connects
-Project identity, bounded source scope, isolated proposal production,
-deterministic verification, explicit local-human disposition, canonical
-application or rejection closure, and append-oriented audit history.
+---
 
-The primary developer interface is the retained-context interactive shell.
-Run `praetor` inside a Git repository, then use plain commands such as `status`,
-`analysis`, `change`, `policy`, `provider`, `help`, and `?`. Commands are organized in
-contextual modes: `analysis` followed by `impact ...` is equivalent to direct
-`analysis impact ...`; `end` returns one mode and `exit` terminates only at
-root. Interactive `?` shows context-sensitive commands or options without
-executing or clearing the current input.
+## Core principles
 
-The M0.4 commands `change isolate`, `change patch`, and `change discard` create
-a detached Git worktree, extract and surface-check its patch, and explicitly
-clean it. They are also available as `isolate`, `patch`, and `discard` inside
-`change` mode. This is source/workspace isolation only, not a process, network,
-container, VM, or hostile-code security sandbox. Prompt repository names are
-presentation-only and do not define `ProjectId`.
+Praetor is built around seven product principles:
 
-The recommended isolation workflow authorizes discovery across the repository
-while retaining every existing post-execution guard:
+1. **Developer Sovereignty** — the developer remains the final engineering authority.
+2. **Controlled Change** — changes move through explicit, bounded lifecycle states.
+3. **Evidence over Confidence** — model confidence is not proof; executable evidence is.
+4. **Institutional Engineering Memory** — durable knowledge belongs to the project, not to a provider session.
+5. **Provider Independence** — AI providers are adapters behind stable core ports.
+6. **Minimum Necessary Change** — prefer the smallest safe change that satisfies the intent.
+7. **Knowledge Must Be Revisable** — engineering memory and decisions remain inspectable and correctable.
 
-    change isolate <change-id> "<intent>"
+See the full [Product Thesis](docs/product/PRODUCT_THESIS.md) and [Engineering Manifesto](docs/product/ENGINEERING_MANIFESTO.md).
 
-Use `--protected <path>...` to forbid a tracked path or subtree. Use
-`--expected <path>...` and `--possible <path>...` when the operator needs a
-strict path allowlist. `--expected .` or `--possible .` is the explicit spelling
-of repository-wide authorization; the two root forms are equivalent and cannot
-be combined with each other or with explicit allowed paths. Git remains the
-authority for actual changed paths, and ApprovedScope remains the authority for
-accepting or rejecting the complete patch.
+---
 
-M0.5 adds a provider-independent AI execution port and the single Core V0
-`codex-cli` adapter, which invokes an installed and authenticated OpenAI Codex
-CLI through non-interactive `codex exec`. After `change isolate`,
-`change implement` runs the explicitly selected provider only in the active
-ProposalWorkspace, then reuses M0.4 Git patch extraction and surface checking.
-`provider list`, `provider show`, `provider diagnose`, `provider select <provider>`, and
-`provider model <provider-scoped-model>` manage the process-local session
-selection without recompilation. Omitting a model uses the provider default.
-Manual selection is not routing, and M0.5 provides no fallback or
-multi-provider execution.
+## Governed change loop
 
-`provider diagnose` reports the effective provider/model selection and its
-source, compile-time adapter registration, implementation-role capability
-compatibility, executable discovery, and bounded local CLI interface preflight.
-The Codex checks are limited to executable lookup, `codex --version`, and
-`codex exec --help`; they submit no prompt and make no authentication or
-network claim. Root `status` shows only selection provenance and a lightweight
-local-readiness summary. A locally ready result means the executable and
-required CLI surface were observed; remote authentication, model availability,
-and connectivity remain unverified until an explicitly governed execution.
+```mermaid
+flowchart LR
+    I[Intent] --> A[Analysis]
+    A --> S[Approved Scope]
+    S --> W[Isolated Workspace]
+    W --> P[AI Proposal]
+    P --> V[Deterministic Verification]
+    V --> PE[Policy Evaluation]
+    PE --> H[Human Decision]
+    H -->|Approve| G[Canonical Integration Gate]
+    H -->|Reject| C[Closure]
+    G --> C
+    C --> L[Durable Audit History]
+```
 
-ApprovedScope is write authority, not a request-materialization instruction.
-Repository-wide authorization does not serialize the tracked repository into
-the provider prompt. The implementation request carries compact identity,
-workspace, intent, authorization, governance, and current intent-matched
-ImpactReport guidance; Codex inspects source through the isolated
-ProposalWorkspace. Before invocation, the adapter accounts exact serialized
-bytes and characters plus bounded item/omission counts by logical component.
-Provider lifecycle audit events retain only these numeric diagnostics and
-correlate them with provider-reported token usage after completion; prompt
-content and raw provider streams are not persisted.
+Agents produce outputs. They do **not** own lifecycle authority.
 
-Codex CLI authentication remains owned by Codex CLI. Praetor does not persist
-provider credentials. This path retains Git source/workspace isolation only;
-it is not process, host-filesystem, credential, network, container, VM, or
-hostile-code containment. A surface-valid proposal remains `isolated` until
-`change verify` executes the required checks against the retained proposal.
+A proposal only advances when the system can prove that the required state, evidence and authorization exist.
 
-Provider/process/cancellation failure leaves the Change `isolated` and marks
-the workspace `failed`; no patch or an ApprovedScope violation marks it
-`rejected`. `change implement` is the explicit retry: it proves cleanup of the
-old workspace, creates a fresh workspace from the same SourceSnapshot and
-ApprovedScope, persists its authority, and uses a new execution attempt.
-Canonical drift blocks retry. `change discard` explicitly rejects and cleans
-the proposal; `change close` then proves canonical source unchanged and
-audit-locks an abandoned Change. `status` reports the last operation outcome,
-canonical-source effect, workspace disposition, recovery state, and safe next
-actions. A cleanup failure is `cleanup-failed` and blocks execution until
-cleanup can be proven.
+---
 
-M0.6 discovers explicit `package.json` scripts and Makefile targets, infers
-the baseline Go check from `go.mod`, and retains other bounded manifest,
-tooling, and CI signals for optional AI assistance. That assistance uses the
-same explicitly selected provider/model through a fresh
-`verification-planning` attempt; `codex-cli` enforces this role with its
-read-only sandbox. Planner output is parsed as structured candidates and is
-never sent through a shell. Praetor admits a small Core V0 direct-process tool
-set, runs every admitted step with finite time/output/environment boundaries,
-rechecks the retained patch and canonical source, and records an immutable
-runtime EvidenceSet plus bounded audit provenance. All required steps and the
-patch-integrity check must pass before the existing `isolated -> validated`
-transition. Failure leaves the Change `isolated` and the proposal retained.
+## What exists today
 
-M0.7 adds direct `change approve [<rationale>]` and
-`change reject [<rationale>]` commands, also available contextually as
-`approve` and `reject` in `change` mode. They require a retained proposal and
-coherent passing EvidenceSet, recheck proposal and canonical-source integrity,
-and record `HUMAN_DECISION_RECORDED` before the existing audited state
-transition. The actor provenance is exactly `local-interactive-human`; it
-describes local process interaction, not authenticated personal identity.
-M0.7 remains authorization-only: it stops at `approved` or `rejected`, keeps
-the proposal for the active session, and never applies the patch by itself.
-The live proposal workspace remains session-owned. M1.1 subsequently makes the
-decision artifact and audit authority durable outside the governed repository.
+Praetor is already functional as a local governed engineering runtime.
 
-M0.8 adds explicit `change apply` for `APPROVE` and `change close` for
-`REJECT`. Application first rechecks exact Change, Project, workspace,
-PatchArtifact, source, VerificationAttempt, EvidenceSet, and HumanDecision
-linkage; verifies the retained proposal; runs `git apply --check`; appends a
-start event; repeats preflight under the adapter lock; and applies the exact
-patch through stdin with default whole-patch `git apply` behavior. It changes
-only the canonical working tree: HEAD and the Git index remain unchanged, and
-Praetor creates no commit, branch, merge, PR, or push. Exact post-application
-diff/path/digest proof and a completion audit precede `approved ->
-audit-locked`. Rejection closure proves canonical source unchanged, never
-invokes application, records closure, and then performs `rejected ->
-audit-locked`. This covers both an exact human `REJECT` chain and an explicitly
-discarded proposal whose durable isolation snapshot still matches canonical
-source. Late failures report whether mutation occurred and never claim
-rollback; replay then fails closed against canonical drift. Temporary proposal
-workspaces are cleaned after terminal closure without placing `.praetor` or
-patch files in governed source.
+The current implementation includes:
 
-### Development shell diagnostics
+- retained-context interactive engineering console;
+- project identity and bounded source scope;
+- isolated Git worktrees for proposed changes;
+- provider-independent AI execution port;
+- `codex-cli` as the current Core V0 provider adapter;
+- deterministic verification planning and execution;
+- immutable evidence sets;
+- explicit human approval/rejection;
+- controlled canonical patch application;
+- append-oriented audit history;
+- durable per-project SQLite authority and recovery;
+- policy-as-code evaluation;
+- repository intelligence, impact analysis and advisory risk;
+- developer-facing status, diagnostics and recovery flows.
 
-Ordinary and release builds use:
+The current console looks like this:
 
-    go build -o praetor ./cmd/praetor
+![Praetor Engineering Console](assets/praetor-console.png)
 
-They do not accept or advertise `--debug`. To compile the development-only
-transcript support, use:
+---
 
-    go build -tags praetor_debug -o /tmp/praetor-debug ./cmd/praetor
+## Provider model
 
-Run that binary inside the governed repository with:
+Praetor's core is provider-independent.
 
-    /tmp/praetor-debug --debug
+The current Core V0 implementation ships with a `codex-cli` adapter. Provider selection is explicit and session-scoped; provider credentials remain owned by the provider tooling rather than by Praetor.
 
-The session prints the created path. Transcripts are private `0600` files
-under `$XDG_STATE_HOME/praetor/debug-transcripts`, falling back to
-`~/.local/state/praetor/debug-transcripts`. Their collision-safe names contain
-the UTC start time and ProjectId. They contain bounded build/session metadata,
-each entered command as `> command`, the corresponding logical Praetor output,
-command errors, and the session outcome. Terminal screen control, unrelated
-parent-terminal data, and raw provider streams are not captured.
+Current scope:
 
-Transcript redaction covers common Authorization/Bearer values, API keys,
-access tokens, passwords, secrets, and OpenAI-style `sk-` keys, and neutralizes
-terminal control characters. This is best-effort pattern matching, not a secret
-scanner; developers must still treat transcripts as sensitive. A transcript is
-bounded to 1 MiB per command output and 8 MiB per session. Explicit
-`--debug` fails startup when the file cannot be created and terminates the
-session with an error when it cannot be written, avoiding a false impression
-that diagnostics were retained.
+```text
+Praetor Core
+    |
+    +-- Provider Port
+           |
+           +-- codex-cli  <-- implemented today
+           +-- future adapters
+```
 
-Interactive full-screen command output is reflowed by Unicode grapheme display
-width whenever the terminal width changes. Long words, tables, help, and errors
-therefore remain vertically reachable with PgUp/PgDn. Redirected/non-TTY
-command output remains unchanged and machine friendly. Readline retains command
-editing, completion, UTF-8 input, partial-buffer redisplay, Ctrl-C/EOF behavior,
-and Up/Down history; Praetor owns PgUp/PgDn viewport scrolling.
+Praetor does **not** currently claim multi-provider routing, automatic fallback or provider consensus. Those capabilities must be implemented explicitly rather than implied by the abstraction.
 
-M0.9 adds the lightweight Engineering Console presentation without changing
-Core V0 governance. A restrained header, adaptive status sidebar, binary
-Praetor identity, and truthful footer are rendered around the existing
-keyboard-first readline shell. Both the sidebar and the `status` command
-consume the same session status snapshot. User-local layout preferences are
-available under `configure layout`, persist as versioned JSON beneath
-`$XDG_CONFIG_HOME/praetor` (or the platform user configuration directory),
-and affect rendering only. The sidebar is enabled by default and is temporarily
-suppressed below 84 columns without changing the saved preference. Colors use
-a bounded ANSI palette and degrade to readable plain text when color is
-unavailable. No `.praetor` directory or presentation state is written to the
-governed repository.
+---
 
-M1.0 adds a representation-independent Policy Engine and the version-controlled
-Project Policy Manifest `engineering/policies/praetor.yaml`. Manifest V1 uses
-strict, bounded YAML schema validation and normalized severities `INFO`, `LOW`,
-`MEDIUM`, `HIGH`, and `CRITICAL`. After deterministic verification passes,
-policies produce immutable evidence-linked `AUTO`, `REVIEW`, `APPROVAL`, or
-`FORBIDDEN` decisions. Bundle aggregation retains independent review and
-approval requirements. Positive disposition and canonical application consume
-the retained policy/evidence digest chain; `AUTO` never bypasses Core V0 human
-acceptance, while `REVIEW` remains unsatisfied until M1.4.
+## Verification model
 
-`policy show`, `policy list`, `policy evaluate`, and `policy exception` expose
-bounded inspection. Exceptions are auditable candidates only and never grant,
-consume, or bypass policy. Runtime audit and locks remain under existing XDG
-boundaries.
+Praetor separates AI review from executable evidence.
 
-M1.1 makes Change, artifact, exact WorkflowSnapshot, operation, and audit
-authority durable in one per-Project SQLite store beneath XDG DATA. Immutable
-artifacts retain evidence, policy and human decisions, patch/source authority,
-and canonical application results. ExpectedRevision commits, scoped operation
-identity, WAL/FULL durability, explicit PRE/POST/AMBIGUOUS Git recovery, an XDG
-STATE mutation lock, legacy JSONL audit migration, corruption checks, verified
-backup, and bounded inspection commands provide crash/restart continuity without
-placing Praetor metadata in governed source.
+Evidence is produced by real engineering checks such as:
 
-Successful lifecycle authority commits the required Change revision,
-artifacts/bindings, operation result, and audit records together. A fresh
-runtime reconstructs proposal, verification/evidence, policy, and human
-decision projections from those artifacts and safely reattaches only the exact
-retained Git worktree. Historical unsupported WorkflowSnapshot schemas remain
-inspectable but cannot execute. Legacy JSONL cutover is an explicit operation,
-never an ordinary-attach side effect; payloads above the 1 MiB normal limit
-likewise require explicit large-artifact authorization and remain subject to
-the 50 MiB artifact and 100 MiB Change limits.
+- tests;
+- builds;
+- linting;
+- static analysis;
+- type checks;
+- patch-integrity checks;
+- source and scope validation.
 
-Use `change list`, `change show`, `change select`, `change artifacts`, `change
-history`, `change diagnose`, `change content`, and explicit `change recover` to
-inspect or recover supported durable authority. Recovery never silently repeats
-an uncertain external effect.
+A model saying that a change *should* work is not equivalent to proving that it works.
 
-Approved Phase 1 includes the completed M1.0 Policy Engine and completed,
-independently audited, published M1.1 durable Change/artifact foundation.
-M1.2 repository intelligence, impact, and advisory risk are implemented under
-ADR-039 and ADR-040. The independent closure re-audit passed, the implementation
-is published, and M1.2 is formally closed. `analysis model`
-builds or reuses the exact current Project-scoped model; `analysis report`
-persists a Change-owned ImpactReport; and `analysis inspect` reads durable
-historical evidence while reporting CURRENT, STALE, or UNKNOWN freshness.
-The delivery sequence continues with M1.3 Specification and ChangePlan
-governance, M1.4 independent review, and M1.5 quality and security verification
-foundation. M1.3 plans
-future Specification Packs and the candidate `engineering/specs/` location;
-neither is implemented or an approved canonical format yet. The canonical
-ownership and lifecycle record is the arc42 traceability ledger, with details
-in `docs/roadmap/`.
+---
+
+## Quick start
+
+### Requirements
+
+- Go `1.25.1+`
+- Git
+- an installed and authenticated provider CLI when using AI execution (`codex` for the current adapter)
+
+### Build
+
+```bash
+git clone https://github.com/Eu-Pedro0ficial/praetor.git
+cd praetor
+go build -o praetor ./cmd/praetor
+```
+
+Run Praetor inside a Git repository you want to govern:
+
+```bash
+/path/to/praetor
+```
+
+The primary interface is the interactive engineering console. Useful root commands include:
+
+```text
+status
+analysis
+change
+policy
+provider
+help
+?
+```
+
+A typical governed flow evolves through analysis, isolation, implementation, verification, policy evaluation, human disposition and explicit application or closure.
+
+For implementation details and milestone contracts, use the project documentation rather than treating this README as normative specification.
+
+---
+
+## Project status
+
+**Core V0 is complete.**
+
+Milestones `M0.0` through `M1.2` are closed. `M1.3` is the next planned milestone.
+
+The repository intentionally distinguishes between:
+
+- **implemented behavior**;
+- **approved architecture**;
+- **future target state**;
+- **open decisions**.
+
+This distinction is part of the project's governance model: architectural intent is not presented as shipped behavior.
+
+Detailed status and delivery planning live in:
+
+- [Roadmap](docs/roadmap/ROADMAP.md)
+- [Milestones](docs/roadmap/MILESTONES.md)
+- [Delivery Strategy](docs/roadmap/DELIVERY_STRATEGY.md)
+- [Open Decisions](docs/roadmap/OPEN_DECISIONS.md)
+
+---
+
+## Architecture & documentation
+
+Praetor maintains its architecture as a first-class engineering artifact.
+
+Documentation is organized under [`docs/`](docs/README.md):
+
+- [`docs/architecture/`](docs/architecture/) — normative arc42 + C4 architecture;
+- [`docs/product/`](docs/product/) — product thesis, manifesto and positioning;
+- [`docs/research/`](docs/research/) — research and comparative studies;
+- [`docs/roadmap/`](docs/roadmap/) — roadmap, milestones, dependencies and open decisions.
+
+The architecture and accepted decisions are authoritative. Code should not silently contradict an accepted architectural decision.
+
+---
+
+## Non-goals and current boundaries
+
+Praetor is not intended to be an autonomous coding agent that silently modifies a repository.
+
+Today, it also does not claim:
+
+- hostile-code containment;
+- VM/container/process-level security sandboxing for generated code;
+- autonomous merge, push or pull-request creation;
+- multi-provider fallback or consensus;
+- replacement of human engineering judgment.
+
+Its source isolation is based on Git worktrees and bounded change authority. Security boundaries beyond that must be explicitly designed and implemented.
+
+---
+
+## Contributing
+
+Praetor is in early public development.
+
+Issues and pull requests are welcome, especially when they include clear intent, bounded scope and reproducible evidence.
+
+Before proposing a substantial architectural change, please open an **Architecture Proposal** issue so the problem, constraints and trade-offs can be discussed before implementation.
+
+Pull requests should follow the repository template and preserve the project's core principle:
+
+> **Make the smallest safe change possible — with evidence.**
+
+---
+
+## License
+
+Praetor is released under the [MIT License](LICENSE).
+
+Copyright © 2026 Pedro Cardoso.

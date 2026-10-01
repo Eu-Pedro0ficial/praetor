@@ -1,0 +1,52 @@
+name: Architecture proposal
+description: Discuss a substantial architectural or governance change before implementation.
+title: "[Architecture]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for changes that affect architectural boundaries, lifecycle authority, provider contracts, verification, policy, persistence, audit or other cross-cutting design decisions.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / context
+      description: What architectural problem, constraint or pressure is driving this proposal?
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior / architecture
+      description: Describe the relevant current state and link existing documentation or ADRs when possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed direction
+      description: Explain the proposed change at an architectural level.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Trade-offs and alternatives
+      description: What alternatives were considered? What complexity, risk or constraints does the proposal introduce?
+    validations:
+      required: true
+
+  - type: textarea
+    id: governance
+    attributes:
+      label: Governance / safety impact
+      description: Does this affect state transitions, human authority, policy, verification, provenance, auditability or trust boundaries?
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Evidence / acceptance criteria
+      description: What evidence would be required to consider the proposal successful?

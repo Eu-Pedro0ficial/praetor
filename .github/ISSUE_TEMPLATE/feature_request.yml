@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose a bounded product or engineering capability.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete problem or limitation are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the behavior or capability you would like to see without prescribing unnecessary implementation details.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope
+      description: What should be in scope and what should remain out of scope?
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Motivation / evidence
+      description: Examples, workflows, constraints or evidence that make this useful.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core workflow / governance
+        - Repository intelligence / impact
+        - Verification / quality
+        - Policy engine
+        - Provider integration
+        - Engineering console / UX
+        - Durable state / audit
+        - Documentation
+        - Other
+    validations:
+      required: true
