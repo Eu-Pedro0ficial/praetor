@@ -184,7 +184,7 @@ formally closed.
 
 ### OPEN-M1.3-SPEC-PLAN — Specification and ChangePlan governance
 
-Status: `OPEN — DECISION REQUIRED BEFORE M1.3 IMPLEMENTATION`
+Status: `CLOSED — HUMAN APPROVED`
 
 Decide canonical Specification and ChangePlan schemas and versions,
 Specification/Plan identity and digest semantics, completeness validation,
@@ -199,11 +199,20 @@ ChangeIntent -> ImpactReport -> SpecificationDigest -> PlanDigest
 -> HumanDecision -> Canonical Apply
 ```
 
-Required evidence: representative workflow fixtures, invalidation/recovery
+The historical gate required representative workflow fixtures, invalidation/recovery
 matrix, requirement -> spec -> change -> evidence -> policy traceability
-fixtures, ADR, and human approval. The path, pack, and chain remain
-`TARGET/CANDIDATE` until then. Any traceability projection must expose source,
+fixtures, ADR, and human approval. Until closure, the path, pack, and chain
+remained `TARGET/CANDIDATE`. Any traceability projection must expose source,
 freshness, and gaps while remaining subordinate to authoritative artifacts.
+
+Result: human approval accepted ADR-041, ADR-042, and ADR-043 as the M1.3
+architecture authority. They decide Change-owned immutable Specification and
+ChangePlan revisions in the existing Artifact Store, a separate versioned
+PlanningGateDecision and exact human PlanApproval, historical WorkflowSnapshot
+compatibility, explicit human adoption of validated AI candidates, and exact
+current repository-context provenance. `engineering/specs/` is not canonical
+runtime authority. This closes the architecture gate only; production runtime,
+fixtures, tests, and lifecycle promotion remain M1.3 implementation work.
 
 ### OPEN-M1.4-REVIEW-AUTHORITY — Identity, review, and local exception authority
 

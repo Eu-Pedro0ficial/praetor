@@ -162,6 +162,10 @@ implementation and verification.
 
 **Dependencies:** M1.1 and M1.2.
 
+**Architecture status:** HUMAN APPROVED and materialized by ADR-041 through
+ADR-043. Production implementation and validation evidence are still pending;
+M1.3 is not complete, and M1.4 has not started.
+
 **Requirements:** Primary FR-006 and FR-009. Supports FR-019, FR-037, NFR-003,
 NFR-004, NFR-008, and QS-012.
 
@@ -174,10 +178,11 @@ architectural constraints, ordered steps, expected surface, and verification
 expectations.
 
 **Boundaries and non-goals:** AI proposes but cannot establish canonical
-requirements or approve a plan. This milestone does not add capability
+requirements, adopt a candidate, approve a plan, transition Change authority,
+or mint deterministic evidence. This milestone does not add capability
 routing, independent final review, organization planning, or a new DSL.
-`engineering/specs/` is a planned candidate location only; its canonical
-format, authority, and persistence semantics remain decision-gated.
+Canonical strict deterministic JSON is stored through the existing Artifact
+Store; `engineering/specs/` is non-authoritative candidate/projection territory.
 
 **Acceptance criteria:** Required workflows reject missing, incomplete, stale,
 or unapproved specs/plans; mutations invalidate downstream authority; every
@@ -189,17 +194,22 @@ incomplete, or unavailable projection state.
 
 **Definition of Done:** Human and AI candidate paths both produce validated
 artifacts; required plan approval is explicit; implementation is constrained
-by the current approved Specification and Plan.
+by the current adopted Specification and Plan plus any required exact
+PlanApproval.
 
-**Decision and spike gates:** Canonical Specification/Plan schemas; candidate
-authority/digest chain; plan-approval semantics; mutation/invalidation;
-state-machine evolution; representative bug, feature, refactor, and migration
-workflow fixtures.
+**Decision authority:** ADR-041 decides the immutable Change-owned
+Specification Pack and ChangePlan contracts. ADR-042 decides the separate
+PlanningGateDecision (`AUTO`, `APPROVAL`, `REVIEW`, `FORBIDDEN`), exact human
+PlanApproval, ApprovedScope containment, invalidation, and grandfathered Core
+V0 compatibility. ADR-043 decides common candidate validation, explicit human
+adoption for AI output, the read-only planning role, current repository-context
+binding, and bounded provenance.
 
-The following is a `TARGET/CANDIDATE` authority chain, not an accepted ADR:
+The accepted planning-aware authority chain is:
 
 ```text
-ChangeIntent -> ImpactReport -> SpecificationDigest -> PlanDigest
+ChangeIntent -> Change -> current Specification -> current ChangePlan
+-> PlanningGateDecision -> optional exact PlanApproval -> implementation eligibility
 -> Proposal/Patch -> EvidenceSet -> PolicyDecision -> ReviewResult
 -> HumanDecision -> Canonical Apply
 ```

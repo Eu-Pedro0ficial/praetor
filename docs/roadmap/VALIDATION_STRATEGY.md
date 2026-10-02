@@ -165,6 +165,25 @@ M1.0 subsequently completed the first-class local Policy Engine.
 - hiding validation evidence inside provider output
 - treating warnings as pass conditions without policy mapping
 
+## M1.3 specification and planning validation
+
+M1.3 implementation must test human and AI candidate paths through the same
+strict deterministic validation boundary. Contract tests must cover canonical
+JSON, unknown fields, duplicate identities, bounded collections/text/nesting,
+stable logical identities and monotonic versions, deterministic digests,
+normalized repository-relative paths, ownership, immutable relations,
+supersession, and atomic current bindings.
+
+Workflow and persistence tests must prove the planning-aware `created ->
+planned` authority commit, all four PlanningGateDecision outcomes, exact human
+PlanApproval, separate adoption and approval actions, ApprovedScope containment,
+protected-path precedence, invalidation after any governing input changes,
+restart inspection, and grandfathered exact Core V0 snapshots without backfill.
+Real Git fixtures must prove that `CURRENT` context is required immediately
+before workspace/provider execution and that `STALE` or `UNKNOWN` blocks.
+Provider tests must prove the dedicated planning role is read-only and cannot
+adopt, approve, transition, write source/workspace state, or mint evidence.
+
 ## Observability and replayability
 
 Validation evidence must be stored in a way that allows later inspection of:

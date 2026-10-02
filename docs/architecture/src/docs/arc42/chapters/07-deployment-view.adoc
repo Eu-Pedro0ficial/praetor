@@ -26,6 +26,10 @@ Change/artifact/audit authority, not the separately benchmark-gated Project
 Memory representation. No remote/shared Change store, memory serialization,
 remote topology, or second provider is selected by this view.
 
+ADR-041 reuses that existing Artifact Store for future canonical M1.3
+Specification, ChangePlan, planning-gate, and PlanApproval artifacts. It adds no
+repository-local authority, database topology, or deployment service.
+
 The M1.2 cache is separate from Change authority and governed source. It is
 safe to discard and rebuild; cache absence, corruption, or schema incompatibility
 is an availability/performance condition and never grants freshness or removes

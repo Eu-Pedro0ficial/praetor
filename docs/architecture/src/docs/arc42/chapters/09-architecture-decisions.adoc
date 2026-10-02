@@ -41,6 +41,9 @@ include::../adrs/ADR-037-external-effect-saga-and-canonical-mutation-coordinatio
 include::../adrs/ADR-038-legacy-audit-migration.adoc[]
 include::../adrs/ADR-039-repository-model-source-fingerprint-provenance-analyzers-cache.adoc[]
 include::../adrs/ADR-040-explainable-impact-report-risk-change-surface.adoc[]
+include::../adrs/ADR-041-specification-pack-and-change-plan-durable-authority.adoc[]
+include::../adrs/ADR-042-planning-workflow-policy-approval-and-compatibility.adoc[]
+include::../adrs/ADR-043-ai-planning-provenance-and-repository-context-binding.adoc[]
 
 ADR-024 is intentionally unallocated. The former registry-only entry duplicated
 ADR-008's benchmark gate and had no ADR file.

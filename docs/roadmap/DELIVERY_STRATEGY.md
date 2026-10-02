@@ -20,7 +20,9 @@ Current implementation status: M0.0 through M1.1 are complete. M1.1 is
 independently closure-audited and published. The Core V0
 release gate has passed, and the bounded post-V0 presentation milestone is
 complete. The local M1.0 Policy Engine is complete. M1.2 passed independent
-closure re-audit, is published, and is formally closed; M1.3 has not started.
+closure re-audit, is published, and is formally closed. M1.3 architecture is
+human approved and materialized under ADR-041 through ADR-043; implementation
+has not started, and M1.4 has not started.
 
 ## Revised delivery order
 
@@ -138,10 +140,14 @@ items, the implementation is published, and M1.2 is formally closed.
 ### Step 14 — M1.3 specification and change-plan governance
 
 Introduce validated Specification, Specification Pack, and ChangePlan
-authority before implementation. `engineering/specs/` is a planned candidate,
-not an implemented or approved canonical format. The accepted design must
-trace requirement -> spec -> change -> evidence -> policy, with every
-projection subordinate to those authoritative artifacts.
+authority before implementation. ADR-041 through ADR-043 close the architecture
+gate: immutable Change-owned strict JSON artifacts use the existing Artifact
+Store; candidates pass deterministic validation; AI candidates require
+explicit human adoption; PlanningGateDecision is separate from post-patch
+PolicyDecision; exact PlanApproval is separately human-issued when required;
+and current repository context plus ApprovedScope containment are rechecked
+before execution. `engineering/specs/` remains non-authoritative candidate or
+projection territory. Runtime implementation and evidence remain pending.
 
 ### Step 15 — M1.4 review engine and maker-checker authority
 

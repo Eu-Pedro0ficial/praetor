@@ -402,18 +402,34 @@ reports remain inspectable; and cache rebuild stays distinct from durable
 artifact mutation. Help, completion, inspection, cache loss, and analyzer
 failure cannot authorize source writes or workflow transitions.
 
-==== M1.3 Target Specification and ChangePlan Workflow
+==== M1.3 Approved Specification and ChangePlan Workflow Target
 
-M1.3 may add commands only after the Specification/Plan authority gate closes.
-The target workflow validates a human-provided or AI-proposed Specification
-Pack, obtains any required Plan approval, and binds later proposal, evidence,
-policy, review, and human disposition to exact current digests. Mutation of a
-governing requirement, Specification, or Plan invalidates dependent authority.
+ADR-041 through ADR-043 close the architecture gate while leaving runtime
+implementation pending. A planning-aware Change follows this authority flow:
 
-`engineering/specs/` is a candidate future location, not a current command,
-directory requirement, persistent format, or accepted source of authority.
-Command names and serialization remain intentionally undecided. The required
-future linkage is requirement -> spec -> change -> evidence -> policy.
+. Create the Change from immutable ChangeIntent.
+. Bind exact current repository/model/ImpactReport context.
+. Accept a bounded human candidate or request the dedicated read-only AI
+  planning role; provider completion creates candidate material only.
+. Apply the same strict deterministic validation and canonicalization to either
+  origin.
+. Require an authorized human to explicitly adopt validated AI output. In one
+  atomic Change authority commit, advance current Specification/ChangePlan
+  bindings and the planning-aware `created -> planned` transition.
+. Evaluate the separate versioned PlanningGateDecision as `AUTO`, `APPROVAL`,
+  `REVIEW`, or `FORBIDDEN`.
+. For `APPROVAL`, require a distinct exact human PlanApproval. `REVIEW` waits
+  for M1.4; `FORBIDDEN` blocks.
+. Immediately before ProposalWorkspace/provider execution, recheck every
+  binding, digest, current repository input, gate, required approval,
+  ApprovedScope-to-Plan containment, and protected path.
+
+ChangePlan ScopeIntent is a ceiling, never write authority. Supersession and
+invalidation append new authority and retain history. Exact pre-M1.3 Core V0
+WorkflowSnapshots remain grandfathered without backfill, fabricated artifacts
+or approval, conversion, or rebinding. Repository files and
+`engineering/specs/` are non-authoritative candidates/projections. Exact CLI
+spelling remains an implementation choice within these constraints.
 
 ==== Predefined Workloads
 

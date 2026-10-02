@@ -26,13 +26,20 @@ include::../diagrams/dynamic-project-attach.puml[]
 
 . Intake normalizes issue/request intent.
 . Workflow Engine creates a Change.
-. Context Pack Builder retrieves relevant project and organization knowledge under a token/context budget.
-. Repository Intelligence and Impact Engine identify likely affected symbols/modules and expected change surface.
-. Specification Engine generates or validates a specification and its
-  Specification Pack when the M1.3 workflow requires one.
-. Planner role proposes a plan.
-. Policy Engine evaluates whether the plan requires approval, violates constraints, or attempts protected operations.
-. If required, an authorized human approves before implementation becomes available.
+. Repository Intelligence and Impact Engine provide exact current fingerprint,
+  model, report, gaps, and advisory risk references.
+. A human or the dedicated read-only AI planning role produces bounded
+  Specification and ChangePlan candidates.
+. The common deterministic boundary validates schema, semantics, references,
+  bounds, ownership, paths, digests, and current repository context.
+. An authorized human explicitly adopts the validated candidates; adoption
+  atomically advances current Specification and ChangePlan bindings.
+. The separate PlanningGateDecision yields `AUTO`, `APPROVAL`, `REVIEW`, or
+  `FORBIDDEN` for the exact current Plan.
+. For `APPROVAL`, an authorized human separately issues an exact PlanApproval.
+. Immediately before workspace/provider execution, eligibility is re-evaluated
+  across all bindings, freshness, gate, approval, ApprovedScope containment,
+  and protected paths.
 
 === Scenario 3 — Implement and Verify a Change
 
@@ -426,20 +433,29 @@ panic, unsafe path input, unsupported syntax,
 excluded untracked content, traversal truncation, and cache loss remain
 explicit rather than being converted to absence of impact.
 
-==== M1.3 Target Specification Pack Authority
+==== M1.3 Approved Planning Authority Target
 
-. Normalize a requirement into a candidate Specification Pack.
-. Validate completeness, provenance, identity, version, and governing source
-  links using the approved future schema.
-. Require any configured human Specification/Plan approval before
-  implementation.
-. Bind proposal, evidence, policy, review, and disposition to the exact
-  approved digests.
-. Invalidate downstream authority when a requirement, Specification, or Plan
-  changes.
+[plantuml, "{plantUMLDir}dynamic-planning-gate", png]
+----
+include::../diagrams/dynamic-planning-gate.puml[]
+----
 
-The candidate `engineering/specs/` location and this authority chain remain
-future and decision-gated; no current runtime behavior implements them.
+. Create the Change from immutable ChangeIntent before planning authority.
+. Produce a human or read-only AI candidate against exact current M1.2 context.
+. Apply strict common deterministic validation and canonicalization.
+. Require explicit human adoption before a candidate becomes current authority.
+. Evaluate the separate PlanningGateDecision over the exact current Plan.
+. If the result is `APPROVAL`, require a distinct exact human PlanApproval.
+. Re-evaluate implementation eligibility immediately before ProposalWorkspace
+  creation and provider execution.
+. Append supersession and invalidation while retaining historical authority.
+
+ADR-041 through ADR-043 decide this target. Exact pre-M1.3 Core V0 snapshots
+remain grandfathered without backfill or rebinding. New planning-aware Changes
+retain the existing state vocabulary, but `created -> planned` becomes
+authoritative only with the atomic planning authority commit, and `planned`
+alone never proves current eligibility. No current runtime implements this
+target; `engineering/specs/` is non-authoritative candidate/projection territory.
 
 ==== Cross-Cutting Target Inspection, Presentation, and Operability
 

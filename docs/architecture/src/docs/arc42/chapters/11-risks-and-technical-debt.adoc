@@ -44,6 +44,8 @@
 |R-039 |Provider context grows invisibly or repository-wide authority is mistaken for eager materialization |Unexpected provider cost, latency, or irrelevant context |Account exact serialized components before invocation, bound each materialized source, audit omissions, and let the provider inspect the isolated ProposalWorkspace
 |R-040 |Process interruption leaves an isolated worktree without recoverable ownership evidence |Orphaned external state or unsafe heuristic cleanup |Reserve creation before Git, derive one exact path from OperationId, hold Project exclusion through foundation persistence, and require explicit fail-closed reconciliation
 |R-041 |Workspace removal completes before append-only discard evidence persists |Durable authority references an absent resource and the Change cannot resume automatically |Reattachment fails closed, retry remains unauthorized, absence is never rewritten into fabricated cleanup evidence, and read-only operator diagnosis identifies the ambiguous evidence gap and preserves detailed history
+|R-042 |Planning candidate, adoption, approval, gate, or eligibility is collapsed into one mutable status |Stale or unapproved authority reaches implementation |Keep immutable artifacts and exact bindings distinct; validate, adopt, decide, approve, and recheck eligibility as separate operations under ADR-041/ADR-042
+|R-043 |AI planning output or stale repository evidence is mistaken for current human authority |Provider output bypasses governance or implements against obsolete context |Use one strict validation boundary, explicit human adoption, a read-only planning role, bounded provenance, and immediate current-context revalidation under ADR-043
 |===
 
 === Known Architectural Debt at Baseline
@@ -51,7 +53,9 @@
 With production implementation complete through M1.2, the principal remaining
 debt is **future-gate and implementation debt**, not an unimplemented V0 loop.
 M1.2 passed independent closure re-audit, is published, and is formally closed.
-M1.3 has not started.
+M1.3 architecture authority is human approved and materialized under ADR-041
+through ADR-043, while runtime implementation and validation remain pending.
+M1.4 has not started.
 Canonical application
 is deliberately local and working-tree-only. Its adapter lock coordinates one
 process; concurrent external Git writers are detected by repeated preflight or

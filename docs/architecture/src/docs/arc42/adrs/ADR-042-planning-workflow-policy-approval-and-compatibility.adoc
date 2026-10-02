@@ -1,0 +1,138 @@
+== ADR-042: Planning Workflow, Policy, Approval, and Compatibility
+
+*Status:* DECIDED
+
+=== Context
+
+Core V0 advances `created -> planned` before formal Specification or ChangePlan
+authority exists. M1.3 must make planning authority a real workflow gate while
+preserving exact historical WorkflowSnapshots, the accepted Change-state set,
+ApprovedScope independence, and M1.0's post-patch PolicyDecision semantics.
+
+=== Decision
+
+All exact pre-M1.3 Core V0 WorkflowSnapshots are grandfathered and retain
+their persisted semantics. They receive no automatic backfill, conversion,
+rebinding, fabricated Specification, fabricated ChangePlan, or inferred
+approval. New Changes created after M1.3 activation bind a new exact embedded,
+schema-validated, planning-aware WorkflowSnapshot generation under ADR-019 and
+ADR-035.
+
+The planning-aware workflow retains the existing Change-state set. Its
+`created -> planned` transition becomes authoritative only in the same atomic
+authority commit that proves the required current Specification, current
+ChangePlan, exact dependency linkage, deterministic planning validation, and
+applicable planning-gate result. Implementation eligibility is a separate
+derived conjunction checked again before ProposalWorkspace creation and
+provider execution; the `planned` state alone never proves current eligibility.
+
+M1.3 introduces a versioned planning-gate policy contract. It uses the
+established outcome vocabulary with these planning meanings:
+
+* `AUTO` — explicit adoption plus all deterministic eligibility conditions may
+  permit progression without a separate human PlanApproval;
+* `APPROVAL` — an explicit human PlanApproval is required;
+* `REVIEW` — progression is blocked until M1.4 supplies independent-review
+  authority; M1.3 does not manufacture a reviewer;
+* `FORBIDDEN` — progression is blocked.
+
+A `PlanningGateDecision` is not the post-patch `PolicyDecision` from ADR-032.
+It has its own versioned contract and exact planning inputs. A `PlanApproval`
+is immutable explicit authority over the exact current Plan and its governing
+Specification, repository-context/ImpactReport references, planning-gate
+decision, and relevant Change revision. Adoption and approval are separate.
+Absent required approval is absence of authority.
+
+Their strict deterministic JSON representations are independently
+schema-versioned using
+`application/vnd.praetor.planning-gate-decision+json` and
+`application/vnd.praetor.plan-approval+json`. Unknown fields fail validation;
+unknown future schemas remain inspectable but cannot authorize progression.
+
+This ADR constrains and succeeds ADR-032 only for the new pre-implementation
+planning gate. ADR-032 remains historically and operationally authoritative
+for Manifest V1 evaluation of a successful deterministic EvidenceSet after
+patch verification. M1.3 must not reinterpret an existing post-patch
+PolicyDecision as a PlanningGateDecision or PlanApproval.
+
+ChangePlan `ScopeIntent` is a ceiling, not write authority. ApprovedScope
+remains the independent durable source-write authority from ADR-005 and
+ADR-040. Implementation eligibility requires ApprovedScope to be equal to or
+narrower than the current Plan scope, with protected-path precedence. A
+broader ApprovedScope blocks until the Plan is superseded and, when the
+planning gate requires it, newly approved. Neither Plan nor ImpactReport may
+create or expand ApprovedScope.
+
+Implementation eligibility for a planning-aware Change is the conjunction of:
+
+* supported current Specification and ChangePlan schemas;
+* exact Plan-to-Specification identity and digest dependency;
+* current Change revision and planning bindings;
+* valid semantic and repository-context references;
+* `CURRENT` repository context and current ImpactReport dependency;
+* an applicable non-blocking PlanningGateDecision;
+* a current exact PlanApproval when the result is `APPROVAL`;
+* an ApprovedScope no broader than Plan scope;
+* protected-path precedence;
+* intact artifact, relationship, binding, and digest authority.
+
+Validity, freshness, policy, approval, write authority, and execution
+eligibility are reported separately. A blocked or invalid dimension never
+collapses into a generic mutable status.
+
+=== Invalidation
+
+Specification supersession, Plan supersession, governing source/model drift,
+current ImpactReport replacement, approval-subject mismatch, authoritative
+Change-revision mismatch, ApprovedScope broader than Plan scope, incompatible
+schema, or corrupt reference/digest removes current execution eligibility.
+When approval was required, changed governing inputs also make the prior
+approval inapplicable. Invalidation appends new authority or derives a current
+blocker; it never deletes or rewrites historical artifacts, decisions, or
+approvals.
+
+=== Alternatives Considered
+
+Rejected alternatives were reinterpreting Core V0, automatically migrating
+in-flight Changes, adding planning states without evidence, treating `planned`
+as permanent eligibility, always requiring approval, reusing post-patch
+PolicyDecision, treating adoption as approval, satisfying `REVIEW` inside
+M1.3, and deriving ApprovedScope from ChangePlan.
+
+=== Consequences
+
+The runtime must support two exact workflow generations. New Changes gain an
+enforceable pre-implementation planning gate without changing historical
+behavior. Planning policy needs a separate schema/decision contract and
+inspection vocabulary. Rechecking eligibility prevents an old state value or
+approval from authorizing work after drift.
+
+=== Security Implications
+
+Every transition and eligibility check fails closed on stale revision,
+unsupported schema, missing binding, mismatched subject, cross-scope reference,
+corrupt digest, `STALE`/`UNKNOWN` context, or unauthorized scope. No policy
+outcome or Plan can weaken protected paths. Approval provenance is bounded and
+truthful; authenticated reviewer identity remains M1.4/M5.2.
+
+=== Migration and Compatibility
+
+Core V0 Changes continue under their exact persisted workflow bytes and remain
+executable according to those semantics. The planning-aware generation applies
+only to newly created Changes after activation. Unknown historical workflow or
+planning schemas remain inspectable and cannot advance when current runtime
+compatibility is unavailable. No implicit rebinding or fallback is allowed.
+
+=== Implementation Boundary
+
+This ADR defines future workflow and gate semantics. It does not add workflow
+YAML, runtime guards, policy schemas, approval types, commands, migrations, or
+tests. M1.3 implementation must supply that evidence before any target
+traceability row may be promoted.
+
+=== Reopen / Review Triggers
+
+Reopen if implementation evidence requires a new Change state, project-authored
+workflow sources, human-authorized workflow rebinding, a different planning
+outcome lattice, Plan-derived write authority, approval not bound to exact
+inputs, or migration of existing Core V0 Changes.

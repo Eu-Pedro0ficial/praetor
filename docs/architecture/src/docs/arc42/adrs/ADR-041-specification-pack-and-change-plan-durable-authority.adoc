@@ -1,0 +1,140 @@
+== ADR-041: Specification Pack and ChangePlan Durable Authority
+
+*Status:* DECIDED
+
+=== Context
+
+M1.2 supplies exact repository context, explainable impact, KnowledgeGaps, and
+advisory risk, but none of those artifacts states the behavior a Change must
+produce or the ordered engineering contract that implementation must follow.
+M1.3 must add Specification and ChangePlan authority without creating a second
+requirements store, putting runtime authority in governed source, or bypassing
+the immutable Change-owned artifact model decided by ADR-033 and ADR-034.
+
+=== Decision
+
+A `Change` is created from its immutable `ChangeIntent` before planning
+authority exists. Specification and ChangePlan are owned by that Change. A
+Change may own multiple historical revisions of either artifact, but has at
+most one current Specification binding and one current ChangePlan binding. No
+M1.3 canonical Specification or ChangePlan is shared across Changes.
+
+A Specification has a stable logical `SpecificationId`, a monotonically
+increasing `SpecificationVersion`, a schema version, and a deterministic
+`SpecificationDigest`. Each immutable revision also has the independent
+`ArtifactId` required by ADR-033. The Specification is the root and canonical
+digest boundary of its `SpecificationPack`: one bounded structured artifact
+plus exact immutable references. A pack is not a directory, mutable folder,
+second aggregate hierarchy, or recursive include system.
+
+A Specification may reference the ChangeIntent, typed immutable identifiers
+from known local authority or catalogs, and opaque external requirement
+references with explicit provenance. An external reference is never presented
+as validated local authority. M1.3 creates no Requirement aggregate or store.
+The Specification contains structured requirements/invariants, stable
+AcceptanceCriterion identities, Constraints, Assumptions, explicit
+KnowledgeGaps, out-of-scope `NonGoal` values, RepositoryContextReference,
+ImpactReference, RiskReference, ScopeIntent, and VerificationIntent values as
+needed by the governed Change.
+
+A ChangePlan has a stable logical `PlanId`, monotonically increasing
+`PlanVersion`, schema version, deterministic `PlanDigest`, and one ArtifactId
+per immutable revision. It is an ordered declarative engineering contract over
+an exact Specification revision. Stable PlanStep identities describe intended
+results, target components and normalized repository paths, dependencies,
+preconditions, expected postconditions and modifications, verification
+expectations, relevant impact/gap references, scope expectations, and bounded
+recovery considerations where applicable. It is not provider conversation,
+an execution trace, a VerificationPlan, evidence that work occurred, or raw
+shell-command authority by default.
+
+Canonical Specification and ChangePlan payloads use strict deterministic JSON.
+Unknown fields fail validation. The canonical media types are:
+
+* `application/vnd.praetor.specification+json`;
+* `application/vnd.praetor.change-plan+json`.
+
+The planning-gate and approval representations are separately schema-versioned
+under ADR-042. Unknown future artifact schemas retain bounded metadata/content
+inspection under ADR-033 but cannot be adopted, bound as current executable
+authority, or used for implementation eligibility.
+
+Canonical M1.3 planning authority is stored through the existing Artifact
+Store in the per-Project SQLite database beneath XDG DATA. Repository files are
+not canonical M1.3 authority. `engineering/specs/` remains a non-authoritative
+candidate location. A future deterministic textual renderer or exporter is a
+projection and must not create dual authority.
+
+Candidate, current, approved, superseded, stale, and obsolete are separate
+facts or derived dimensions. M1.3 does not add mutable Specification or Plan
+state machines. Human- or AI-produced structured candidates pass the same
+validation boundary. Explicit adoption advances the applicable current
+binding in an atomic Change authority commit. Modification creates another
+immutable artifact and append-only supersession relation; history is retained.
+Adoption is distinct from approval.
+
+=== Authority Model and Invariants
+
+* The authority order begins `ChangeIntent -> Change -> Specification ->
+  ChangePlan`; planning remains before implementation.
+* Every canonical Specification and ChangePlan belongs to exactly one Project
+  and Change.
+* One Change may retain many revisions but has at most one current binding for
+  each planning role.
+* Logical identity/version, ArtifactId, schema version, content digest, binding,
+  supersession, validity, freshness, approval, and eligibility remain distinct.
+* A ChangePlan depends on one exact Specification ArtifactId and digest.
+* Artifact relations and supersession are immutable and append-oriented.
+* The canonical JSON encoder must produce one deterministic byte
+  representation for one accepted semantic value.
+
+=== Alternatives Considered
+
+Rejected alternatives were creating Specification before Change identity,
+cross-Change shared canonical Specifications, a new Requirement aggregate,
+mutable Specification/Plan rows, repository directories as canonical runtime
+authority, XDG sidecar files, dual repository/SQLite authority, free-form
+ChangePlans, command-bearing Plans, and reusing VerificationPlan as ChangePlan.
+
+=== Consequences
+
+M1.3 can reuse Artifact, ArtifactBinding, relation, supersession, Change
+revision, atomic authority commit, quota, audit, backup, and inspection
+mechanics. Human review of canonical payloads requires bounded deterministic
+rendering rather than Git being the authority. Stable logical identity adds
+domain validation beyond ArtifactId. Superseded adopted authority consumes the
+existing Change quota and remains inspectable.
+
+=== Security Implications
+
+Strict decoding rejects unknown fields, duplicate identities, excessive
+collections/text/nesting, malformed normalized paths, absolute/traversal paths,
+recursive or remote includes, and cross-Project/cross-Change references.
+Imported path handling must reject unsafe symlink replacement. Hostile text is
+data, never executable policy, commands, or authority. Artifact digest and
+relationship validation fails closed. Raw prompts, provider streams,
+conversations, credentials, wholesale source bodies, and unbounded output are
+not SpecificationPack or ChangePlan content.
+
+=== Migration and Compatibility
+
+ADR-041 adds future artifact kinds and bindings without changing historical
+artifact identity or ownership. Unsupported future planning schemas are
+inspectable but non-executable. Existing Core V0 Changes receive no fabricated
+Specification or ChangePlan; workflow compatibility is decided by ADR-042.
+
+=== Implementation Boundary
+
+This ADR decides the M1.3 domain and authority contracts. It does not implement
+Go types, JSON codecs, artifact kinds, SQL changes, commands, provider roles,
+or workflow guards. Exact private package structure and CLI spelling remain
+implementation choices inside these constraints.
+
+=== Reopen / Review Triggers
+
+Reopen for canonical planning authority in governed source, cross-Change
+shared artifacts, a new Requirement aggregate, mutable planning artifacts,
+non-JSON canonical serialization, recursive/remote composition, artifact
+payloads that exceed the approved M1.1 storage model, or evidence that one
+bounded Specification root cannot represent required packs.
+

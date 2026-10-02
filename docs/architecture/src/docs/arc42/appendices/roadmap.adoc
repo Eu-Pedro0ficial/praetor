@@ -16,7 +16,7 @@ closure, and terminal presentation.
 
 No completed milestone changes meaning under Roadmap V2.
 
-==== Phase 1 — Governed Engineering Runtime — M1.0–M1.2 COMPLETE; M1.3–M1.5 TARGET
+==== Phase 1 — Governed Engineering Runtime — M1.0–M1.2 COMPLETE; M1.3 ARCHITECTURE APPROVED; M1.3 RUNTIME AND M1.4–M1.5 TARGET
 
 * M1.0 — Mature Policy Engine — `COMPLETE`;
 * M1.1 — Durable Change + Artifact Foundation — `COMPLETE`, independently
@@ -24,20 +24,24 @@ No completed milestone changes meaning under Roadmap V2.
 * M1.2 — Repository Intelligence + Impact + Risk — `COMPLETE`, independently
   closure re-audited and published at
   `6026b30003ff0b5679fa1014f8f15f64a0541d86`;
-* M1.3 — Specification + Change Plan Governance;
-* M1.4 — Review Engine + Maker-Checker Authority;
+* M1.3 — Specification + Change Plan Governance — architecture human approved
+  and materialized; runtime implementation pending;
+* M1.4 — Review Engine + Maker-Checker Authority — not started;
 * M1.5 — Quality + Security Verification Foundation.
 
 M1.0's accepted local Manifest V1 Policy Engine scope remains unchanged. M1.1
 implements the ADR-033 through ADR-038 durable authority foundation. M1.2 is
 implemented under human-approved ADR-039 and ADR-040, passed independent closure
 re-audit with no remaining blockers or SHOULD FIX items, and is formally closed.
-M1.3 onward have not begun.
+M1.3 architecture is decided by human-approved ADR-041 through ADR-043; its
+runtime has not begun, M1.3 is not complete, and M1.4 has not started.
 
-M1.3 prepares versioned Specification Packs and
-requirement -> spec -> change -> evidence -> policy traceability.
-`engineering/specs/` is a candidate future governed-source location, not a
-current directory, implementation, canonical format, or accepted authority.
+M1.3 will implement immutable Change-owned Specification and ChangePlan
+authority, explicit human adoption, a separate planning gate and exact human
+PlanApproval when required, current repository-context binding, and
+requirement -> spec -> change -> evidence -> policy traceability. Canonical
+strict JSON will use the existing Artifact Store. `engineering/specs/` is
+non-authoritative candidate/projection territory.
 Source-linked views and governance presentation are cross-cutting acceptance
 concerns of their owning milestones: projections remain subordinate to
 authoritative artifacts and presentation cannot decide governance. Recovery

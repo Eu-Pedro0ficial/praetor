@@ -70,10 +70,10 @@ logical Change artifact set CHG-01842:
 ----
 
 The names are illustrative, not file-format decisions. Physical storage stays
-outside governed source unless an approved decision says otherwise. M1.1 owns
-durable Change artifacts, while M1.3 owns future Specification Pack and
-ChangePlan authority; `engineering/specs/` remains a candidate future location
-rather than a current canonical path.
+outside governed source. ADR-041 assigns M1.3 Specification and ChangePlan
+authority to immutable strict JSON artifacts in the existing per-Project
+Artifact Store under XDG DATA. `engineering/specs/` remains non-authoritative
+candidate or projection territory.
 
 === State-Machine Control
 
@@ -93,6 +93,14 @@ SPECIFICATION_CREATED
     -> ACCEPTANCE_REQUIRED
     -> ACCEPTED / REJECTED
 ----
+
+For the planning-aware workflow generation approved by ADR-041 through
+ADR-043, a Change exists before planning authority. Deterministic candidate
+validation precedes explicit adoption. The current Specification and exact
+dependent ChangePlan, PlanningGateDecision, any required exact human
+PlanApproval, current repository evidence, and ApprovedScope containment are
+separate authority dimensions. The existing Change-state vocabulary remains;
+`planned` alone never proves implementation eligibility.
 
 === Change Surface Control
 

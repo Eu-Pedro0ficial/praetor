@@ -341,9 +341,13 @@ Potential value objects/entities:
 |RiskProfile |Advisory evidence dimensions with LOW/MODERATE/HIGH ordering or unordered INDETERMINATE
 |ChangeSurface |Observed expected/possible/protected/uncertain/actual source classification; does not grant write authority
 |ApprovedScope |Separately governed source-write authority that impact inference cannot expand
-|Specification |Explicit requirements/invariants for the change
-|SpecificationPack |M1.3 target bundle linking requirements, constraints, acceptance criteria, provenance, lifecycle, and exact governing digest
-|ChangePlan |Ordered implementation plan and expected modifications
+|Specification |Immutable Change-owned requirements/invariants authority with stable logical identity, monotonic version, deterministic digest, and independent ArtifactId
+|SpecificationPack |Bounded structured authority rooted at one exact Specification plus immutable references; not a directory or recursive include hierarchy
+|ChangePlan |Immutable ordered declarative engineering contract bound to one exact Specification revision
+|PlanStep |Stable ordered declarative intent with dependencies, paths, postconditions, verification expectations, and scope expectations; never shell-command authority
+|PlanningGateDecision |Separate versioned AUTO/APPROVAL/REVIEW/FORBIDDEN decision over exact planning inputs
+|PlanApproval |Explicit immutable human authority over one exact current Plan and all governing references
+|ImplementationEligibility |Derived conjunction rechecked before ProposalWorkspace/provider execution; never implied by `planned` alone
 |ExecutionAttempt |One role-scoped provider attempt with Praetor-owned identity, selected provider/model, execution boundary, source-state and bounded audit provenance
 |Patch |Proposed source modification artifact
 |VerificationCandidate |One provenance-bearing proposal for a deterministic repository check
@@ -357,13 +361,35 @@ Potential value objects/entities:
 |Postmortem |Outcome analysis and candidate learning artifacts
 |===
 
-`SpecificationPack` is target architecture only. M1.3 must decide its schema,
-version, identity, authority, approval, invalidation, and relationship to
-`ChangePlan`. The planned `engineering/specs/` path is a candidate
-governed-source location rather than an existing directory or accepted
-canonical format. The required future trace is requirement -> spec -> change
--> evidence -> policy; it must not duplicate or replace the authoritative
-requirements catalog or traceability ledger.
+ADR-041 through ADR-043 decide the M1.3 architecture contract. A Change exists
+before its planning authority and may retain many immutable Specification and
+ChangePlan revisions with at most one current binding for each role. Stable
+logical identity/version, ArtifactId, digest, binding, supersession, validity,
+freshness, approval, write authority, and eligibility remain distinct.
+
+Specification is the root of its bounded SpecificationPack. It may contain
+structured requirements, invariants, stable AcceptanceCriterion identities,
+constraints, assumptions, KnowledgeGaps, NonGoals, repository/impact/risk
+references, ScopeIntent, and VerificationIntent. M1.3 creates no Requirement
+aggregate or store. ChangePlan binds one exact Specification revision and
+contains stable ordered declarative PlanSteps. Both use strict deterministic
+JSON in the existing Artifact Store; repository files and `engineering/specs/`
+remain non-authoritative candidates or projections.
+
+Human and AI candidates use the same deterministic validation. AI output
+requires explicit human adoption. Adoption is distinct from the separate exact
+human PlanApproval required by a PlanningGateDecision of `APPROVAL`. `REVIEW`
+waits for M1.4 and `FORBIDDEN` blocks. ApprovedScope stays independent and no
+broader than Plan ScopeIntent, with protected paths taking precedence.
+
+Exact pre-M1.3 Core V0 WorkflowSnapshots are grandfathered without fabricated
+artifacts, approval, backfill, conversion, or rebinding. New planning-aware
+Changes retain the current state vocabulary. Their `created -> planned`
+transition atomically establishes required planning authority, while current
+implementation eligibility is rechecked against bindings, digests, repository
+freshness, gate, approval, scope containment, and protected paths immediately
+before ProposalWorkspace/provider execution. Runtime implementation remains
+pending.
 
 ==== Project Aggregate / Registry
 

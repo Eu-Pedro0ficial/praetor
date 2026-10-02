@@ -7,7 +7,7 @@ LAYOUT_WITH_LEGEND()
 title C4 Deployment — Local Developer Workstation [CURRENT + TARGET]
 Deployment_Node(dev, "Developer Workstation", "Linux/macOS/Windows") {
   Container(cli, "Runtime CLI", "Go binary", $tags="AS-IS")
-  ContainerDb(changeStore, "Per-Project Change Authority", "SQLite change-store.sqlite3 under XDG DATA", $tags="AS-IS")
+  ContainerDb(changeStore, "Per-Project Change Authority", "SQLite change-store.sqlite3 under XDG DATA; existing store for future M1.3 artifacts", $tags="AS-IS")
   ContainerDb(repositoryCache, "RepositoryModel Cache", "Per-Project SQLite under XDG CACHE; rebuildable", $tags="AS-IS")
   ContainerDb(index, "Memory Query Projection", "Technology undecided", $tags="TARGET")
   Deployment_Node(workspace, "Workspace") {
@@ -25,7 +25,7 @@ Deployment_Node(remote, "Remote / Enterprise Services") {
   System_Ext(tools, "Optional remote CI/scanners", $tags="TARGET")
 }
 Rel(cli, index, "queries")
-Rel(cli, changeStore, "persists/inspects M1.1 authority")
+Rel(cli, changeStore, "persists/inspects current authority; M1.3 reuses store")
 Rel(cli, repositoryCache, "reuses/rebuilds M1.2 derived model")
 Rel(cli, srcLocal, "reads/applies accepted changes")
 Rel(cli, memLocal, "reads/writes governed memory")

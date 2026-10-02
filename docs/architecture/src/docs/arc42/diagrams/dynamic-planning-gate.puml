@@ -1,0 +1,28 @@
+@startuml
+!include <C4/C4_Dynamic>
+AddElementTag("AS-IS", $bgColor="#2E7D32", $fontColor="#FFFFFF", $legendText="AS-IS")
+AddElementTag("TARGET", $bgColor="#2457A7", $fontColor="#FFFFFF", $legendText="TARGET")
+LAYOUT_WITH_LEGEND()
+title Dynamic View — M1.3 Planning Authority [DECIDED IMPLEMENTATION TARGET]
+Person(engineer, "Engineer / Authorized Approver", $tags="AS-IS")
+Container(core, "Workflow and Planning Authority", "Go", $tags="TARGET")
+Container(repo, "Repository Intelligence and Impact", "Current context", $tags="AS-IS")
+System_Ext(planner, "Read-only AI Planning Role", "Untrusted candidate producer", $tags="TARGET")
+ContainerDb(store, "Per-Project Change Authority", "Existing SQLite Artifact Store", $tags="AS-IS")
+Container(policy, "Policy Engine", "Planning gate", $tags="TARGET")
+Container(implementation, "Implementation Use Case", "Eligibility consumer", $tags="TARGET")
+RelIndex(1, core, repo, "obtain current fingerprint/model/impact/gaps")
+RelIndex(2, engineer, core, "submit human candidate or request AI candidate")
+RelIndex(3, core, planner, "bounded read-only planning request")
+RelIndex(4, planner, core, "return untrusted candidate + provenance")
+RelIndex(5, core, core, "strict common validation and canonicalization")
+RelIndex(6, core, engineer, "present validated candidate for explicit adoption")
+RelIndex(7, engineer, core, "explicitly adopt Specification and ChangePlan")
+RelIndex(8, core, store, "atomically bind adopted authority")
+RelIndex(9, core, policy, "evaluate exact current Plan")
+RelIndex(10, policy, core, "PlanningGateDecision: AUTO / APPROVAL / REVIEW / FORBIDDEN")
+RelIndex(11, core, engineer, "for APPROVAL, request separate exact PlanApproval")
+RelIndex(12, engineer, core, "explicitly issue human PlanApproval")
+RelIndex(13, core, core, "re-evaluate eligibility; ApprovedScope remains independent")
+RelIndex(14, core, implementation, "allow only while every binding and context is current")
+@enduml

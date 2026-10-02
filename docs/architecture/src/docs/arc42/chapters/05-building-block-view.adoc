@@ -110,11 +110,27 @@ M1.1 persists references to existing HumanDecision artifacts only.
 
 Transforms normalized intent and repository context into an explicit behavioral/technical specification or validates a human-provided spec. It is responsible for specification completeness and traceability, not implementation.
 
-M1.3 plans versioned Specification Packs and end-to-end requirement -> spec ->
-change -> evidence -> policy traceability. `engineering/specs/` is a candidate
-future governed-source location only; its format, authority, persistence, and
-invalidation semantics require the M1.3 decision gate and are not part of the
-current runtime.
+ADR-041 defines a Change-owned immutable Specification with stable logical
+identity, monotonic version, deterministic digest, and one ArtifactId per
+revision. It is the bounded root of its SpecificationPack and uses strict
+deterministic JSON in the existing Artifact Store. Human and AI candidates use
+the same deterministic validation; AI candidates require explicit human
+adoption. `engineering/specs/` is non-authoritative. This is approved target
+architecture, not current runtime implementation.
+
+==== Change Planning
+
+ADR-041 defines an immutable ordered declarative ChangePlan bound to one exact
+Specification revision. Plan steps express intended results, dependencies,
+repository paths, postconditions, verification expectations, and scope intent;
+they are not shell-command authority or evidence that work occurred.
+
+ADR-042 separates candidate adoption, PlanningGateDecision, exact human
+PlanApproval, ApprovedScope, and implementation eligibility. The planning gate
+returns `AUTO`, `APPROVAL`, `REVIEW`, or `FORBIDDEN`; it is distinct from the
+post-patch PolicyDecision. ADR-043 binds planning to exact current repository
+evidence and a dedicated read-only AI planning role. Runtime implementation
+remains M1.3 work.
 
 ==== Policy Engine
 

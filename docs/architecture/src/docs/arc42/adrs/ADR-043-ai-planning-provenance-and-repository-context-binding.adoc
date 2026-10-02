@@ -1,0 +1,119 @@
+== ADR-043: AI Planning Provenance and Repository-Context Binding
+
+*Status:* DECIDED
+
+=== Context
+
+M1.3 requires both human-provided and AI-proposed Specification and ChangePlan
+candidates. Provider output is non-deterministic and untrusted, while planning
+must remain bound to the exact M1.2 repository evidence that informed it. A
+provider completion, stale model, raw conversation, or advisory risk result
+must not become canonical requirements, approval, or write authority.
+
+=== Decision
+
+Human-provided and AI-proposed planning candidates pass the same deterministic
+schema, semantic, reference, bounds, and context validation boundary. AI output
+is always a candidate. Provider completion never establishes a current
+Specification or ChangePlan binding. AI candidates require explicit human
+adoption; regeneration never silently replaces current authority. A
+human-authored candidate is also untrusted input and receives identical
+deterministic validation. Adoption and PlanApproval remain distinct under
+ADR-041 and ADR-042.
+
+M1.3 introduces the architecture contract for a dedicated read-only planning
+provider role. It is distinct from `implementation` and
+`verification-planning`. Its requests and structured responses are bounded and
+expressed in Praetor domain vocabulary. The role has no canonical or proposal
+workspace write authority, cannot transition a Change, cannot adopt or approve
+its output, and cannot mint deterministic evidence. Application services
+depend on the provider-independent AI Provider Port; adapters remain outside
+the domain/application authority model.
+
+Specification and ChangePlan authority record exact immutable references, as
+applicable, to SourceFingerprint, RepositoryModel build key and model digest,
+ImpactReport ArtifactId and content digest, explicit KnowledgeGaps, and the
+RiskProfile through its ImpactReport. Current repository context is required
+at adoption where the artifact uses repository assertions and again
+immediately before implementation eligibility.
+
+`CURRENT` freshness is required for execution. `STALE` and `UNKNOWN` block
+implementation. Replacing the current governing source/model context or
+ImpactReport invalidates eligibility; where PlanApproval was required it also
+makes the old approval inapplicable to execution. Historical candidates,
+adopted revisions, approvals, and context references remain inspectable.
+`INDETERMINATE` RiskProfile is advisory, unordered, and has no implicit
+approval, rejection, policy, or write-authority effect.
+
+Immediately before ProposalWorkspace creation and provider implementation,
+the application revalidates Change revision, current bindings and relations,
+supported schemas, digests, repository/model/report freshness, planning gate,
+required approval, ApprovedScope-to-Plan containment, and protected paths.
+This check does not eliminate external concurrency, so the existing source and
+proposal guards continue around later effects.
+
+Durable planning provenance is structured and bounded. It may identify
+candidate origin, local actor provenance, provider adapter/model/role,
+Praetor-owned attempt identity, source/context identities, derivation
+relationships, validation/adoption/approval events, and bounded omission or
+truncation facts. Raw prompts, provider streams, stdout/stderr transcripts,
+conversations, credentials, secrets, and wholesale source-file bodies are not
+canonical planning authority or audit metadata.
+
+Superseded adopted authority is retained. Rejected or unadopted structured
+candidates use finite retention and the existing per-Project artifact/Change
+quota model; M1.3 introduces no enterprise retention promise.
+
+=== Security and Trust Boundary
+
+Planning inputs and provider output are untrusted. Parsers enforce canonical
+JSON, unknown-field and duplicate-identifier rejection, bounded bytes,
+collection cardinality, text, and nesting, no recursive or remote includes,
+normalized repository-relative paths, absolute/traversal rejection, symlink
+and import safety, Project/Change ownership, and digest/reference integrity.
+Prompt injection remains untrusted text and cannot grant adoption, approval,
+scope, execution, or evidence authority. Read-only enforcement and post-call
+source integrity checks, rather than prompt wording, protect the provider
+boundary.
+
+M1.3 does not claim hostile-provider containment, provider trust/classification
+routing, secret scanning, authenticated human identity, independent review, or
+quality/security tool assurance. Those remain assigned to M1.4, M1.5, M3.0,
+and M5.x.
+
+=== Alternatives Considered
+
+Rejected alternatives were automatic binding after provider success,
+provider-specific domain models, reusing `verification-planning`, writable
+planning execution, persisting conversations as authority, using the latest
+report by timestamp, allowing stale plans with a warning, treating risk as
+policy authority, and allowing provider-proposed scope to authorize writes.
+
+=== Consequences
+
+AI can improve planning without becoming an engineering authority. Exact
+context linkage makes drift visible and reproducible but may conservatively
+require regeneration or revalidation. Bounded provenance supports audit and
+restart without chat state. A dedicated role adds adapter work during M1.3
+implementation but preserves semantic separation from verification planning.
+
+=== Migration and Compatibility
+
+This ADR adds no provenance to historical attempts and fabricates no missing
+planning record. Core V0 behavior remains unchanged under ADR-042. Unknown
+future planning candidate schemas remain inspectable only where the durable
+artifact compatibility boundary permits it.
+
+=== Implementation Boundary
+
+This ADR defines the future role, context, freshness, provenance, retention,
+and security contracts. It does not implement provider requests, prompts,
+codecs, persistence, eligibility checks, commands, or retention jobs.
+
+=== Reopen / Review Triggers
+
+Reopen for automatic AI adoption, write-capable planning, raw conversation
+authority, remote/recursive planning inputs, policy-authoritative RiskProfile,
+execution with stale/unknown context, retention beyond current quotas, or a
+new provider/process security boundary.
+

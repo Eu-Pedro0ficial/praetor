@@ -15,6 +15,7 @@
 |Change |Primary auditable work aggregate representing one requested software evolution/fix.
 |ChangeId |Opaque project-scoped identifier; `(ProjectId, ChangeId)` is durable Change identity and neither value is derived from source paths or Git state.
 |Change Surface |Expected, possible, protected, uncertain, and actual repository elements associated with a Change; classification is distinct from write authority.
+|ChangePlan |Immutable ordered declarative engineering contract over one exact Specification revision, with stable PlanId, monotonic PlanVersion, deterministic PlanDigest, and one ArtifactId per revision.
 |Context Pack |Task-scoped projection of repository/memory/policy knowledge assembled for one AI role invocation.
 |Developer Sovereignty |Principle that the engineering process and authorized humans retain final authority over consequential actions.
 |Evidence |Structured result supporting a claim or state transition: tests, scans, diffs, analysis, approvals, etc.
@@ -27,6 +28,8 @@
 |Memory Snapshot |Reference/fingerprint identifying the memory state used for an execution.
 |Minimum Necessary Change |Optimization principle minimizing modification surface while satisfying correctness and constraints.
 |Policy |Executable or governable engineering invariant that can allow, deny, require review/approval, or mark advisory findings.
+|PlanApproval |Explicit immutable human authority bound to an exact current Plan, governing Specification, repository/impact context, PlanningGateDecision, and Change revision.
+|PlanningGateDecision |Versioned pre-implementation planning decision with AUTO, APPROVAL, REVIEW, or FORBIDDEN outcome; distinct from post-patch PolicyDecision.
 |OperationId |Opaque Project-scoped identity for a consequential operation, bound to an immutable request digest and durable result/recovery record.
 |Port |Core-owned interface describing a capability required from external systems.
 |Project |The logical governed software-engineering project. It is distinct from any repository checkout, worktree, Git remote, source revision, or repository location.
@@ -44,7 +47,8 @@
 |Sandbox |Architectural isolation boundary for proposed changes. The current implementation is Git worktree source/workspace isolation; stronger containment requires the gate of the approved capability that needs it.
 |Software Change Provenance |Ability to reconstruct why/how/by-whom/with-what-context a code change was produced and accepted.
 |SourceFingerprint |Composite comparable source condition covering exact tracked content/metadata and untracked status-name evidence under ADR-039.
-|Specification Pack |M1.3 target versioned bundle of requirements, constraints, acceptance criteria, provenance, and lifecycle linked to an exact Change authority chain.
+|Specification |Immutable Change-owned requirements and constraints authority with stable SpecificationId, monotonic SpecificationVersion, deterministic SpecificationDigest, and one ArtifactId per revision.
+|Specification Pack |Bounded structured authority rooted at one exact Specification plus immutable references; not a directory or recursive include hierarchy.
 |State Machine |Explicit allowed progression of a Change rather than agent-controlled free-form progression.
 |Workflow |Versioned engineering process defining stages, contracts, gates and allowed transitions.
 |WorkflowSnapshot |Exact immutable workflow identity, version, schema version, YAML bytes, and SHA-256 integrity digest bound to a Change.

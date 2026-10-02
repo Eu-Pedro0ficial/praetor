@@ -246,6 +246,29 @@ and explanations rather than raw source bodies, credentials, secrets, complete
 history, or analyzer output. Impact and risk cannot change ApprovedScope or
 create policy, approval, or rejection authority.
 
+==== M1.3 Planning Authority Boundary
+
+Human and provider planning input is untrusted. Canonical decoders require
+strict deterministic JSON and reject unknown fields, duplicate identities,
+oversized bytes/collections/text/nesting, absolute or traversal paths,
+recursive/remote includes, unsafe symlink replacement, cross-Project or
+cross-Change references, and corrupt digests or relationships.
+
+The dedicated planning provider role is read-only. Raw provider text, prompts,
+streams, conversations, stdout/stderr, credentials, secrets, and wholesale
+source bodies never become planning authority. AI cannot adopt, approve,
+transition, grant scope, or mint evidence. A validated AI candidate requires
+explicit human adoption, and a PlanningGateDecision of `APPROVAL` requires a
+separate exact human PlanApproval.
+
+Only `CURRENT` repository context is eligible for governed execution. `STALE`
+or `UNKNOWN` blocks, and advisory risk cannot create authority. Immediately
+before ProposalWorkspace/provider execution, the application fails closed on
+unsupported schema, stale revision/context, missing or mismatched bindings,
+invalid digests, absent required approval, ApprovedScope broader than Plan
+scope, or protected-path conflict. Existing source/proposal guards continue to
+cover later external effects.
+
 ==== M1.5 External Quality/Security Tool Boundary
 
 Advanced scanners may introduce heavyweight services/images, network and

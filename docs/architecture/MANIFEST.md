@@ -1,6 +1,6 @@
 # Documentation Manifest
 
-Generated: 2026-09-21
+Generated: 2026-10-02
 
 ## Files
 - `./README.md`
@@ -46,6 +46,9 @@ Generated: 2026-09-21
 - `./src/docs/arc42/adrs/ADR-038-legacy-audit-migration.adoc`
 - `./src/docs/arc42/adrs/ADR-039-repository-model-source-fingerprint-provenance-analyzers-cache.adoc`
 - `./src/docs/arc42/adrs/ADR-040-explainable-impact-report-risk-change-surface.adoc`
+- `./src/docs/arc42/adrs/ADR-041-specification-pack-and-change-plan-durable-authority.adoc`
+- `./src/docs/arc42/adrs/ADR-042-planning-workflow-policy-approval-and-compatibility.adoc`
+- `./src/docs/arc42/adrs/ADR-043-ai-planning-provenance-and-repository-context-binding.adoc`
 - `./src/docs/arc42/appendices/change-state-machine.adoc`
 - `./src/docs/arc42/appendices/competitive-landscape.adoc`
 - `./src/docs/arc42/appendices/configuration-model.adoc`
@@ -81,6 +84,7 @@ Generated: 2026-09-21
 - `./src/docs/arc42/diagrams/c4-repository-intelligence-components.puml`
 - `./src/docs/arc42/diagrams/dynamic-change-execution.puml`
 - `./src/docs/arc42/diagrams/dynamic-impact-analysis.puml`
+- `./src/docs/arc42/diagrams/dynamic-planning-gate.puml`
 - `./src/docs/arc42/diagrams/dynamic-memory-promotion.puml`
 - `./src/docs/arc42/diagrams/dynamic-project-attach.puml`
 

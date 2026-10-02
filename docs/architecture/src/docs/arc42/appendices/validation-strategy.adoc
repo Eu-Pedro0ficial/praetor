@@ -334,6 +334,28 @@ digest equivalence remain decision evidence. Production tests, implementation
 references, and lifecycle promotion supplied the separate closure evidence;
 M1.2 is formally closed.
 
+==== M1.3 Specification and Planning Authority Validation
+
+M1.3 contract tests must cover stable SpecificationId/PlanId values, monotonic
+versions, deterministic digests, independent ArtifactIds, strict canonical JSON,
+unknown-field and duplicate rejection, bounded content and references,
+normalized paths, ownership, immutable relations, append-only supersession, and
+atomic current bindings. Human and AI candidates must pass the same validator.
+
+Workflow/persistence fixtures must prove all four PlanningGateDecision outcomes,
+separate explicit human adoption and exact PlanApproval, ApprovedScope
+containment with protected-path precedence, every invalidation trigger, restart
+inspection, and exact Core V0 grandfathering without backfill or rebinding.
+Failure injection must prove no partial planning authority commit is published.
+
+Repository fixtures must prove exact SourceFingerprint, RepositoryModel build
+key/digest, ImpactReport ArtifactId/digest, gaps, and advisory risk linkage.
+`STALE` and `UNKNOWN` must block at the immediate pre-execution recheck. Provider
+fixtures must prove the dedicated planning role cannot mutate canonical source,
+proposal workspace, Change authority, adoption, approval, or evidence. Bounded
+provenance and quota/retention behavior must exclude raw prompts, streams,
+conversations, credentials, secrets, and wholesale source bodies.
+
 ==== M1.5 Quality and Security Verification Foundation
 
 M1.5 broadens replaceable evidence adapters for applicable SAST, SCA, secret,

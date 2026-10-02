@@ -84,6 +84,22 @@ authority. Risk is advisory. `LOW < MODERATE < HIGH`, while `INDETERMINATE` is
 an unordered epistemic result with no automatic approval, rejection, or policy
 effect.
 
+=== M1.3 Planning Authority and Eligibility
+
+ADR-041 through ADR-043 establish immutable Change-owned Specification and
+ChangePlan revisions, strict deterministic JSON, stable logical identities,
+deterministic digests, and exact current bindings in the existing Artifact
+Store. Candidate validation, explicit human adoption, PlanningGateDecision,
+any required exact human PlanApproval, ApprovedScope, freshness, and execution
+eligibility remain separate facts.
+
+Human and AI candidates cross the same deterministic validation boundary. The
+dedicated AI planning role is read-only and cannot adopt, approve, transition,
+write source or workspace state, or create deterministic evidence. Current
+SourceFingerprint, RepositoryModel, ImpactReport, KnowledgeGaps, and advisory
+RiskProfile references are rechecked immediately before execution. `STALE` or
+`UNKNOWN` context blocks; risk never grants authority.
+
 === Provider Context Materialization
 
 Change authorization and provider context materialization are separate.

@@ -14,7 +14,9 @@ Current implementation status: M0.0 through M1.2 are complete. M1.1 passed
 independent closure audit and is published at
 `630f919cd9731113658fb6abc78a6843b210b6a8`. M1.2 passed independent closure
 re-audit and its implementation is published at
-`6026b30003ff0b5679fa1014f8f15f64a0541d86`. M1.3 has not started. M0.8 preserves
+`6026b30003ff0b5679fa1014f8f15f64a0541d86`. M1.3 architecture authority is
+human approved and materialized under ADR-041 through ADR-043; runtime
+implementation has not started, and M1.4 has not started. M0.8 preserves
 M0.7's authorization-only decision step, then requires separate explicit
 canonical application or rejection closure before the applicable disposition
 can reach `audit-locked`. The Core V0 release gate has passed. M0.9 adds
@@ -193,11 +195,15 @@ unchanged.
   digest-chain enforcement and invalidation; D Specification Packs and
   end-to-end requirement-to-policy traceability.
 - Dependencies: M1.1 and M1.2.
-- Decision gates: canonical Specification/Plan schemas, authority/digest chain,
-  plan approval, mutation/invalidation, and state-machine evolution.
-- Boundary: AI proposes; validation and authorized decisions establish
-  authority. The candidate chain and `engineering/specs/` location are future
-  design candidates, not implemented or accepted canonical formats.
+- Decision gates: closed by human approval and ADR-041 through ADR-043. These
+  decisions establish durable Specification/ChangePlan authority, planning
+  gate and exact PlanApproval semantics, historical workflow compatibility,
+  and human/AI convergence with exact repository-context provenance.
+- Boundary: AI proposes; deterministic validation plus explicit human adoption
+  establishes current authority, and approval remains a separate exact action
+  when the PlanningGateDecision is `APPROVAL`. Canonical strict JSON remains in
+  the existing Artifact Store under XDG DATA. Repository files, including
+  `engineering/specs/`, are non-authoritative candidates or projections.
 - Acceptance: required workflows cannot implement against missing, stale, or
   unapproved Specification/Plan artifacts, and an approved Specification Pack
   can trace requirement -> spec -> change -> evidence -> policy without a
@@ -527,7 +533,8 @@ audit claims.
 ## Implementation sequence status
 
 M0.0 through M1.2 are implemented, independently closure-audited, published,
-and complete. M1.3 has not started.
+and complete. M1.3 architecture authority is approved/materialized, its runtime
+implementation has not started, and M1.4 has not started.
 
 ## Key decisions preserved
 
