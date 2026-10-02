@@ -151,21 +151,21 @@ Evidence is produced by real engineering checks such as tests, builds, linting, 
 
 Binary releases are published from version tags through GitHub Actions.
 
-Supported release targets:
+### Currently supported release targets
 
 | Platform | Architecture | Package |
 | --- | --- | --- |
 | Linux | amd64 | `.tar.gz` |
 | Linux | arm64 | `.tar.gz` |
-| Windows | amd64 | `.zip` |
-| macOS | amd64 | `.tar.gz` |
-| macOS | arm64 | `.tar.gz` |
 
 Each release also includes SHA-256 checksums.
 
-Browse available builds on the [Releases page](https://github.com/Eu-Pedro0ficial/praetor/releases).
+Windows and macOS support is planned, but is not currently advertised as
+supported. The current runtime contains platform-specific terminal and
+file-locking behavior that must be abstracted and validated before those
+targets can be distributed responsibly.
 
-> Until the first public preview release is published, build Praetor from source using the instructions below.
+Browse available builds on the [Releases page](https://github.com/Eu-Pedro0ficial/praetor/releases).
 
 ---
 
