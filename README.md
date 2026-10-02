@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/praetor-shield-transparent-8x.png" alt="Praetor" width="150" />
+  <img src="assets/praetor-shield-transparent-8x.png" alt="Praetor" width="160" />
 
 # Praetor
 
@@ -7,52 +7,50 @@
 
 > **AI proposes. System validates. Human governs.**
 
+[![CI](https://github.com/Eu-Pedro0ficial/praetor/actions/workflows/ci.yml/badge.svg)](https://github.com/Eu-Pedro0ficial/praetor/actions/workflows/ci.yml)
+[![Release](https://github.com/Eu-Pedro0ficial/praetor/actions/workflows/release.yaml/badge.svg)](https://github.com/Eu-Pedro0ficial/praetor/actions/workflows/release.yaml)
 [![Go](https://img.shields.io/badge/Go-1.25.1-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-early%20public%20development-orange)](#project-status)
+
+[Documentation](docs/README.md) · [Roadmap](docs/roadmap/ROADMAP.md) · [Releases](https://github.com/Eu-Pedro0ficial/praetor/releases) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 </div>
 
 Praetor is a developer-governed software engineering orchestration runtime that uses AI agents as **constrained executors** inside deterministic, spec-driven and policy-enforced engineering workflows.
 
-It is designed around a simple idea:
+It is built around one maintenance principle:
 
 > **Make the smallest safe change possible — with evidence.**
 
-Rather than treating model output as trusted engineering work, Praetor treats AI output as a proposal that must pass through explicit scope, verification, policy and human-governance boundaries before it can affect canonical source.
+Praetor does not treat model output as trusted engineering work. AI output begins as a **proposal** and must pass through explicit scope, isolated execution, deterministic verification, policy evaluation and human governance before it can affect canonical source.
 
 ---
 
 ## Why Praetor?
 
-AI coding tools can generate changes faster than engineering teams can reliably answer questions such as:
+AI coding tools can generate code faster than engineering teams can reliably answer the questions that matter after generation:
 
 - Was the change limited to the intended scope?
 - Did it preserve existing behavior?
-- Which tests, checks and evidence support it?
-- Was the architecture respected?
-- Can the decision be audited later?
-- Who or what was actually authorized to advance the change?
+- Which tests and checks prove that it works?
+- Did it respect architectural constraints?
+- Can the decision be inspected and audited later?
+- Who or what was authorized to advance the change?
 
-Praetor explores a different model for AI-assisted engineering: **the model is a capability, not the authority**.
+Praetor explores a different operating model:
+
+> **The model is a capability, not the authority.**
 
 The developer governs. The system validates. AI proposes and executes bounded work.
 
 ---
 
-## Core principles
+## Engineering console
 
-Praetor is built around seven product principles:
+![Praetor Engineering Console](assets/praetor-console.png)
 
-1. **Developer Sovereignty** — the developer remains the final engineering authority.
-2. **Controlled Change** — changes move through explicit, bounded lifecycle states.
-3. **Evidence over Confidence** — model confidence is not proof; executable evidence is.
-4. **Institutional Engineering Memory** — durable knowledge belongs to the project, not to a provider session.
-5. **Provider Independence** — AI providers are adapters behind stable core ports.
-6. **Minimum Necessary Change** — prefer the smallest safe change that satisfies the intent.
-7. **Knowledge Must Be Revisable** — engineering memory and decisions remain inspectable and correctable.
-
-See the full [Product Thesis](docs/product/PRODUCT_THESIS.md) and [Engineering Manifesto](docs/product/ENGINEERING_MANIFESTO.md).
+The console keeps project, provider, change, verification, decision, recovery and Git context visible while the developer remains in control of the engineering lifecycle.
 
 ---
 
@@ -75,7 +73,7 @@ flowchart LR
 
 Agents produce outputs. They do **not** own lifecycle authority.
 
-A proposal only advances when the system can prove that the required state, evidence and authorization exist.
+A change advances only when the required state, evidence and authorization exist.
 
 ---
 
@@ -83,36 +81,46 @@ A proposal only advances when the system can prove that the required state, evid
 
 Praetor is already functional as a local governed engineering runtime.
 
-The current implementation includes:
+| Capability | Current state |
+| --- | --- |
+| Retained-context engineering console | Implemented |
+| Project identity and bounded source scope | Implemented |
+| Isolated Git worktrees for proposed changes | Implemented |
+| Provider-independent AI execution port | Implemented |
+| `codex-cli` provider adapter | Implemented |
+| Deterministic verification planning and execution | Implemented |
+| Immutable evidence sets | Implemented |
+| Explicit human approval / rejection | Implemented |
+| Controlled canonical patch application | Implemented |
+| Append-oriented audit history | Implemented |
+| Durable per-project SQLite authority and recovery | Implemented |
+| Policy-as-code evaluation | Implemented |
+| Repository intelligence, impact analysis and advisory risk | Implemented |
+| Specification + ChangePlan governance | Next milestone — M1.3 |
 
-- retained-context interactive engineering console;
-- project identity and bounded source scope;
-- isolated Git worktrees for proposed changes;
-- provider-independent AI execution port;
-- `codex-cli` as the current Core V0 provider adapter;
-- deterministic verification planning and execution;
-- immutable evidence sets;
-- explicit human approval/rejection;
-- controlled canonical patch application;
-- append-oriented audit history;
-- durable per-project SQLite authority and recovery;
-- policy-as-code evaluation;
-- repository intelligence, impact analysis and advisory risk;
-- developer-facing status, diagnostics and recovery flows.
+The repository intentionally distinguishes **implemented behavior**, **approved architecture**, **future target state** and **open decisions**. Architectural intent is never presented as shipped behavior.
 
-The current console looks like this:
+---
 
-![Praetor Engineering Console](assets/praetor-console.png)
+## Core principles
+
+Praetor is built around seven product principles:
+
+1. **Developer Sovereignty** — the developer remains the final engineering authority.
+2. **Controlled Change** — changes move through explicit, bounded lifecycle states.
+3. **Evidence over Confidence** — model confidence is not proof; executable evidence is.
+4. **Institutional Engineering Memory** — durable knowledge belongs to the project, not to a provider session.
+5. **Provider Independence** — AI providers are adapters behind stable core ports.
+6. **Minimum Necessary Change** — prefer the smallest safe change that satisfies the intent.
+7. **Knowledge Must Be Revisable** — engineering memory and decisions remain inspectable and correctable.
+
+Read the full [Product Thesis](docs/product/PRODUCT_THESIS.md) and [Engineering Manifesto](docs/product/ENGINEERING_MANIFESTO.md).
 
 ---
 
 ## Provider model
 
 Praetor's core is provider-independent.
-
-The current Core V0 implementation ships with a `codex-cli` adapter. Provider selection is explicit and session-scoped; provider credentials remain owned by the provider tooling rather than by Praetor.
-
-Current scope:
 
 ```text
 Praetor Core
@@ -123,7 +131,9 @@ Praetor Core
            +-- future adapters
 ```
 
-Praetor does **not** currently claim multi-provider routing, automatic fallback or provider consensus. Those capabilities must be implemented explicitly rather than implied by the abstraction.
+The current Core V0 implementation ships with a `codex-cli` adapter. Provider selection is explicit and session-scoped, and provider credentials remain owned by the provider tooling rather than by Praetor.
+
+Praetor does **not** currently claim multi-provider routing, automatic fallback or provider consensus.
 
 ---
 
@@ -131,21 +141,35 @@ Praetor does **not** currently claim multi-provider routing, automatic fallback 
 
 Praetor separates AI review from executable evidence.
 
-Evidence is produced by real engineering checks such as:
+Evidence is produced by real engineering checks such as tests, builds, linting, static analysis, type checks, patch-integrity checks and source/scope validation.
 
-- tests;
-- builds;
-- linting;
-- static analysis;
-- type checks;
-- patch-integrity checks;
-- source and scope validation.
-
-A model saying that a change *should* work is not equivalent to proving that it works.
+> A model saying that a change *should* work is not equivalent to proving that it works.
 
 ---
 
-## Quick start
+## Download
+
+Binary releases are published from version tags through GitHub Actions.
+
+Supported release targets:
+
+| Platform | Architecture | Package |
+| --- | --- | --- |
+| Linux | amd64 | `.tar.gz` |
+| Linux | arm64 | `.tar.gz` |
+| Windows | amd64 | `.zip` |
+| macOS | amd64 | `.tar.gz` |
+| macOS | arm64 | `.tar.gz` |
+
+Each release also includes SHA-256 checksums.
+
+Browse available builds on the [Releases page](https://github.com/Eu-Pedro0ficial/praetor/releases).
+
+> Until the first public preview release is published, build Praetor from source using the instructions below.
+
+---
+
+## Build from source
 
 ### Requirements
 
@@ -181,26 +205,15 @@ help
 
 A typical governed flow evolves through analysis, isolation, implementation, verification, policy evaluation, human disposition and explicit application or closure.
 
-For implementation details and milestone contracts, use the project documentation rather than treating this README as normative specification.
-
 ---
 
 ## Project status
 
 **Core V0 is complete.**
 
-Milestones `M0.0` through `M1.2` are closed. `M1.3` is the next planned milestone.
+Milestones `M0.0` through `M1.2` are closed. `M1.3 — Specification + Change Plan Governance` is the next planned milestone.
 
-The repository intentionally distinguishes between:
-
-- **implemented behavior**;
-- **approved architecture**;
-- **future target state**;
-- **open decisions**.
-
-This distinction is part of the project's governance model: architectural intent is not presented as shipped behavior.
-
-Detailed status and delivery planning live in:
+Detailed delivery planning lives in:
 
 - [Roadmap](docs/roadmap/ROADMAP.md)
 - [Milestones](docs/roadmap/MILESTONES.md)
@@ -209,9 +222,9 @@ Detailed status and delivery planning live in:
 
 ---
 
-## Architecture & documentation
+## Architecture and documentation
 
-Praetor maintains its architecture as a first-class engineering artifact.
+Praetor treats architecture as a first-class engineering artifact.
 
 Documentation is organized under [`docs/`](docs/README.md):
 
@@ -220,23 +233,19 @@ Documentation is organized under [`docs/`](docs/README.md):
 - [`docs/research/`](docs/research/) — research and comparative studies;
 - [`docs/roadmap/`](docs/roadmap/) — roadmap, milestones, dependencies and open decisions.
 
-The architecture and accepted decisions are authoritative. Code should not silently contradict an accepted architectural decision.
+The accepted architecture and ADRs are authoritative. Code must not silently contradict an accepted architectural decision.
 
 ---
 
-## Non-goals and current boundaries
+## Security boundaries
 
 Praetor is not intended to be an autonomous coding agent that silently modifies a repository.
 
-Today, it also does not claim:
+Today it also does not claim hostile-code containment, VM/container/process-level sandboxing for generated code, autonomous merge/push/pull-request authority, multi-provider consensus, or replacement of human engineering judgment.
 
-- hostile-code containment;
-- VM/container/process-level security sandboxing for generated code;
-- autonomous merge, push or pull-request creation;
-- multi-provider fallback or consensus;
-- replacement of human engineering judgment.
+Source isolation is currently based on Git worktrees and bounded change authority. Those mechanisms are **not equivalent to an operating-system or virtualization security sandbox**.
 
-Its source isolation is based on Git worktrees and bounded change authority. Security boundaries beyond that must be explicitly designed and implemented.
+For vulnerability reporting and current security expectations, see [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -244,21 +253,11 @@ Its source isolation is based on Git worktrees and bounded change authority. Sec
 
 Praetor is in early public development.
 
-Issues and pull requests are welcome, especially when they include clear intent, bounded scope and reproducible evidence.
+Issues and pull requests are welcome when they include clear intent, bounded scope and reproducible evidence. Substantial architectural changes should begin as an **Architecture Proposal** issue before implementation.
 
-Before proposing a substantial architectural change, please open an **Architecture Proposal** issue so the problem, constraints and trade-offs can be discussed before implementation.
-
-Pull requests should follow the repository template and preserve the project's core principle:
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting non-trivial changes.
 
 > **Make the smallest safe change possible — with evidence.**
-
----
-
-## License
-
-Praetor is released under the [MIT License](LICENSE).
-
-Copyright © 2026 Pedro Cardoso.
 
 ---
 
@@ -267,3 +266,11 @@ Copyright © 2026 Pedro Cardoso.
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
+
+---
+
+## License
+
+Praetor is released under the [MIT License](LICENSE).
+
+Copyright © 2026 Pedro Cardoso.
