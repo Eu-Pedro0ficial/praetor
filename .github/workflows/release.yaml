@@ -8,10 +8,15 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: build-${{ matrix.goos }}-${{ matrix.goarch }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
@@ -19,23 +24,14 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
-            archive: tar.gz
-
           - goos: linux
             goarch: arm64
-            archive: tar.gz
-
           - goos: windows
             goarch: amd64
-            archive: zip
-
           - goos: darwin
             goarch: amd64
-            archive: tar.gz
-
           - goos: darwin
             goarch: arm64
-            archive: tar.gz
 
     steps:
       - name: Checkout
@@ -53,13 +49,15 @@ jobs:
       - name: Test
         run: go test ./...
 
+      - name: Vet
+        run: go vet ./...
+
       - name: Build
         shell: bash
         run: |
           mkdir -p dist
 
           binary="praetor"
-
           if [ "${{ matrix.goos }}" = "windows" ]; then
             binary="praetor.exe"
           fi
@@ -76,7 +74,6 @@ jobs:
         shell: bash
         run: |
           cd dist
-
           name="praetor-${GITHUB_REF_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}"
 
           if [ "${{ matrix.goos }}" = "windows" ]; then
@@ -92,10 +89,12 @@ jobs:
         with:
           name: praetor-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
+          if-no-files-found: error
 
   release:
     name: publish-release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: build
 
     permissions:
@@ -114,10 +113,19 @@ jobs:
           sha256sum * > checksums.txt
 
       - name: Publish GitHub Release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
+          flags=()
+
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+
           gh release create "${GITHUB_REF_NAME}" \
             dist/* \
             --title "Praetor ${GITHUB_REF_NAME}" \
-            --generate-notes
+            --generate-notes \
+            "${flags[@]}"
