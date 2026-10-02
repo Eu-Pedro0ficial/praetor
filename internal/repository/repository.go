@@ -3,6 +3,7 @@ package repository
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash"
 	"os"
@@ -13,6 +14,10 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/project"
 	"github.com/Eu-Pedro0ficial/praetor/internal/source"
 )
+
+// ErrNotGitRepository reports that repository discovery could not resolve a
+// Git repository from the requested starting directory.
+var ErrNotGitRepository = errors.New("no Git repository found from the current directory")
 
 // Context is the minimal repository context required for C01.
 type Context struct {
@@ -164,12 +169,9 @@ func Discover(startPath string) (Context, error) {
 	cmd := exec.Command("git", "-C", absPath, "rev-parse", "--show-toplevel")
 	output, err := cmd.Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			stderr := strings.TrimSpace(string(exitErr.Stderr))
-			if stderr == "" {
-				stderr = "not a Git repository"
-			}
-			return Context{}, fmt.Errorf("not a Git repository: %s", stderr)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return Context{}, ErrNotGitRepository
 		}
 		return Context{}, fmt.Errorf("determine repository root: %w", err)
 	}

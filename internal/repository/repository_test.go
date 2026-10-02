@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,8 +52,13 @@ func TestDiscoverRepositoryFromNestedDirectory(t *testing.T) {
 
 func TestDiscoverOutsideRepository(t *testing.T) {
 	outsideDir := t.TempDir()
-	if _, err := Discover(outsideDir); err == nil {
-		t.Fatal("expected error outside Git repository")
+
+	_, err := Discover(outsideDir)
+	if !errors.Is(err, ErrNotGitRepository) {
+		t.Fatalf("Discover() error = %v, want ErrNotGitRepository", err)
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "fatal:") {
+		t.Fatalf("Discover() leaked raw Git stderr: %v", err)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/Eu-Pedro0ficial/praetor/internal/command"
 	"github.com/Eu-Pedro0ficial/praetor/internal/composition"
 	"github.com/Eu-Pedro0ficial/praetor/internal/presentation/shell"
+	"github.com/Eu-Pedro0ficial/praetor/internal/repository"
 )
 
 type startupOptions struct {
@@ -72,9 +73,22 @@ func run(arguments []string) (runError error) {
 	return interactiveShell.Run()
 }
 
+func formatStartupError(err error) string {
+	if errors.Is(err, repository.ErrNotGitRepository) {
+		return `no Git repository found from the current directory.
+
+Praetor must be started inside the Git repository you want it to govern.
+
+Example:
+  cd /path/to/repository
+  praetor`
+	}
+	return err.Error()
+}
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "praetor: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "praetor: %s\n", formatStartupError(err))
 		os.Exit(1)
 	}
 }
